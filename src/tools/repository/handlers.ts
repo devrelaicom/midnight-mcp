@@ -70,8 +70,176 @@ export function resolveRepo(
 /**
  * Retrieve a specific file from Midnight repositories
  */
+// Maximum content size to prevent MCP response overflow (50KB)
+const MAX_FILE_CONTENT_LENGTH = 50000;
+
+/**
+ * Language-aware truncation ratios
+ * - Compact: pragma/imports at top are critical, keep more from top
+ * - TypeScript/JS: exports often at bottom, keep balanced
+ */
+const TRUNCATION_RATIOS: Record<string, { top: number; bottom: number }> = {
+  compact: { top: 0.8, bottom: 0.2 }, // 40KB top, 10KB bottom
+  typescript: { top: 0.5, bottom: 0.5 }, // 25KB each
+  javascript: { top: 0.5, bottom: 0.5 },
+  default: { top: 0.6, bottom: 0.4 }, // Slight preference for top
+};
+
+/**
+ * Detect language from file path
+ */
+function detectLanguage(filePath: string): string {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "compact":
+      return "compact";
+    case "ts":
+    case "tsx":
+      return "typescript";
+    case "js":
+    case "jsx":
+    case "mjs":
+      return "javascript";
+    default:
+      return "default";
+  }
+}
+
+/**
+ * Truncation result with detailed agent guidance
+ */
+interface TruncationResult {
+  content: string;
+  truncated: boolean;
+  truncationInfo?: {
+    originalSize: number;
+    keptBytes: number;
+    omittedBytes: number;
+    keptLineRanges: { start: number; end: number }[];
+    omittedLineRange: { start: number; end: number };
+    language: string;
+    ratioUsed: { top: number; bottom: number };
+  };
+  agentGuidance?: {
+    whatYouHave: string;
+    whatIsMissing: string;
+    howToGetMore: string[];
+    suggestedNextCalls: Array<{
+      startLine: number;
+      endLine: number;
+      reason: string;
+    }>;
+  };
+}
+
+/**
+ * Smart truncation: language-aware content preservation
+ * - Compact files: keeps 80% from top (pragma/imports are critical)
+ * - TypeScript/JS: keeps 50/50 (exports often at bottom)
+ * Returns detailed guidance for the agent to continue if needed
+ */
+function smartTruncate(
+  content: string,
+  filePath: string = "",
+  maxLength: number = MAX_FILE_CONTENT_LENGTH
+): TruncationResult {
+  if (content.length <= maxLength) {
+    return { content, truncated: false };
+  }
+
+  const language = detectLanguage(filePath);
+  const ratio = TRUNCATION_RATIOS[language] || TRUNCATION_RATIOS.default;
+
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+
+  const topLength = Math.floor(maxLength * ratio.top);
+  const bottomLength = maxLength - topLength;
+
+  const firstPart = content.slice(0, topLength);
+  const lastPart = content.slice(-bottomLength);
+  const omittedBytes = content.length - maxLength;
+
+  // Calculate line numbers for context
+  const firstPartLines = firstPart.split("\n").length;
+  const lastPartLines = lastPart.split("\n").length;
+  const omittedStartLine = firstPartLines + 1;
+  const omittedEndLine = totalLines - lastPartLines;
+
+  // Language-specific context message
+  const languageContext =
+    language === "compact"
+      ? "Compact files: pragma and imports preserved at top (critical for compilation)"
+      : language === "typescript" || language === "javascript"
+        ? "TS/JS files: balanced truncation preserves imports AND exports"
+        : "Balanced truncation applied";
+
+  const truncatedContent =
+    firstPart +
+    `\n\n/* ══════════════════════════════════════════════════════════════════════════════
+   CONTENT TRUNCATED: Lines ${omittedStartLine}-${omittedEndLine} omitted (${omittedBytes.toLocaleString()} bytes)
+   ${languageContext}
+   
+   To get the omitted content, call this tool again with:
+   - startLine: ${omittedStartLine}, endLine: ${Math.min(omittedStartLine + 200, omittedEndLine)} (first part of omitted)
+   - startLine: ${Math.max(omittedStartLine, omittedEndLine - 200)}, endLine: ${omittedEndLine} (last part of omitted)
+   
+   Or request the full middle section:
+   - startLine: ${omittedStartLine}, endLine: ${omittedEndLine}
+══════════════════════════════════════════════════════════════════════════════ */\n\n` +
+    lastPart;
+
+  return {
+    content: truncatedContent,
+    truncated: true,
+    truncationInfo: {
+      originalSize: content.length,
+      keptBytes: maxLength,
+      omittedBytes,
+      keptLineRanges: [
+        { start: 1, end: firstPartLines },
+        { start: totalLines - lastPartLines + 1, end: totalLines },
+      ],
+      omittedLineRange: { start: omittedStartLine, end: omittedEndLine },
+      language,
+      ratioUsed: ratio,
+    },
+    agentGuidance: {
+      whatYouHave: `Lines 1-${firstPartLines} (${Math.round(ratio.top * 100)}% from top) and lines ${totalLines - lastPartLines + 1}-${totalLines} (${Math.round(ratio.bottom * 100)}% from bottom)`,
+      whatIsMissing: `Lines ${omittedStartLine}-${omittedEndLine} (${omittedEndLine - omittedStartLine + 1} lines, ${omittedBytes.toLocaleString()} bytes)`,
+      howToGetMore: [
+        `Call midnight-get-file again with startLine and endLine parameters`,
+        `The omitted content is in the middle of the file`,
+        `You can request it in chunks (e.g., 200 lines at a time) or all at once`,
+      ],
+      suggestedNextCalls: [
+        {
+          startLine: omittedStartLine,
+          endLine: Math.min(omittedStartLine + 199, omittedEndLine),
+          reason: "First chunk of omitted content",
+        },
+        ...(omittedEndLine - omittedStartLine > 200
+          ? [
+              {
+                startLine: Math.max(omittedStartLine, omittedEndLine - 199),
+                endLine: omittedEndLine,
+                reason:
+                  "Last chunk of omitted content (may overlap if file is small)",
+              },
+            ]
+          : []),
+      ],
+    },
+  };
+}
+
 export async function getFile(input: GetFileInput) {
-  logger.debug("Getting file", { repo: input.repo, path: input.path });
+  logger.debug("Getting file", {
+    repo: input.repo,
+    path: input.path,
+    startLine: input.startLine,
+    endLine: input.endLine,
+  });
 
   const repoInfo = resolveRepo(input.repo);
   if (!repoInfo) {
@@ -95,12 +263,62 @@ export async function getFile(input: GetFileInput) {
     );
   }
 
+  let content = file.content;
+  let totalLines = content.split("\n").length;
+  let lineRange: { start: number; end: number } | undefined;
+
+  // Handle line-range extraction
+  if (input.startLine || input.endLine) {
+    const lines = content.split("\n");
+    const start = Math.max(1, input.startLine || 1);
+    const end = Math.min(lines.length, input.endLine || lines.length);
+
+    if (start > end) {
+      return {
+        error: `Invalid line range: startLine (${start}) > endLine (${end})`,
+        suggestion: "Ensure startLine is less than or equal to endLine",
+      };
+    }
+
+    content = lines.slice(start - 1, end).join("\n");
+    lineRange = { start, end };
+    logger.debug("Extracted line range", {
+      start,
+      end,
+      extractedLines: end - start + 1,
+    });
+  }
+
+  // Smart truncation (language-aware: Compact=80% top, TS/JS=50/50)
+  const truncateResult = smartTruncate(content, input.path);
+
+  // Log truncation events for monitoring
+  if (truncateResult.truncated) {
+    logger.info("File content truncated", {
+      repository: `${repoInfo.owner}/${repoInfo.repo}`,
+      path: input.path,
+      language: truncateResult.truncationInfo?.language,
+      originalSize: file.size,
+      contentLength: content.length,
+      omittedLines: truncateResult.truncationInfo?.omittedLineRange,
+    });
+  }
+
   return {
-    content: file.content,
+    content: truncateResult.content,
     path: file.path,
     repository: `${repoInfo.owner}/${repoInfo.repo}`,
     sha: file.sha,
     size: file.size,
+    totalLines,
+    ...(lineRange && { lineRange }),
+    truncated: truncateResult.truncated,
+    ...(truncateResult.truncationInfo && {
+      truncationInfo: truncateResult.truncationInfo,
+    }),
+    ...(truncateResult.agentGuidance && {
+      agentGuidance: truncateResult.agentGuidance,
+    }),
     url: `https://github.com/${repoInfo.owner}/${repoInfo.repo}/blob/${input.ref || "main"}/${file.path}`,
   };
 }
@@ -372,11 +590,33 @@ export async function getFileAtVersion(input: GetFileAtVersionInput) {
     );
   }
 
+  // Smart truncation (language-aware: Compact=80% top, TS/JS=50/50)
+  const truncateResult = smartTruncate(result.content, input.path);
+
+  // Log truncation events for monitoring
+  if (truncateResult.truncated) {
+    logger.info("File content truncated (versioned)", {
+      repository: `${resolved.owner}/${resolved.repo}`,
+      path: input.path,
+      version: input.version,
+      language: truncateResult.truncationInfo?.language,
+      contentLength: result.content.length,
+      omittedLines: truncateResult.truncationInfo?.omittedLineRange,
+    });
+  }
+
   return {
     repository: `${resolved.owner}/${resolved.repo}`,
     path: input.path,
     version: result.version,
-    content: result.content,
+    content: truncateResult.content,
+    truncated: truncateResult.truncated,
+    ...(truncateResult.truncationInfo && {
+      truncationInfo: truncateResult.truncationInfo,
+    }),
+    ...(truncateResult.agentGuidance && {
+      agentGuidance: truncateResult.agentGuidance,
+    }),
     note: `This is the exact content at version ${result.version}. Use this as the source of truth for syntax and API at this version.`,
   };
 }
@@ -421,14 +661,41 @@ export async function compareSyntax(input: CompareSyntaxInput) {
     newVersion
   );
 
+  // Smart truncation for both versions (language-aware)
+  const truncateForComparison = (content: string | null, label: string) => {
+    if (!content) return { content: null, truncated: false };
+    const result = smartTruncate(content, input.path);
+    if (result.truncated) {
+      logger.info("Comparison content truncated", {
+        repository: `${resolved.owner}/${resolved.repo}`,
+        path: input.path,
+        version: label,
+        language: result.truncationInfo?.language,
+        contentLength: content.length,
+        truncationInfo: result.truncationInfo,
+      });
+    }
+    return result;
+  };
+
+  const old = truncateForComparison(
+    comparison.oldContent,
+    comparison.oldVersion
+  );
+  const newC = truncateForComparison(
+    comparison.newContent,
+    comparison.newVersion
+  );
+
   return {
     repository: `${resolved.owner}/${resolved.repo}`,
     path: input.path,
     oldVersion: comparison.oldVersion,
     newVersion: comparison.newVersion,
     hasDifferences: comparison.hasDifferences,
-    oldContent: comparison.oldContent,
-    newContent: comparison.newContent,
+    oldContent: old.content,
+    newContent: newC.content,
+    contentTruncated: old.truncated || newC.truncated,
     recommendation: comparison.hasDifferences
       ? `⚠️ This file has changed between ${comparison.oldVersion} and ${comparison.newVersion}. Review the differences before using code patterns from the old version.`
       : `✅ No changes in this file between versions.`,
@@ -674,10 +941,25 @@ Version: ${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (updated: ${COMPACT_VERSI
   return {
     repository: `${resolved.owner}/${resolved.repo}`,
     version: reference.version,
-    syntaxFiles: reference.syntaxFiles.map((f) => ({
-      path: f.path,
-      content: f.content,
-    })),
+    syntaxFiles: reference.syntaxFiles.map((f) => {
+      const result = smartTruncate(f.content, f.path);
+      if (result.truncated) {
+        logger.info("Syntax file truncated", {
+          repository: `${resolved.owner}/${resolved.repo}`,
+          path: f.path,
+          version: reference.version,
+          language: result.truncationInfo?.language,
+          contentLength: f.content.length,
+          truncationInfo: result.truncationInfo,
+        });
+      }
+      return {
+        path: f.path,
+        content: result.content,
+        truncated: result.truncated,
+        ...(result.truncationInfo && { truncationInfo: result.truncationInfo }),
+      };
+    }),
     note: `This is the authoritative syntax reference at version ${reference.version}. Use this to ensure contracts are compilable.`,
   };
 }

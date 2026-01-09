@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7] - 2026-01-09
+
+### Fixed
+
+- **Response Truncation** - Prevent "Tool result could not be submitted" errors
+  - `midnight-get-file`: Now truncates files >50KB to prevent MCP response overflow
+  - `midnight-get-file-at-version`: Same truncation applied
+  - `midnight-compare-syntax`: Truncates both old/new content if >50KB
+  - `midnight-get-latest-syntax`: Truncates syntax files for non-Compact repos
+  - All truncated responses include `truncated: true` flag for transparency
+
+### Added
+
+- **Line-Range Parameters** - Request specific sections of large files
+  - `midnight-get-file` now accepts `startLine` and `endLine` parameters
+  - Allows precise extraction without full file retrieval
+  - Useful for navigating truncated files
+
+- **Smart Truncation with Agent Guidance** - Language-aware content preservation
+  - **Compact files**: keeps 80% from top (40KB) + 20% from bottom (10KB)
+    - Pragma and imports are critical for compilation, prioritized
+  - **TypeScript/JS files**: balanced 50/50 split (25KB each)
+    - Preserves imports at top AND exports at bottom
+  - Clear marker in truncated content shows exact line numbers omitted
+  - `agentGuidance` field provides:
+    - `whatYouHave`: Description of content the agent received (with percentage breakdown)
+    - `whatIsMissing`: Exact line range and byte count of omitted content
+    - `howToGetMore`: Instructions for retrieving missing content
+    - `suggestedNextCalls`: Pre-computed `startLine`/`endLine` params to request omitted sections
+  - Enables agents to autonomously continue reading if needed
+
+- **Truncation Logging** - Monitor truncation events
+  - `logger.info` emitted when content is truncated
+  - Includes repository, path, original size, and omitted line range
+  - Helps tune the 50KB limit based on real usage
+
 ## [0.2.6] - 2026-01-06
 
 ### Fixed

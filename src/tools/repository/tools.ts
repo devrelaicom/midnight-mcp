@@ -28,7 +28,9 @@ export const repositoryTools: ExtendedToolDefinition[] = [
 USAGE GUIDANCE:
 • Use midnight-list-examples first if you're unsure which file to get
 • For searching across files, use midnight-search-* tools instead
-• Use 'ref' parameter to get specific versions (branch, tag, or commit)`,
+• Use 'ref' parameter to get specific versions (branch, tag, or commit)
+• Use startLine/endLine to request specific sections of large files
+• Files >50KB are truncated (first 25KB + last 25KB preserved)`,
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -44,6 +46,16 @@ USAGE GUIDANCE:
         ref: {
           type: "string",
           description: "Branch, tag, or commit SHA (default: main)",
+        },
+        startLine: {
+          type: "number",
+          description:
+            "Start line number (1-based, inclusive). Use to request specific sections.",
+        },
+        endLine: {
+          type: "number",
+          description:
+            "End line number (1-based, inclusive). Use with startLine for a range.",
         },
       },
       required: ["repo", "path"],

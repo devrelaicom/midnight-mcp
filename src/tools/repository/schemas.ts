@@ -17,6 +17,22 @@ export const GetFileInputSchema = z.object({
     .string()
     .optional()
     .describe("Branch, tag, or commit SHA (default: main)"),
+  startLine: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Start line number (1-based, inclusive). Use to request specific sections of large files."
+    ),
+  endLine: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "End line number (1-based, inclusive). Use with startLine to get a specific range."
+    ),
 });
 
 export const ListExamplesInputSchema = z.object({
