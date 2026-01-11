@@ -264,4 +264,6 @@ The hosted API runs on Cloudflare Workers + Vectorize. See [api/README.md](./api
 
 MIT
 
-Thanks to all Stargazers ⭐️
+## Stargazers ⭐️
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Olanetsoft/midnight-mcp&type=Date)](https://star-history.com/#Olanetsoft/midnight-mcp&Date)
