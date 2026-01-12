@@ -59,11 +59,11 @@ export function generateHeader(options: {
   const { title, refreshable = true, lastUpdated } = options;
 
   const lastUpdatedHtml = lastUpdated
-    ? `<span class="last-updated">${new Date(lastUpdated).toLocaleString()}</span>`
-    : "";
+    ? `<span class="last-updated">Live • ${new Date(lastUpdated).toLocaleString()}</span>`
+    : `<span class="last-updated">Live</span>`;
 
   const refreshButton = refreshable
-    ? `<button class="btn" onclick="location.reload()">
+    ? `<button class="btn" onclick="location.reload()" title="Refresh data">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M23 4v6h-6M1 20v-6h6"/>
           <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
@@ -74,7 +74,10 @@ export function generateHeader(options: {
 
   return `
     <header>
-      <h1>${title}</h1>
+      <div class="header-brand">
+        <div class="header-logo">🌙</div>
+        <h1>${title}</h1>
+      </div>
       <div class="header-actions">
         ${lastUpdatedHtml}
         ${refreshButton}
