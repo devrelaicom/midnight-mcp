@@ -13,7 +13,6 @@ import {
 import {
   generateDashboardMetrics,
   calculateQualityScore,
-  calculateSuccessRate,
 } from "./components/metrics";
 import {
   generateBarChart,
@@ -54,9 +53,25 @@ function generateDashboardContent(metrics: Metrics): string {
   const toolCallsByName = metrics.toolCallsByName || {};
   const recentToolCalls = metrics.recentToolCalls || [];
 
-  // Calculate derived metrics
+  // Calculate derived metrics from score distribution (based on ALL queries, not just recent)
+  const distributionTotal =
+    metrics.scoreDistribution.high +
+    metrics.scoreDistribution.medium +
+    metrics.scoreDistribution.low;
+
+  // Quality score uses the distribution which is accurate for all queries
   const qualityScore = calculateQualityScore(metrics.scoreDistribution);
-  const successRate = calculateSuccessRate(recentToolCalls);
+
+  // Success rate from recent tool calls (last 100)
+  const successfulCalls = recentToolCalls.filter((t) => t.success).length;
+  const failedCalls = recentToolCalls.length - successfulCalls;
+  const successRate =
+    recentToolCalls.length > 0
+      ? Math.round((successfulCalls / recentToolCalls.length) * 100)
+      : 100;
+
+  // Average relevance score (0-100 scale)
+  const avgRelevance = Math.round((metrics.avgRelevanceScore || 0) * 100);
 
   return `
     ${generateDashboardMetrics({
@@ -64,13 +79,15 @@ function generateDashboardContent(metrics: Metrics): string {
       totalQueries: metrics.totalQueries,
       qualityScore,
       successRate,
+      avgRelevance,
+      distributionTotal,
     })}
     
     ${generateOverviewSection(metrics, totalToolCalls, toolCallsByName)}
     
     ${generateActivitySection(metrics, recentToolCalls)}
     
-    ${generateInsightsSection(metrics, qualityScore)}
+    ${generateInsightsSection(metrics, qualityScore, successRate, failedCalls, avgRelevance)}
   `;
 }
 
@@ -131,7 +148,7 @@ function generateActivitySection(
 
   const queriesCard = generateCard(
     generateQueriesTable(metrics.recentQueries, {
-      maxRows: 10,
+      maxRows: 15,
       emptyMessage: "No recent searches",
     }),
     { title: "Recent Searches" }
@@ -145,68 +162,150 @@ function generateActivitySection(
  */
 function generateInsightsSection(
   metrics: Metrics,
-  qualityScore: number
+  qualityScore: number,
+  successRate: number,
+  failedCalls: number,
+  avgRelevance: number
 ): string {
   // Calculate additional insights
   const totalSearches = metrics.totalQueries;
-  const highQualitySearches = metrics.scoreDistribution.high;
+  const { high, medium, low } = metrics.scoreDistribution;
+  const distributionTotal = high + medium + low;
+
+  // High quality rate based on distribution (not totalQueries which may differ)
   const highQualityRate =
-    totalSearches > 0
-      ? Math.round((highQualitySearches / totalSearches) * 100)
-      : 0;
+    distributionTotal > 0 ? Math.round((high / distributionTotal) * 100) : 0;
+
+  // Medium quality rate
+  const mediumQualityRate =
+    distributionTotal > 0 ? Math.round((medium / distributionTotal) * 100) : 0;
+
+  // Low quality rate
+  const lowQualityRate =
+    distributionTotal > 0 ? Math.round((low / distributionTotal) * 100) : 0;
 
   // Most used tools
   const toolCallsByName = metrics.toolCallsByName || {};
+  const totalToolCalls = metrics.totalToolCalls || 0;
   const topTools = Object.entries(toolCallsByName)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
+    .slice(0, 5);
 
-  // Most searched types
+  // Most searched types with percentages
   const topEndpoints = Object.entries(metrics.queriesByEndpoint)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
+    .slice(0, 5);
+
+  // Language breakdown
+  const languageBreakdown = Object.entries(metrics.queriesByLanguage || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  // Calculate tool usage percentages
+  const topToolsWithPct = topTools.map(([name, count]) => ({
+    name,
+    count,
+    pct: totalToolCalls > 0 ? Math.round((count / totalToolCalls) * 100) : 0,
+  }));
+
+  // Calculate endpoint percentages
+  const topEndpointsWithPct = topEndpoints.map(([name, count]) => ({
+    name,
+    count,
+    pct: totalSearches > 0 ? Math.round((count / totalSearches) * 100) : 0,
+  }));
 
   const insightsHtml = `
     <div class="insights-grid">
       <div class="insight-card">
         ${generateDonutChart(qualityScore, "Quality", { color: getQualityColor(qualityScore) })}
         <div class="insight-details">
-          <h4>Search Quality</h4>
+          <h4>Search Quality Score</h4>
           <p>${getQualityMessage(qualityScore)}</p>
         </div>
       </div>
       
       <div class="insight-card">
+        <h4>Quality Breakdown</h4>
         <div class="insight-stats">
           <div class="insight-stat">
-            <span class="stat-number">${highQualityRate}%</span>
-            <span class="stat-desc">High Quality Rate</span>
+            <span class="stat-number" style="color: var(--success)">${highQualityRate}%</span>
+            <span class="stat-desc">High (≥70%)</span>
           </div>
           <div class="insight-stat">
-            <span class="stat-number">${metrics.scoreDistribution.low}</span>
-            <span class="stat-desc">Low Quality Searches</span>
+            <span class="stat-number" style="color: var(--warning)">${mediumQualityRate}%</span>
+            <span class="stat-desc">Medium (40-69%)</span>
+          </div>
+          <div class="insight-stat">
+            <span class="stat-number" style="color: var(--error)">${lowQualityRate}%</span>
+            <span class="stat-desc">Low (&lt;40%)</span>
           </div>
         </div>
       </div>
       
       <div class="insight-card">
-        <h4>Top Tools</h4>
+        ${generateDonutChart(successRate, "Success", { color: successRate >= 95 ? "var(--success)" : successRate >= 80 ? "var(--warning)" : "var(--error)" })}
+        <div class="insight-details">
+          <h4>Tool Success Rate</h4>
+          <p>${failedCalls === 0 ? "All recent calls succeeded!" : `${failedCalls} failed call${failedCalls > 1 ? "s" : ""} in last 100`}</p>
+        </div>
+      </div>
+      
+      <div class="insight-card">
+        ${generateDonutChart(avgRelevance, "Relevance", { color: avgRelevance >= 60 ? "var(--success)" : avgRelevance >= 40 ? "var(--warning)" : "var(--error)" })}
+        <div class="insight-details">
+          <h4>Avg Relevance Score</h4>
+          <p>${getRelevanceMessage(avgRelevance)}</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="insights-grid" style="margin-top: var(--space-lg);">
+      <div class="insight-card">
+        <h4>Top Tools (by usage)</h4>
         <ul class="insight-list">
-          ${topTools.map(([name, count]) => `<li><span>${name}</span><span class="tag info">${count}</span></li>`).join("")}
+          ${topToolsWithPct.length > 0 ? topToolsWithPct.map(({ name, count, pct }) => `<li><span>${name}</span><span><span class="tag info">${count}</span> <span style="color: var(--muted); font-size: 11px;">(${pct}%)</span></span></li>`).join("") : '<li style="color: var(--muted)">No tool calls yet</li>'}
         </ul>
       </div>
       
       <div class="insight-card">
-        <h4>Top Search Types</h4>
+        <h4>Search by Endpoint</h4>
         <ul class="insight-list">
-          ${topEndpoints.map(([name, count]) => `<li><span>${name}</span><span class="tag info">${count}</span></li>`).join("")}
+          ${topEndpointsWithPct.length > 0 ? topEndpointsWithPct.map(({ name, count, pct }) => `<li><span>${name}</span><span><span class="tag info">${count}</span> <span style="color: var(--muted); font-size: 11px;">(${pct}%)</span></span></li>`).join("") : '<li style="color: var(--muted)">No searches yet</li>'}
+        </ul>
+      </div>
+      
+      <div class="insight-card">
+        <h4>Top Repositories</h4>
+        <ul class="insight-list">
+          ${
+            Object.entries(metrics.documentsByRepo)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+              .map(
+                ([repo, count]) =>
+                  `<li><span title="${repo}">${repo.split("/").pop()}</span><span class="tag info">${count}</span></li>`
+              )
+              .join("") ||
+            '<li style="color: var(--muted)">No repos indexed</li>'
+          }
+        </ul>
+      </div>
+      
+      <div class="insight-card">
+        <h4>Summary Stats</h4>
+        <ul class="insight-list">
+          <li><span>Total Tool Calls</span><span class="stat-number" style="font-size: 16px;">${totalToolCalls.toLocaleString()}</span></li>
+          <li><span>Total Searches</span><span class="stat-number" style="font-size: 16px;">${totalSearches.toLocaleString()}</span></li>
+          <li><span>Unique Tools Used</span><span class="stat-number" style="font-size: 16px;">${Object.keys(toolCallsByName).length}</span></li>
+          <li><span>Unique Repos</span><span class="stat-number" style="font-size: 16px;">${Object.keys(metrics.documentsByRepo).length}</span></li>
         </ul>
       </div>
     </div>
   `;
 
   return generateCard(insightsHtml, {
-    title: "Insights",
+    title: "Insights & Analytics",
     fullWidth: true,
     className: "insights-section",
   });
@@ -229,4 +328,14 @@ function getQualityMessage(score: number): string {
   if (score >= 60) return "Good quality. Most searches find relevant content.";
   if (score >= 40) return "Fair quality. Consider improving query patterns.";
   return "Needs improvement. Review indexing and query strategies.";
+}
+
+/**
+ * Get relevance message based on average score
+ */
+function getRelevanceMessage(score: number): string {
+  if (score >= 70) return "Great match quality overall.";
+  if (score >= 50) return "Decent relevance, room for improvement.";
+  if (score >= 30) return "Results often miss the mark.";
+  return "Consider improving search queries or indexing.";
 }

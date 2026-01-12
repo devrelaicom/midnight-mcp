@@ -68,8 +68,16 @@ export function generateDashboardMetrics(data: {
   totalQueries: number;
   qualityScore: number;
   successRate?: number;
+  avgRelevance?: number;
+  distributionTotal?: number;
 }): string {
-  const { totalToolCalls, totalQueries, qualityScore, successRate } = data;
+  const {
+    totalToolCalls,
+    totalQueries,
+    qualityScore,
+    successRate,
+    avgRelevance,
+  } = data;
 
   const metrics: MetricCardData[] = [
     {
@@ -88,7 +96,7 @@ export function generateDashboardMetrics(data: {
       value: `${qualityScore}%`,
       label: "Search Quality",
       tooltip:
-        "Composite metric: (High×100 + Medium×50) / Total. Indicates search effectiveness.",
+        "Weighted score: (High×100 + Medium×50) / Total searches. Higher is better.",
     },
   ];
 
@@ -97,7 +105,18 @@ export function generateDashboardMetrics(data: {
     metrics.push({
       value: `${successRate}%`,
       label: "Success Rate",
-      tooltip: "Percentage of tool calls that completed successfully.",
+      tooltip:
+        "Percentage of tool calls that completed successfully (based on last 100 calls).",
+    });
+  }
+
+  // Add average relevance if available
+  if (avgRelevance !== undefined) {
+    metrics.push({
+      value: `${avgRelevance}%`,
+      label: "Avg Relevance",
+      tooltip:
+        "Average relevance score across all search results. Higher means better matches.",
     });
   }
 

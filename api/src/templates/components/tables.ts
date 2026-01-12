@@ -132,7 +132,7 @@ export function generateQueriesTable(
   }>,
   options: TableOptions = {}
 ): string {
-  const { emptyMessage = "No searches yet", maxRows = 10 } = options;
+  const { emptyMessage = "No searches yet", maxRows = 15 } = options;
 
   if (!queries || queries.length === 0) {
     return `<p class="empty">${emptyMessage}</p>`;
@@ -142,8 +142,8 @@ export function generateQueriesTable(
     {
       key: "query",
       label: "Query",
-      truncate: true,
-      render: (q) => escapeHtml(q.query),
+      render: (q) =>
+        `<span style="word-break: break-word; white-space: normal;">${escapeHtml(q.query)}</span>`,
     },
     { key: "endpoint", label: "Type" },
     {

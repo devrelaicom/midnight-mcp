@@ -153,7 +153,7 @@ export const cardStyles = `
 export const metricStyles = `
   .metrics {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--space-lg);
     margin-bottom: var(--space-2xl);
   }
@@ -519,6 +519,10 @@ export const tabStyles = `
  * Responsive breakpoints
  */
 export const responsiveStyles = `
+  @media (max-width: 1200px) {
+    .metrics { grid-template-columns: repeat(3, 1fr); }
+  }
+  
   @media (max-width: 1024px) {
     .metrics { grid-template-columns: repeat(2, 1fr); }
     .grid-3 { grid-template-columns: 1fr 1fr; }
