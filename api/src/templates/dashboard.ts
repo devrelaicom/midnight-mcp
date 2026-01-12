@@ -24,6 +24,7 @@ import {
   generateQueriesTable,
   generateToolCallsTable,
 } from "./components/tables";
+import { escapeHtml, escapeAttr } from "./components/html-utils";
 
 /**
  * Generate the complete dashboard HTML page
@@ -264,14 +265,14 @@ function generateInsightsSection(
       <div class="insight-card">
         <h4>Top Tools (by usage)</h4>
         <ul class="insight-list">
-          ${topToolsWithPct.length > 0 ? topToolsWithPct.map(({ name, count, pct }) => `<li><span>${name}</span><span><span class="tag info">${count}</span> <span style="color: var(--muted); font-size: 11px;">(${pct}%)</span></span></li>`).join("") : '<li style="color: var(--muted)">No tool calls yet</li>'}
+          ${topToolsWithPct.length > 0 ? topToolsWithPct.map(({ name, count, pct }) => `<li><span>${escapeHtml(name)}</span><span><span class="tag info">${count}</span> <span style="color: var(--muted); font-size: 11px;">(${pct}%)</span></span></li>`).join("") : '<li style="color: var(--muted)">No tool calls yet</li>'}
         </ul>
       </div>
       
       <div class="insight-card">
         <h4>Search by Endpoint</h4>
         <ul class="insight-list">
-          ${topEndpointsWithPct.length > 0 ? topEndpointsWithPct.map(({ name, count, pct }) => `<li><span>${name}</span><span><span class="tag info">${count}</span> <span style="color: var(--muted); font-size: 11px;">(${pct}%)</span></span></li>`).join("") : '<li style="color: var(--muted)">No searches yet</li>'}
+          ${topEndpointsWithPct.length > 0 ? topEndpointsWithPct.map(({ name, count, pct }) => `<li><span>${escapeHtml(name)}</span><span><span class="tag info">${count}</span> <span style="color: var(--muted); font-size: 11px;">(${pct}%)</span></span></li>`).join("") : '<li style="color: var(--muted)">No searches yet</li>'}
         </ul>
       </div>
       
@@ -284,7 +285,7 @@ function generateInsightsSection(
               .slice(0, 5)
               .map(
                 ([repo, count]) =>
-                  `<li><span title="${repo}">${repo.split("/").pop()}</span><span class="tag info">${count}</span></li>`
+                  `<li><span title="${escapeAttr(repo)}">${escapeHtml(repo.split("/").pop() || repo)}</span><span class="tag info">${count}</span></li>`
               )
               .join("") ||
             '<li style="color: var(--muted)">No repos indexed</li>'

@@ -4,6 +4,7 @@
  */
 
 import type { ToolCall } from "../../interfaces";
+import { escapeHtml } from "./html-utils";
 
 export interface TableColumn<T> {
   key: keyof T | string;
@@ -257,7 +258,7 @@ export function generateEndpointTable(
   }
 
   const columns: TableColumn<(typeof endpoints)[0]>[] = [
-    { key: "name", label: "Endpoint" },
+    { key: "name", label: "Endpoint", render: (e) => escapeHtml(e.name) },
     { key: "calls", label: "Calls", render: (e) => e.calls.toLocaleString() },
     {
       key: "avgLatency",
@@ -279,15 +280,7 @@ export function generateEndpointTable(
 }
 
 /**
- * Escape HTML special characters
+ * Escape HTML special characters - re-exported for backward compatibility
+ * @deprecated Use escapeHtml from ./html-utils instead
  */
-function escapeHtml(str: string): string {
-  const htmlEntities: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return str.replace(/[&<>"']/g, (char) => htmlEntities[char] || char);
-}
+export { escapeHtml } from "./html-utils";

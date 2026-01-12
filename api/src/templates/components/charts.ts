@@ -3,6 +3,8 @@
  * Reusable bar charts and visualizations
  */
 
+import { escapeHtml, escapeAttr } from "./html-utils";
+
 export interface BarChartOptions {
   maxItems?: number;
   showPercentage?: boolean;
@@ -45,7 +47,7 @@ export function generateBarChart(
 
       return `
         <div class="bar-row">
-          <span class="bar-name" title="${name}">${name}</span>
+          <span class="bar-name" title="${escapeAttr(name)}">${escapeHtml(name)}</span>
           <div class="bar-track">
             <div class="bar-fill ${fillClass}" style="width: ${percentage}%"></div>
           </div>
@@ -81,7 +83,7 @@ export function generateRepoChart(
 
       return `
         <div class="bar-row">
-          <span class="bar-name" title="${repo}">${displayName}</span>
+          <span class="bar-name" title="${escapeAttr(repo)}">${escapeHtml(displayName)}</span>
           <div class="bar-track">
             <div class="bar-fill" style="width: ${percentage}%"></div>
           </div>

@@ -4,6 +4,7 @@
  */
 
 import { getAllStyles } from "./styles";
+import { escapeHtml, escapeAttr } from "./html-utils";
 
 export interface PageOptions {
   title?: string;
@@ -152,14 +153,15 @@ export function generateEmptyState(
 ): string {
   const { icon = "📊", action } = options;
 
+  // Escape onclick to prevent XSS - only allow safe patterns
   const actionHtml = action
-    ? `<button class="btn" onclick="${action.onclick}">${action.label}</button>`
+    ? `<button class="btn" onclick="${escapeAttr(action.onclick)}">${escapeHtml(action.label)}</button>`
     : "";
 
   return `
     <div class="empty-state">
       <div class="empty-icon">${icon}</div>
-      <p class="empty-message">${message}</p>
+      <p class="empty-message">${escapeHtml(message)}</p>
       ${actionHtml}
     </div>
   `;
