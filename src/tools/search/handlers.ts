@@ -83,12 +83,13 @@ function validateSearchInput(
 
 /**
  * Check cache for existing search results
+ * Returns the cached result if found and valid
  */
-function checkSearchCache<T>(cacheKey: string): T | null {
+function checkSearchCache(cacheKey: string) {
   const cached = searchCache.get(cacheKey);
   if (cached) {
     logger.debug("Search cache hit", { cacheKey });
-    return cached as T;
+    return cached;
   }
   return null;
 }
@@ -96,7 +97,9 @@ function checkSearchCache<T>(cacheKey: string): T | null {
 /**
  * Execute hosted search with fallback handling
  */
-async function tryHostedSearch<T>(
+async function tryHostedSearch<
+  T extends { results: unknown[]; totalResults?: number },
+>(
   searchType: string,
   hostedSearchFn: () => Promise<T>,
   cacheKey: string,
@@ -112,7 +115,17 @@ async function tryHostedSearch<T>(
       ...response,
       ...(warnings.length > 0 && { warnings }),
     } as T;
-    searchCache.set(cacheKey, finalResponse);
+    // Cache with correct structure
+    searchCache.set(cacheKey, {
+      results: finalResponse.results as Array<{
+        code?: string;
+        content?: string;
+        relevanceScore: number;
+        source: { repository: string; filePath: string };
+      }>,
+      totalResults: finalResponse.totalResults ?? finalResponse.results.length,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    });
     return {
       result: finalResponse,
       cached: true,
@@ -131,16 +144,24 @@ async function tryHostedSearch<T>(
 /**
  * Add warnings to response and cache it
  */
-function finalizeResponse<T extends object>(
-  response: T,
-  cacheKey: string,
-  warnings: string[]
-): T {
+function finalizeResponse<
+  T extends { results: unknown[]; totalResults?: number },
+>(response: T, cacheKey: string, warnings: string[]): T {
   const finalResponse = {
     ...response,
     ...(warnings.length > 0 && { warnings }),
   };
-  searchCache.set(cacheKey, finalResponse);
+  // Cache with correct structure
+  searchCache.set(cacheKey, {
+    results: finalResponse.results as Array<{
+      code?: string;
+      content?: string;
+      relevanceScore: number;
+      source: { repository: string; filePath: string };
+    }>,
+    totalResults: finalResponse.totalResults ?? finalResponse.results.length,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  });
   return finalResponse;
 }
 

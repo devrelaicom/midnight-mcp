@@ -6,8 +6,10 @@ export {
   parseCompactFile,
   parseTypeScriptFile,
   parseMarkdownFile,
+  LANGUAGES,
+  EXTENSION_LANGUAGE_MAP,
 } from "./parser.js";
-export type { ParsedFile, CodeUnit } from "./parser.js";
+export type { ParsedFile, CodeUnit, Language } from "./parser.js";
 
 export { EmbeddingGenerator, embeddingGenerator } from "./embeddings.js";
 export type { EmbeddingResult } from "./embeddings.js";

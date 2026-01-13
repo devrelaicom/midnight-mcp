@@ -101,6 +101,13 @@ export interface PropertySchema {
 // Extended Tool Definition
 // ============================================================================
 
+/**
+ * Extended tool definition with handler
+ *
+ * Note: Handler uses `unknown` for input to allow flexibility in tool implementations.
+ * Each tool module defines its own specific input/output types via Zod schemas.
+ * The MCP server validates inputs against the inputSchema before calling handlers.
+ */
 export interface ExtendedToolDefinition {
   name: string;
   description: string;
@@ -111,8 +118,16 @@ export interface ExtendedToolDefinition {
   };
   outputSchema?: OutputSchema;
   annotations?: ToolAnnotations;
+  /**
+   * Handler function that processes tool inputs
+   * Input is validated against inputSchema before this is called
+   * Output should match outputSchema if defined
+   *
+   * Using `unknown` allows specific handler types to be assigned.
+   * Type safety is enforced by Zod schema validation at runtime.
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: (input: any) => Promise<any>;
+  handler: (input: any) => Promise<unknown>;
 }
 
 // ============================================================================

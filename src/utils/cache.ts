@@ -193,8 +193,37 @@ export function createCacheKey(
     .join(":");
 }
 
+/**
+ * Cached search result structure
+ */
+export interface SearchCacheResult {
+  results: Array<{
+    code?: string;
+    content?: string;
+    relevanceScore: number;
+    source: {
+      repository: string;
+      filePath: string;
+      startLine?: number;
+      endLine?: number;
+    };
+  }>;
+  totalResults: number;
+  warnings?: string[];
+}
+
+/**
+ * Cached repository metadata
+ */
+export interface MetadataCacheEntry {
+  repository: string;
+  lastCommit?: string;
+  fileCount?: number;
+  updatedAt: string;
+}
+
 // Pre-configured caches for common use cases
-export const searchCache = new Cache<unknown>({
+export const searchCache = new Cache<SearchCacheResult>({
   ttl: 5 * 60 * 1000, // 5 minutes
   maxSize: 500,
   name: "search",
@@ -206,7 +235,7 @@ export const fileCache = new Cache<string>({
   name: "file",
 });
 
-export const metadataCache = new Cache<unknown>({
+export const metadataCache = new Cache<MetadataCacheEntry>({
   ttl: 15 * 60 * 1000, // 15 minutes
   maxSize: 100,
   name: "metadata",

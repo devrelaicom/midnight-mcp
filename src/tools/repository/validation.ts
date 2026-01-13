@@ -14,6 +14,15 @@ import type { ExtractContractStructureInput } from "./schemas.js";
 // ============================================================================
 
 /**
+ * Escape special regex characters in a string to prevent regex injection
+ * @param str - The string to escape
+ * @returns The escaped string safe for use in RegExp
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
  * Validate file path for security - prevent path traversal attacks
  */
 function validateFilePath(filePath: string): {
@@ -686,9 +695,10 @@ export async function extractContractStructure(
     for (const circuit of circuits) {
       if (circuit.isExport) {
         // Find the circuit body and check for assignments to sealed fields
+        const escapedCircuitName = escapeRegex(circuit.name);
         const circuitBodyMatch = code.match(
           new RegExp(
-            `(?:export\\s+)?circuit\\s+${circuit.name}\\s*\\([^)]*\\)\\s*:[^{]*\\{([\\s\\S]*?)\\n\\}`,
+            `(?:export\\s+)?circuit\\s+${escapedCircuitName}\\s*\\([^)]*\\)\\s*:[^{]*\\{([\\s\\S]*?)\\n\\}`,
             "m"
           )
         );
@@ -696,9 +706,12 @@ export async function extractContractStructure(
           const body = circuitBodyMatch[1];
           for (const field of sealedFields) {
             // Check for assignment patterns: fieldName = or fieldName.method(
+            const escapedFieldName = escapeRegex(field.name);
             if (
-              new RegExp(`\\b${field.name}\\s*=`).test(body) ||
-              new RegExp(`\\b${field.name}\\s*\\.\\s*\\w+\\s*\\(`).test(body)
+              new RegExp(`\\b${escapedFieldName}\\s*=`).test(body) ||
+              new RegExp(`\\b${escapedFieldName}\\s*\\.\\s*\\w+\\s*\\(`).test(
+                body
+              )
             ) {
               potentialIssues.push({
                 type: "sealed_export_conflict",
@@ -896,8 +909,10 @@ export async function extractContractStructure(
     // Check each parameter for direct assignment to ledger without disclose
     for (const param of constructorParams) {
       // Look for direct assignment: ledgerField = param (without disclose)
+      // Escape the param name to prevent regex injection
+      const escapedParam = escapeRegex(param);
       const assignmentPattern = new RegExp(
-        `(\\w+)\\s*=\\s*(?!disclose\\s*\\()${param}\\b`,
+        `(\\w+)\\s*=\\s*(?!disclose\\s*\\()${escapedParam}\\b`,
         "g"
       );
       let assignMatch;

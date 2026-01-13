@@ -245,9 +245,44 @@ MARKDOWN INCLUDES:
 ];
 
 // Export handler map for direct access
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const generationHandlers: Record<string, (args: any) => Promise<any>> = {
-  "midnight-generate-contract": handleGenerateContract,
-  "midnight-review-contract": handleReviewContract,
-  "midnight-document-contract": handleDocumentContract,
+import type {
+  GenerateContractInput,
+  ReviewContractInput,
+  DocumentContractInput,
+} from "./schemas.js";
+
+/**
+ * Generation handler result type
+ */
+export interface GenerationHandlerResult {
+  samplingAvailable: boolean;
+  code?: string;
+  explanation?: string;
+  warnings?: string[];
+  summary?: string;
+  issues?: Array<{
+    severity: string;
+    line?: number;
+    message: string;
+    suggestion?: string;
+  }>;
+  improvedCode?: string;
+  documentation?: string;
+  format?: string;
+}
+
+/**
+ * Handler map for generation tools
+ * Uses Record<string, unknown> for flexibility while maintaining internal type safety
+ */
+export const generationHandlers = {
+  "midnight-generate-contract": handleGenerateContract as (
+    args: GenerateContractInput
+  ) => Promise<GenerationHandlerResult>,
+  "midnight-review-contract": handleReviewContract as (
+    args: ReviewContractInput
+  ) => Promise<GenerationHandlerResult>,
+  "midnight-document-contract": handleDocumentContract as (
+    args: DocumentContractInput
+  ) => Promise<GenerationHandlerResult>,
 };

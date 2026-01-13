@@ -349,7 +349,11 @@ export class GitHubClient {
   }
 
   /**
-   * Filter files by patterns
+   * Filter files by patterns (glob matching)
+   *
+   * SECURITY NOTE: Patterns come from trusted REPOSITORIES config, not user input.
+   * The glob-to-regex conversion only handles **, *, and . characters.
+   * This is safe because malicious patterns could only come from internal config.
    */
   filterFilesByPatterns(
     files: string[],
@@ -358,6 +362,7 @@ export class GitHubClient {
   ): string[] {
     const matchPattern = (file: string, pattern: string): boolean => {
       // Convert glob pattern to regex
+      // Only processes **, *, and . - safe for internal config patterns
       const regexPattern = pattern
         .replace(/\*\*/g, ".*")
         .replace(/\*/g, "[^/]*")

@@ -1,5 +1,37 @@
 import { logger } from "../utils/index.js";
 
+// ============================================================================
+// Language Constants
+// ============================================================================
+
+/**
+ * Supported file languages
+ */
+export const LANGUAGES = {
+  COMPACT: "compact",
+  TYPESCRIPT: "typescript",
+  MARKDOWN: "markdown",
+} as const;
+
+export type Language = (typeof LANGUAGES)[keyof typeof LANGUAGES];
+
+/**
+ * File extensions mapped to languages
+ */
+export const EXTENSION_LANGUAGE_MAP: Record<string, Language> = {
+  compact: LANGUAGES.COMPACT,
+  ts: LANGUAGES.TYPESCRIPT,
+  tsx: LANGUAGES.TYPESCRIPT,
+  js: LANGUAGES.TYPESCRIPT,
+  jsx: LANGUAGES.TYPESCRIPT,
+  md: LANGUAGES.MARKDOWN,
+  mdx: LANGUAGES.MARKDOWN,
+} as const;
+
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
 export interface CodeUnit {
   type:
     | "ledger"
@@ -24,7 +56,7 @@ export interface CodeUnit {
 
 export interface ParsedFile {
   path: string;
-  language: "compact" | "typescript" | "markdown";
+  language: Language;
   content: string;
   codeUnits: CodeUnit[];
   imports: string[];
@@ -36,6 +68,10 @@ export interface ParsedFile {
     lineCount: number;
   };
 }
+
+// ============================================================================
+// Parser Functions
+// ============================================================================
 
 /**
  * Parse Compact smart contract files
@@ -63,7 +99,9 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
   while ((ledgerMatch = ledgerRegex.exec(content)) !== null) {
     hasLedger = true;
     const ledgerContent = ledgerMatch[1];
-    const startLine = content.substring(0, ledgerMatch.index).split("\n").length;
+    const startLine = content
+      .substring(0, ledgerMatch.index)
+      .split("\n").length;
     const endLine = startLine + ledgerMatch[0].split("\n").length - 1;
 
     codeUnits.push({
@@ -77,8 +115,7 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
     });
 
     // Parse individual ledger fields
-    const fieldRegex =
-      /(@private\s+)?(\w+)\s*:\s*([^;]+);/g;
+    const fieldRegex = /(@private\s+)?(\w+)\s*:\s*([^;]+);/g;
     let fieldMatch;
     while ((fieldMatch = fieldRegex.exec(ledgerContent)) !== null) {
       const isPrivate = !!fieldMatch[1];
@@ -223,7 +260,7 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
 
   return {
     path,
-    language: "compact",
+    language: LANGUAGES.COMPACT,
     content,
     codeUnits,
     imports,
@@ -263,7 +300,8 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
     const isAsync = !!funcMatch[2];
     const name = funcMatch[3];
     const params = funcMatch[4];
-    const returnType = funcMatch[5]?.trim() || (isAsync ? "Promise<void>" : "void");
+    const returnType =
+      funcMatch[5]?.trim() || (isAsync ? "Promise<void>" : "void");
 
     // Find the matching closing brace
     const startIndex = funcMatch.index;
@@ -410,7 +448,7 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
 
   return {
     path,
-    language: "typescript",
+    language: LANGUAGES.TYPESCRIPT,
     content,
     codeUnits,
     imports,
@@ -469,7 +507,7 @@ export function parseMarkdownFile(path: string, content: string): ParsedFile {
 
   return {
     path,
-    language: "markdown",
+    language: LANGUAGES.MARKDOWN,
     content,
     codeUnits,
     imports: [],
@@ -487,24 +525,21 @@ export function parseMarkdownFile(path: string, content: string): ParsedFile {
  * Parse a file based on its extension
  */
 export function parseFile(path: string, content: string): ParsedFile {
-  const extension = path.split(".").pop()?.toLowerCase();
+  const extension = path.split(".").pop()?.toLowerCase() || "";
+  const language = EXTENSION_LANGUAGE_MAP[extension];
 
-  switch (extension) {
-    case "compact":
+  switch (language) {
+    case LANGUAGES.COMPACT:
       return parseCompactFile(path, content);
-    case "ts":
-    case "tsx":
-    case "js":
-    case "jsx":
+    case LANGUAGES.TYPESCRIPT:
       return parseTypeScriptFile(path, content);
-    case "md":
-    case "mdx":
+    case LANGUAGES.MARKDOWN:
       return parseMarkdownFile(path, content);
     default:
       logger.warn(`Unknown file extension: ${extension} for ${path}`);
       return {
         path,
-        language: "typescript",
+        language: LANGUAGES.TYPESCRIPT,
         content,
         codeUnits: [],
         imports: [],
