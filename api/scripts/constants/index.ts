@@ -104,7 +104,11 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "midnight-sdk", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-wallet", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-wallet-api", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-dapp-connector-api", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-dapp-connector-api",
+    branch: "main",
+  },
 
   // Core Infrastructure (Rust)
   { owner: "midnightntwrk", repo: "midnight-node", branch: "main" },
@@ -115,7 +119,11 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "midnight-pubsub-indexer", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-ledger", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-ledger-prototype", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-formal-ledger-prototype", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-formal-ledger-prototype",
+    branch: "main",
+  },
 
   // ZK & Cryptography
   { owner: "midnightntwrk", repo: "midnight-zk", branch: "main" },
@@ -131,7 +139,11 @@ export const REPOSITORIES: RepoConfig[] = [
 
   // Documentation
   { owner: "midnightntwrk", repo: "midnight-docs", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-improvement-proposals", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-improvement-proposals",
+    branch: "main",
+  },
   { owner: "midnightntwrk", repo: "midnight-architecture", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-foundations", branch: "main" },
   { owner: "midnightntwrk", repo: "docteam", branch: "main" },
@@ -142,7 +154,11 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "example-dex", branch: "main" },
   { owner: "midnightntwrk", repo: "example-DAO", branch: "main" },
   { owner: "midnightntwrk", repo: "example-proofshare", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-example-applications", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-example-applications",
+    branch: "main",
+  },
   { owner: "midnightntwrk", repo: "midnight-awesome-dapps", branch: "main" },
   { owner: "midnightntwrk", repo: "create-mn-app", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-template-repo", branch: "main" },
@@ -150,28 +166,64 @@ export const REPOSITORIES: RepoConfig[] = [
   // Identity & Credentials
   { owner: "midnightntwrk", repo: "midnight-did", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-did-resolver", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-verifiable-credentials", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-identity-oracle-ssi", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-identity-solution-examples", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-verifiable-credentials",
+    branch: "main",
+  },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-identity-oracle-ssi",
+    branch: "main",
+  },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-identity-solution-examples",
+    branch: "main",
+  },
 
   // Contracts & Bridges
   { owner: "midnightntwrk", repo: "midnight-contracts", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-committee-bridge-contracts", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-reserve-contracts", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-committee-bridge-contracts",
+    branch: "main",
+  },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-reserve-contracts",
+    branch: "main",
+  },
 
   // Token & Distribution
   { owner: "midnightntwrk", repo: "night-token-distribution", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-tcnight-mint", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-cnight-generates-dust", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-cnight-to-dust-dapp", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-cnight-generates-dust",
+    branch: "main",
+  },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-cnight-to-dust-dapp",
+    branch: "main",
+  },
 
   // Developer Tools & Actions
   { owner: "midnightntwrk", repo: "setup-compact-action", branch: "main" },
   { owner: "midnightntwrk", repo: "ce-compactup", branch: "main" },
   { owner: "midnightntwrk", repo: "season-action", branch: "main" },
-  { owner: "midnightntwrk", repo: "upload-sarif-github-action", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "upload-sarif-github-action",
+    branch: "main",
+  },
   { owner: "midnightntwrk", repo: "midnight-dev-utils", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-ts-standard-config", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-ts-standard-config",
+    branch: "main",
+  },
   { owner: "midnightntwrk", repo: "midnight-flake-common", branch: "main" },
 
   // Infrastructure & Operations
@@ -201,7 +253,11 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "UTxO-Scalability", branch: "main" },
 
   // Glacier Drop (Genesis Distribution)
-  { owner: "midnightntwrk", repo: "midnight-glacier-drop-tools", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "midnight-glacier-drop-tools",
+    branch: "main",
+  },
   { owner: "midnightntwrk", repo: "midnight-gd-ui", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-gd-operational", branch: "main" },
   { owner: "midnightntwrk", repo: "mgdoc-claim-enablement", branch: "main" },
@@ -213,7 +269,11 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "gd-scavenge", branch: "main" },
   { owner: "midnightntwrk", repo: "gd-scavenger-backend", branch: "main" },
   { owner: "midnightntwrk", repo: "gd-scavenger-frontend", branch: "main" },
-  { owner: "midnightntwrk", repo: "gd-scavenger-ed25519-seed-generator", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "gd-scavenger-ed25519-seed-generator",
+    branch: "main",
+  },
   { owner: "midnightntwrk", repo: "gd-security", branch: "main" },
   { owner: "midnightntwrk", repo: "gd-testing", branch: "main" },
 
@@ -245,7 +305,11 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "eddex", repo: "midnight-sea-battle-hackathon", branch: "main" },
 
   // Mini DApp Hackathon Winners (Sep 2025)
-  { owner: "statera-protocol", repo: "statera-protocol-midnight", branch: "main" },
+  {
+    owner: "statera-protocol",
+    repo: "statera-protocol-midnight",
+    branch: "main",
+  },
   { owner: "nel349", repo: "midnight-bank", branch: "main" },
   { owner: "Imdavyking", repo: "zkbadge", branch: "main" },
 
@@ -253,5 +317,9 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "PaimaStudios", repo: "midnight-game-2", branch: "main" },
   { owner: "PaimaStudios", repo: "midnight-wasm-prover", branch: "main" },
   { owner: "PaimaStudios", repo: "midnight-batcher", branch: "main" },
-  { owner: "PaimaStudios", repo: "midnight-impact-rps-example", branch: "main" },
+  {
+    owner: "PaimaStudios",
+    repo: "midnight-impact-rps-example",
+    branch: "main",
+  },
 ];

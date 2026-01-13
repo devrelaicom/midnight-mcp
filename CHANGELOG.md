@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Expanded Repository Indexing** - Now indexing 125+ repositories (up from 40)
+  - All 111 repos from `midnightntwrk` organization
+  - Compact language & compiler (7 repos): `compact`, `compactc`, `compact-export`, `compact-lsp`, etc.
+  - SDKs & APIs (5 repos): `midnight-js`, `midnight-sdk`, `midnight-wallet`, `midnight-wallet-api`, `midnight-dapp-connector-api`
+  - Core infrastructure (11 repos): `midnight-node`, `midnight-indexer`, `midnight-ledger`, etc.
+  - ZK & cryptography (10 repos): `midnight-zk`, `midnight-circuits`, `halo2`, `fri`, etc.
+  - Identity & credentials (5 repos): `midnight-did`, `midnight-verifiable-credentials`, etc.
+  - Glacier Drop tools (15 repos): Genesis distribution infrastructure
+  - Examples, templates, docs, QA, and operations repos
+  - Community & partner repos (OpenZeppelin, BrickTowers, PaimaStudios, hackathon winners)
+
 ## [0.2.8] - 2026-01-13
 
 ### Fixed

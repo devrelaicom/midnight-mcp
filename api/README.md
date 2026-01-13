@@ -75,17 +75,24 @@ npm run deploy
 
 </details>
 
-## Indexed Repositories (28)
+## Indexed Repositories (125+)
 
-| Category  | Repositories                                                                                                                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Core      | `compact`, `midnight-js`, `midnight-wallet`, `midnight-node`, `midnight-ledger`, `midnight-zk`                                                                                                                     |
-| Examples  | `example-counter`, `example-bboard`, `example-dex`, `create-mn-app`                                                                                                                                                |
-| Docs      | `midnight-docs`, `midnight-improvement-proposals`, `midnight-awesome-dapps`                                                                                                                                        |
-| Tools     | `compact-tree-sitter`, `setup-compact-action`, `midnight-node-docker`                                                                                                                                              |
-| ZK/Crypto | `halo2`, `midnight-trusted-setup`                                                                                                                                                                                  |
-| Partners  | `OpenZeppelin/compact-contracts`, `OpenZeppelin/midnight-apps`, `bricktowers/midnight-seabattle`, `bricktowers/midnight-identity`, `bricktowers/midnight-rwa`, `MeshJS/midnight-starter-template`, `midnames/core` |
-| Hackathon | `ErickRomeroDev/naval-battle-game_v2` (Edda Labs), `eddex/midnight-sea-battle-hackathon` (ShipySpace)                                                                                                              |
+| Category               | Count | Key Repositories                                                                                       |
+| ---------------------- | ----- | ------------------------------------------------------------------------------------------------------ |
+| Compact Language       | 7     | `compact`, `compactc`, `compact-export`, `compact-lsp`, `compact-tree-sitter`, `compact-zed`           |
+| SDKs & APIs            | 5     | `midnight-js`, `midnight-sdk`, `midnight-wallet`, `midnight-wallet-api`, `midnight-dapp-connector-api` |
+| Core Infrastructure    | 11    | `midnight-node`, `midnight-indexer`, `midnight-ledger`, `midnight-pubsub-indexer`                      |
+| ZK & Cryptography      | 10    | `midnight-zk`, `midnight-circuits`, `halo2`, `fri`, `galois_recursion`, `pluto_eris`                   |
+| Documentation          | 5     | `midnight-docs`, `midnight-improvement-proposals`, `midnight-architecture`, `midnight-foundations`     |
+| Examples & Templates   | 9     | `example-counter`, `example-bboard`, `example-dex`, `example-DAO`, `create-mn-app`                     |
+| Identity & Credentials | 5     | `midnight-did`, `midnight-did-resolver`, `midnight-verifiable-credentials`                             |
+| Contracts & Bridges    | 3     | `midnight-contracts`, `midnight-committee-bridge-contracts`, `midnight-reserve-contracts`              |
+| Token Distribution     | 4     | `night-token-distribution`, `midnight-tcnight-mint`, `midnight-cnight-generates-dust`                  |
+| Developer Tools        | 7     | `setup-compact-action`, `ce-compactup`, `midnight-dev-utils`, `midnight-ts-standard-config`            |
+| Infrastructure & Ops   | 6     | `midnight-monitoring`, `midnight-tracing`, `midnight-operations`, `midnight-faucet`                    |
+| Glacier Drop           | 15    | `midnight-glacier-drop-tools`, `gd-claim-api`, `gd-claim-portal`, `gd-infrastructure`                  |
+| QA & Testing           | 3     | `midnight-e2e-tests`, `midnight-qa-tools`, `midnight-qa-demo`                                          |
+| Partners               | 14    | OpenZeppelin, BrickTowers, MeshJS, PaimaStudios, hackathon winners                                     |
 
 <details>
 <summary><strong>Indexing Configuration</strong></summary>
