@@ -13,6 +13,32 @@ interface VectorData {
 }
 
 /**
+ * Sanitize string for NDJSON format
+ * Removes or escapes characters that could break JSON parsing
+ */
+function sanitizeForNDJSON(value: unknown): unknown {
+  if (typeof value === "string") {
+    // Remove null bytes and other control characters that break JSON
+    // Keep newlines (\n), tabs (\t), and carriage returns (\r) as they're valid
+    return value
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // Remove control chars except \t\n\r
+      .replace(/\uFFFD/g, "") // Remove replacement character
+      .replace(/[\uD800-\uDFFF]/g, ""); // Remove lone surrogates
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeForNDJSON);
+  }
+  if (value && typeof value === "object") {
+    const sanitized: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      sanitized[k] = sanitizeForNDJSON(v);
+    }
+    return sanitized;
+  }
+  return value;
+}
+
+/**
  * Delete vectors by IDs from Vectorize
  */
 export async function deleteVectors(ids: string[]): Promise<void> {
@@ -40,14 +66,17 @@ export async function deleteVectors(ids: string[]): Promise<void> {
 
 /**
  * Upsert vectors to Vectorize (batched)
+ * Sanitizes content to prevent NDJSON parsing errors
  */
 export async function upsertToVectorize(
   vectors: VectorData[]
 ): Promise<unknown> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/vectorize/v2/indexes/${VECTORIZE_INDEX}/upsert`;
 
-  // Vectorize expects NDJSON format
-  const ndjson = vectors.map((v) => JSON.stringify(v)).join("\n");
+  // Sanitize and convert to NDJSON format
+  const ndjson = vectors
+    .map((v) => JSON.stringify(sanitizeForNDJSON(v)))
+    .join("\n");
 
   const response = await fetch(url, {
     method: "POST",
