@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2026-01-13
+
+### Fixed
+
+- **Cursor Compatibility** - Improved error handling for non-Claude Desktop clients
+  - `midnight-explain-circuit`: Returns schema-compliant response even when no circuit found (previously returned `{error, suggestion}` which violated output schema)
+  - Resource URI errors: Helpful suggestions when using invalid prefixes like `midnight://resources/` instead of valid ones (`midnight://docs/`, `midnight://code/`, `midnight://schema/`)
+  - Sampling tools: Gracefully detect `-32601 Method not found` errors and disable sampling for session instead of failing repeatedly
+
+### Changed
+
+- **Internal Refactoring** - Removed dead code
+  - Removed unused `samplingVerified` variable from sampling service
+  - Removed unused exports (`markSamplingFailed`, `requestCompletion`) from services barrel export
+
 ## [0.2.7] - 2026-01-09
 
 ### Fixed
