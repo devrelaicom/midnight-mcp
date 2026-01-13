@@ -84,84 +84,174 @@ export const SKIP_DIRS = new Set([
   "mips",
 ]);
 
-// Repositories to index - all high-value Midnight repos
+// Repositories to index - all Midnight repos from midnightntwrk org + community
 export const REPOSITORIES: RepoConfig[] = [
-  // Core language & SDK
-  { owner: "midnightntwrk", repo: "compact", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-js", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-wallet", branch: "main" },
-  {
-    owner: "midnightntwrk",
-    repo: "midnight-dapp-connector-api",
-    branch: "main",
-  },
+  // ============================================
+  // MIDNIGHTNTWRK ORG - CORE REPOS (111 repos)
+  // ============================================
 
-  // Core infrastructure (Rust)
+  // Core Language & Compiler
+  { owner: "midnightntwrk", repo: "compact", branch: "main" },
+  { owner: "midnightntwrk", repo: "compactc", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-export", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-integration-suite", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-lsp", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-tree-sitter", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-zed", branch: "main" },
+
+  // SDKs & APIs
+  { owner: "midnightntwrk", repo: "midnight-js", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-sdk", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-wallet", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-wallet-api", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-dapp-connector-api", branch: "main" },
+
+  // Core Infrastructure (Rust)
   { owner: "midnightntwrk", repo: "midnight-node", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-node-cli", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-node-docker", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-node-ops", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-indexer", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-pubsub-indexer", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-ledger", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-ledger-prototype", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-formal-ledger-prototype", branch: "main" },
+
+  // ZK & Cryptography
   { owner: "midnightntwrk", repo: "midnight-zk", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-circuits", branch: "main" },
+  { owner: "midnightntwrk", repo: "bridge-circuits", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-trusted-setup", branch: "main" },
+  { owner: "midnightntwrk", repo: "trusted_setup", branch: "main" },
+  { owner: "midnightntwrk", repo: "halo2", branch: "main" },
+  { owner: "midnightntwrk", repo: "fri", branch: "main" },
+  { owner: "midnightntwrk", repo: "galois_recursion", branch: "main" },
+  { owner: "midnightntwrk", repo: "pluto_eris", branch: "main" },
+  { owner: "midnightntwrk", repo: "rs-merkle", branch: "main" },
 
   // Documentation
   { owner: "midnightntwrk", repo: "midnight-docs", branch: "main" },
-  {
-    owner: "midnightntwrk",
-    repo: "midnight-improvement-proposals",
-    branch: "main",
-  },
+  { owner: "midnightntwrk", repo: "midnight-improvement-proposals", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-architecture", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-foundations", branch: "main" },
+  { owner: "midnightntwrk", repo: "docteam", branch: "main" },
 
-  // Examples & templates
+  // Examples & Templates
   { owner: "midnightntwrk", repo: "example-counter", branch: "main" },
   { owner: "midnightntwrk", repo: "example-bboard", branch: "main" },
   { owner: "midnightntwrk", repo: "example-dex", branch: "main" },
+  { owner: "midnightntwrk", repo: "example-DAO", branch: "main" },
+  { owner: "midnightntwrk", repo: "example-proofshare", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-example-applications", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-awesome-dapps", branch: "main" },
   { owner: "midnightntwrk", repo: "create-mn-app", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-template-repo", branch: "main" },
 
-  // ZK & cryptography
-  { owner: "midnightntwrk", repo: "halo2", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-trusted-setup", branch: "main" },
+  // Identity & Credentials
+  { owner: "midnightntwrk", repo: "midnight-did", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-did-resolver", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-verifiable-credentials", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-identity-oracle-ssi", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-identity-solution-examples", branch: "main" },
 
-  // Developer tools
-  { owner: "midnightntwrk", repo: "compact-tree-sitter", branch: "main" },
-  { owner: "midnightntwrk", repo: "compact-zed", branch: "main" },
-  { owner: "midnightntwrk", repo: "setup-compact-action", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-node-docker", branch: "main" },
+  // Contracts & Bridges
+  { owner: "midnightntwrk", repo: "midnight-contracts", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-committee-bridge-contracts", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-reserve-contracts", branch: "main" },
 
-  // Community & governance
-  { owner: "midnightntwrk", repo: "contributor-hub", branch: "main" },
+  // Token & Distribution
   { owner: "midnightntwrk", repo: "night-token-distribution", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-tcnight-mint", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-cnight-generates-dust", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-cnight-to-dust-dapp", branch: "main" },
 
-  // Third-party libraries (OpenZeppelin)
+  // Developer Tools & Actions
+  { owner: "midnightntwrk", repo: "setup-compact-action", branch: "main" },
+  { owner: "midnightntwrk", repo: "ce-compactup", branch: "main" },
+  { owner: "midnightntwrk", repo: "season-action", branch: "main" },
+  { owner: "midnightntwrk", repo: "upload-sarif-github-action", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-dev-utils", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-ts-standard-config", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-flake-common", branch: "main" },
+
+  // Infrastructure & Operations
+  { owner: "midnightntwrk", repo: "midnight-monitoring", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-tracing", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-operations", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-delivery", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-faucet", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-core-metrics", branch: "main" },
+
+  // Solutions & Applications
+  { owner: "midnightntwrk", repo: "midnight-solutions", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-website-next", branch: "main" },
+  { owner: "midnightntwrk", repo: "nightcap", branch: "main" },
+  { owner: "midnightntwrk", repo: "aliit-hub", branch: "main" },
+  { owner: "midnightntwrk", repo: "ocp", branch: "main" },
+  { owner: "midnightntwrk", repo: "season", branch: "main" },
+
+  // QA & Testing
+  { owner: "midnightntwrk", repo: "midnight-e2e-tests", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-qa-tools", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-qa-demo", branch: "main" },
+
+  // Community & Governance
+  { owner: "midnightntwrk", repo: "contributor-hub", branch: "main" },
+  { owner: "midnightntwrk", repo: "lfdt-project-proposals", branch: "main" },
+  { owner: "midnightntwrk", repo: "UTxO-Scalability", branch: "main" },
+
+  // Glacier Drop (Genesis Distribution)
+  { owner: "midnightntwrk", repo: "midnight-glacier-drop-tools", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-gd-ui", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-gd-operational", branch: "main" },
+  { owner: "midnightntwrk", repo: "mgdoc-claim-enablement", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-address-checker", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-claim-api", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-claim-portal", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-hydra-operators", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-infrastructure", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-scavenge", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-scavenger-backend", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-scavenger-frontend", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-scavenger-ed25519-seed-generator", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-security", branch: "main" },
+  { owner: "midnightntwrk", repo: "gd-testing", branch: "main" },
+
+  // Forked Dependencies
+  { owner: "midnightntwrk", repo: "async-graphql", branch: "main" },
+  { owner: "midnightntwrk", repo: "nats.rs", branch: "main" },
+
+  // Initiative & Partnership
+  { owner: "midnightntwrk", repo: "jolteon-initiative-client", branch: "main" },
+  { owner: "midnightntwrk", repo: "lace-private", branch: "main" },
+
+  // ============================================
+  // THIRD-PARTY & COMMUNITY REPOS
+  // ============================================
+
+  // OpenZeppelin (Official Partner)
   { owner: "OpenZeppelin", repo: "compact-contracts", branch: "main" },
-  { owner: "OpenZeppelin", repo: "midnight-apps", branch: "main" }, // LunarSwap DEX
+  { owner: "OpenZeppelin", repo: "midnight-apps", branch: "main" },
 
   // Official Partners (from awesome-dapps)
-  { owner: "bricktowers", repo: "midnight-seabattle", branch: "main" }, // Gaming - 1st place Sea Battle hackathon
-  { owner: "bricktowers", repo: "midnight-identity", branch: "main" }, // ZK Identity
-  { owner: "bricktowers", repo: "midnight-rwa", branch: "main" }, // Real World Assets
-  { owner: "MeshJS", repo: "midnight-starter-template", branch: "main" }, // Starter template
-  { owner: "midnames", repo: "core", branch: "main" }, // DID registry
+  { owner: "bricktowers", repo: "midnight-seabattle", branch: "main" },
+  { owner: "bricktowers", repo: "midnight-identity", branch: "main" },
+  { owner: "bricktowers", repo: "midnight-rwa", branch: "main" },
+  { owner: "MeshJS", repo: "midnight-starter-template", branch: "main" },
+  { owner: "midnames", repo: "core", branch: "main" },
 
   // Sea Battle Hackathon Winners (Feb 2025)
-  { owner: "ErickRomeroDev", repo: "naval-battle-game_v2", branch: "main" }, // 2nd place - Edda Labs
-  { owner: "eddex", repo: "midnight-sea-battle-hackathon", branch: "main" }, // 3rd place - ShipySpace
+  { owner: "ErickRomeroDev", repo: "naval-battle-game_v2", branch: "main" },
+  { owner: "eddex", repo: "midnight-sea-battle-hackathon", branch: "main" },
 
   // Mini DApp Hackathon Winners (Sep 2025)
-  {
-    owner: "statera-protocol",
-    repo: "statera-protocol-midnight",
-    branch: "main",
-  }, // 1st place - LucentLabs (stablecoin)
-  { owner: "nel349", repo: "midnight-bank", branch: "main" }, // 2nd place - Private banking
-  { owner: "Imdavyking", repo: "zkbadge", branch: "main" }, // 3rd place - ZK identity badges
+  { owner: "statera-protocol", repo: "statera-protocol-midnight", branch: "main" },
+  { owner: "nel349", repo: "midnight-bank", branch: "main" },
+  { owner: "Imdavyking", repo: "zkbadge", branch: "main" },
 
   // Core Partner - PaimaStudios (Gaming Infrastructure)
-  { owner: "PaimaStudios", repo: "midnight-game-2", branch: "main" }, // Full production game
-  { owner: "PaimaStudios", repo: "midnight-wasm-prover", branch: "main" }, // Browser WASM prover
-  { owner: "PaimaStudios", repo: "midnight-batcher", branch: "main" }, // Transaction batcher
-  {
-    owner: "PaimaStudios",
-    repo: "midnight-impact-rps-example",
-    branch: "main",
-  }, // Low-level Impact VM example
+  { owner: "PaimaStudios", repo: "midnight-game-2", branch: "main" },
+  { owner: "PaimaStudios", repo: "midnight-wasm-prover", branch: "main" },
+  { owner: "PaimaStudios", repo: "midnight-batcher", branch: "main" },
+  { owner: "PaimaStudios", repo: "midnight-impact-rps-example", branch: "main" },
 ];
