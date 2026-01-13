@@ -84,58 +84,53 @@ export const SKIP_DIRS = new Set([
   "mips",
 ]);
 
-// Repositories to index - all Midnight repos from midnightntwrk org + community
+// Repositories to index - ALL non-archived midnightntwrk repos + community
+// Requires MIDNIGHT_GITHUB_TOKEN with org access for private repos
 export const REPOSITORIES: RepoConfig[] = [
   // ============================================
-  // MIDNIGHTNTWRK ORG - CORE REPOS (111 repos)
+  // MIDNIGHTNTWRK ORG - ALL NON-ARCHIVED (88 repos)
   // ============================================
 
   // Core Language & Compiler
   { owner: "midnightntwrk", repo: "compact", branch: "main" },
-  { owner: "midnightntwrk", repo: "compactc", branch: "main" },
-  { owner: "midnightntwrk", repo: "compact-export", branch: "main" },
-  { owner: "midnightntwrk", repo: "compact-integration-suite", branch: "main" },
   { owner: "midnightntwrk", repo: "compact-lsp", branch: "main" },
   { owner: "midnightntwrk", repo: "compact-tree-sitter", branch: "main" },
   { owner: "midnightntwrk", repo: "compact-zed", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-export", branch: "main" },
+  { owner: "midnightntwrk", repo: "compact-integration-suite", branch: "main" },
 
   // SDKs & APIs
   { owner: "midnightntwrk", repo: "midnight-js", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-sdk", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-wallet", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-wallet-api", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-wallet-legacy", branch: "main" },
   {
     owner: "midnightntwrk",
     repo: "midnight-dapp-connector-api",
     branch: "main",
   },
 
-  // Core Infrastructure (Rust)
+  // Core Infrastructure
   { owner: "midnightntwrk", repo: "midnight-node", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-node-cli", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-node-docker", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-node-ops", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-indexer", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-pubsub-indexer", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-ledger", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-ledger-prototype", branch: "main" },
   {
     owner: "midnightntwrk",
     repo: "midnight-formal-ledger-prototype",
     branch: "main",
   },
+  { owner: "midnightntwrk", repo: "midnight-zk", branch: "main" },
 
   // ZK & Cryptography
-  { owner: "midnightntwrk", repo: "midnight-zk", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-circuits", branch: "main" },
-  { owner: "midnightntwrk", repo: "bridge-circuits", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-trusted-setup", branch: "main" },
-  { owner: "midnightntwrk", repo: "trusted_setup", branch: "main" },
-  { owner: "midnightntwrk", repo: "halo2", branch: "main" },
   { owner: "midnightntwrk", repo: "fri", branch: "main" },
-  { owner: "midnightntwrk", repo: "galois_recursion", branch: "main" },
-  { owner: "midnightntwrk", repo: "pluto_eris", branch: "main" },
-  { owner: "midnightntwrk", repo: "rs-merkle", branch: "main" },
+  { owner: "midnightntwrk", repo: "galois_recursion", branch: "dev" },
+  { owner: "midnightntwrk", repo: "pluto_eris", branch: "dev" },
+  { owner: "midnightntwrk", repo: "plonk-legacy", branch: "master" },
+  { owner: "midnightntwrk", repo: "rs-merkle", branch: "master" },
 
   // Documentation
   { owner: "midnightntwrk", repo: "midnight-docs", branch: "main" },
@@ -145,7 +140,7 @@ export const REPOSITORIES: RepoConfig[] = [
     branch: "main",
   },
   { owner: "midnightntwrk", repo: "midnight-architecture", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-foundations", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-architecture-new", branch: "main" },
   { owner: "midnightntwrk", repo: "docteam", branch: "main" },
 
   // Examples & Templates
@@ -154,11 +149,6 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "example-dex", branch: "main" },
   { owner: "midnightntwrk", repo: "example-DAO", branch: "main" },
   { owner: "midnightntwrk", repo: "example-proofshare", branch: "main" },
-  {
-    owner: "midnightntwrk",
-    repo: "midnight-example-applications",
-    branch: "main",
-  },
   { owner: "midnightntwrk", repo: "midnight-awesome-dapps", branch: "main" },
   { owner: "midnightntwrk", repo: "create-mn-app", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-template-repo", branch: "main" },
@@ -211,27 +201,20 @@ export const REPOSITORIES: RepoConfig[] = [
 
   // Developer Tools & Actions
   { owner: "midnightntwrk", repo: "setup-compact-action", branch: "main" },
-  { owner: "midnightntwrk", repo: "ce-compactup", branch: "main" },
-  { owner: "midnightntwrk", repo: "season-action", branch: "main" },
   {
     owner: "midnightntwrk",
     repo: "upload-sarif-github-action",
     branch: "main",
   },
+  { owner: "midnightntwrk", repo: "season-action", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-dev-utils", branch: "main" },
-  {
-    owner: "midnightntwrk",
-    repo: "midnight-ts-standard-config",
-    branch: "main",
-  },
-  { owner: "midnightntwrk", repo: "midnight-flake-common", branch: "main" },
 
   // Infrastructure & Operations
   { owner: "midnightntwrk", repo: "midnight-monitoring", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-tracing", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-operations", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-delivery", branch: "main" },
-  { owner: "midnightntwrk", repo: "midnight-faucet", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-faucet", branch: "develop" },
   { owner: "midnightntwrk", repo: "midnight-core-metrics", branch: "main" },
 
   // Solutions & Applications
@@ -239,17 +222,21 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "midnight-website-next", branch: "main" },
   { owner: "midnightntwrk", repo: "nightcap", branch: "main" },
   { owner: "midnightntwrk", repo: "aliit-hub", branch: "main" },
-  { owner: "midnightntwrk", repo: "ocp", branch: "main" },
+  { owner: "midnightntwrk", repo: "ocp", branch: "PoUW" },
   { owner: "midnightntwrk", repo: "season", branch: "main" },
+  { owner: "midnightntwrk", repo: "jolteon-initiative-client", branch: "main" },
 
   // QA & Testing
-  { owner: "midnightntwrk", repo: "midnight-e2e-tests", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-qa-tools", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-qa-demo", branch: "main" },
 
   // Community & Governance
   { owner: "midnightntwrk", repo: "contributor-hub", branch: "main" },
-  { owner: "midnightntwrk", repo: "lfdt-project-proposals", branch: "main" },
+  {
+    owner: "midnightntwrk",
+    repo: "lfdt-project-proposals",
+    branch: "gh-pages",
+  },
   { owner: "midnightntwrk", repo: "UTxO-Scalability", branch: "main" },
 
   // Glacier Drop (Genesis Distribution)
@@ -258,7 +245,7 @@ export const REPOSITORIES: RepoConfig[] = [
     repo: "midnight-glacier-drop-tools",
     branch: "main",
   },
-  { owner: "midnightntwrk", repo: "midnight-gd-ui", branch: "main" },
+  { owner: "midnightntwrk", repo: "midnight-gd-ui", branch: "master" },
   { owner: "midnightntwrk", repo: "midnight-gd-operational", branch: "main" },
   { owner: "midnightntwrk", repo: "mgdoc-claim-enablement", branch: "main" },
   { owner: "midnightntwrk", repo: "gd-address-checker", branch: "main" },
@@ -277,16 +264,8 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "gd-security", branch: "main" },
   { owner: "midnightntwrk", repo: "gd-testing", branch: "main" },
 
-  // Forked Dependencies
-  { owner: "midnightntwrk", repo: "async-graphql", branch: "main" },
-  { owner: "midnightntwrk", repo: "nats.rs", branch: "main" },
-
-  // Initiative & Partnership
-  { owner: "midnightntwrk", repo: "jolteon-initiative-client", branch: "main" },
-  { owner: "midnightntwrk", repo: "lace-private", branch: "main" },
-
   // ============================================
-  // THIRD-PARTY & COMMUNITY REPOS
+  // THIRD-PARTY & COMMUNITY REPOS (14 repos)
   // ============================================
 
   // OpenZeppelin (Official Partner)

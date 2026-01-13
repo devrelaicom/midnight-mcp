@@ -8,7 +8,9 @@ import { Readable } from "stream";
 import type { FileCache, ExtractionResult } from "../interfaces";
 import { shouldSkipPath, hasValidExtension, hashContent } from "../utils";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+// Use MIDNIGHT_GITHUB_TOKEN for private org access, fallback to GITHUB_TOKEN
+const GITHUB_TOKEN =
+  process.env.MIDNIGHT_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
 
 /**
  * Download and extract repository files from GitHub tarball

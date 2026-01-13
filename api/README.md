@@ -75,24 +75,29 @@ npm run deploy
 
 </details>
 
-## Indexed Repositories (125+)
+## Indexed Repositories (102)
 
-| Category               | Count | Key Repositories                                                                                       |
-| ---------------------- | ----- | ------------------------------------------------------------------------------------------------------ |
-| Compact Language       | 7     | `compact`, `compactc`, `compact-export`, `compact-lsp`, `compact-tree-sitter`, `compact-zed`           |
-| SDKs & APIs            | 5     | `midnight-js`, `midnight-sdk`, `midnight-wallet`, `midnight-wallet-api`, `midnight-dapp-connector-api` |
-| Core Infrastructure    | 11    | `midnight-node`, `midnight-indexer`, `midnight-ledger`, `midnight-pubsub-indexer`                      |
-| ZK & Cryptography      | 10    | `midnight-zk`, `midnight-circuits`, `halo2`, `fri`, `galois_recursion`, `pluto_eris`                   |
-| Documentation          | 5     | `midnight-docs`, `midnight-improvement-proposals`, `midnight-architecture`, `midnight-foundations`     |
-| Examples & Templates   | 9     | `example-counter`, `example-bboard`, `example-dex`, `example-DAO`, `create-mn-app`                     |
-| Identity & Credentials | 5     | `midnight-did`, `midnight-did-resolver`, `midnight-verifiable-credentials`                             |
-| Contracts & Bridges    | 3     | `midnight-contracts`, `midnight-committee-bridge-contracts`, `midnight-reserve-contracts`              |
-| Token Distribution     | 4     | `night-token-distribution`, `midnight-tcnight-mint`, `midnight-cnight-generates-dust`                  |
-| Developer Tools        | 7     | `setup-compact-action`, `ce-compactup`, `midnight-dev-utils`, `midnight-ts-standard-config`            |
-| Infrastructure & Ops   | 6     | `midnight-monitoring`, `midnight-tracing`, `midnight-operations`, `midnight-faucet`                    |
-| Glacier Drop           | 15    | `midnight-glacier-drop-tools`, `gd-claim-api`, `gd-claim-portal`, `gd-infrastructure`                  |
-| QA & Testing           | 3     | `midnight-e2e-tests`, `midnight-qa-tools`, `midnight-qa-demo`                                          |
-| Partners               | 14    | OpenZeppelin, BrickTowers, MeshJS, PaimaStudios, hackathon winners                                     |
+All **non-archived** repositories from midnightntwrk org + community partners.
+Requires `MIDNIGHT_GITHUB_TOKEN` secret with org access for private repos.
+
+| Category             | Count | Key Repositories                                                            |
+| -------------------- | ----- | --------------------------------------------------------------------------- |
+| Compact Language     | 6     | `compact`, `compact-lsp`, `compact-tree-sitter`, `compact-zed`              |
+| SDKs & APIs          | 5     | `midnight-js`, `midnight-sdk`, `midnight-wallet`, `midnight-dapp-connector` |
+| Core Infrastructure  | 9     | `midnight-node`, `midnight-indexer`, `midnight-ledger`, `midnight-zk`       |
+| ZK & Cryptography    | 6     | `midnight-trusted-setup`, `fri`, `galois_recursion`, `pluto_eris`           |
+| Documentation        | 5     | `midnight-docs`, `midnight-improvement-proposals`, `midnight-architecture`  |
+| Examples & Templates | 8     | `example-counter`, `example-bboard`, `example-dex`, `example-DAO`           |
+| Identity             | 5     | `midnight-did`, `midnight-did-resolver`, `midnight-verifiable-credentials`  |
+| Contracts & Bridges  | 3     | `midnight-contracts`, `midnight-committee-bridge-contracts`                 |
+| Token Distribution   | 4     | `night-token-distribution`, `midnight-tcnight-mint`                         |
+| Developer Tools      | 4     | `setup-compact-action`, `upload-sarif-github-action`, `midnight-dev-utils`  |
+| Infrastructure       | 6     | `midnight-monitoring`, `midnight-tracing`, `midnight-operations`            |
+| Solutions & Apps     | 7     | `midnight-solutions`, `midnight-website-next`, `nightcap`, `ocp`            |
+| QA & Testing         | 2     | `midnight-qa-tools`, `midnight-qa-demo`                                     |
+| Community            | 3     | `contributor-hub`, `lfdt-project-proposals`, `UTxO-Scalability`             |
+| Glacier Drop         | 15    | `midnight-glacier-drop-tools`, `gd-claim-api`, `gd-claim-portal`            |
+| Partners             | 14    | OpenZeppelin, BrickTowers, MeshJS, PaimaStudios, hackathon winners          |
 
 <details>
 <summary><strong>Indexing Configuration</strong></summary>
