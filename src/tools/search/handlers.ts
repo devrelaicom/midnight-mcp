@@ -140,10 +140,19 @@ async function tryHostedSearch<
         if (result.source.lines) {
           const lineParts = result.source.lines.split("-");
           if (lineParts.length === 2) {
-            startLine = parseInt(lineParts[0], 10);
-            endLine = parseInt(lineParts[1], 10);
+            const parsedStart = parseInt(lineParts[0], 10);
+            const parsedEnd = parseInt(lineParts[1], 10);
+            if (!Number.isNaN(parsedStart)) {
+              startLine = parsedStart;
+            }
+            if (!Number.isNaN(parsedEnd)) {
+              endLine = parsedEnd;
+            }
           } else if (lineParts.length === 1) {
-            startLine = endLine = parseInt(lineParts[0], 10);
+            const parsed = parseInt(lineParts[0], 10);
+            if (!Number.isNaN(parsed)) {
+              startLine = endLine = parsed;
+            }
           }
         }
         return {
