@@ -582,14 +582,14 @@ export ledger counter: Counter;
 
 // Increment the counter by 1
 export circuit increment(): Uint<64> {
-  counter.increment(1n);
+  counter.increment(1);
   return counter.read();
 }
 
 // Decrement the counter by 1  
 export circuit decrement(): Uint<64> {
-  assert(counter.read() > 0n, "Cannot go below zero");
-  counter.decrement(1n);
+  assert(counter.read() > 0, "Cannot go below zero");
+  counter.decrement(1);
   return counter.read();
 }
 
