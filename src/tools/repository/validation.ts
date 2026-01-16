@@ -808,8 +808,8 @@ export async function extractContractStructure(
     break; // Only warn once
   }
 
-  // 7. Detect Counter.value access (Counter only has .increment())
-  const counterValuePattern = /(\w+)\.value\b/g;
+  // 7. Detect Counter.value() - suggest using .read() instead
+  const counterValuePattern = /(\w+)\.value\s*\(/g;
   let counterMatch;
   while ((counterMatch = counterValuePattern.exec(code)) !== null) {
     const varName = counterMatch[1];
@@ -822,8 +822,8 @@ export async function extractContractStructure(
       potentialIssues.push({
         type: "invalid_counter_access",
         line: lineNum,
-        message: `Counter type '${varName}' does not have a '.value' property`,
-        suggestion: `Counter only has '.increment(n)'. Use 'Uint<32>' or 'Uint<64>' instead if you need to read the value`,
+        message: `Counter type '${varName}' does not have '.value()' - use '.read()' instead`,
+        suggestion: `Counter ADT methods: increment(n), decrement(n), read(), lessThan(n), resetToDefault()`,
         severity: "error",
       });
     }

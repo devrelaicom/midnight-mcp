@@ -345,7 +345,7 @@ export circuit decrement(amount: Uint<64>): [] {
 }
 
 export circuit get_value(): Uint<64> {
-  return counter.value();
+  return counter.read();
 }
 `;
 

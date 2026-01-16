@@ -18,34 +18,39 @@ ledger {
 }
 
 // Increment the counter
-export circuit increment(amount: Field): Field {
+export circuit increment(amount: Uint<16>): Uint<64> {
   // Validate input
-  assert(amount > 0, "Amount must be positive");
-  assert(amount <= 100, "Amount too large");
+  assert(amount > 0 as Uint<16>, "Amount must be positive");
+  assert(amount <= 100 as Uint<16>, "Amount too large");
   
   // Update counter
   ledger.counter.increment(amount);
   
   // Return new value
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
 
 // Decrement the counter
-export circuit decrement(amount: Field): Field {
+export circuit decrement(amount: Uint<16>): Uint<64> {
   // Validate input
-  assert(amount > 0, "Amount must be positive");
-  assert(ledger.counter.value() >= amount, "Counter would go negative");
+  assert(amount > 0 as Uint<16>, "Amount must be positive");
+  assert(ledger.counter.read() >= (amount as Uint<64>), "Counter would go negative");
   
   // Update counter
   ledger.counter.decrement(amount);
   
   // Return new value
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
 
 // Read current value (view function)
-export circuit getValue(): Field {
-  return ledger.counter.value();
+export circuit getValue(): Uint<64> {
+  return ledger.counter.read();
+}
+
+// Check if counter is below threshold
+export circuit isLessThan(threshold: Uint<64>): Boolean {
+  return ledger.counter.lessThan(threshold);
 }
 `,
 
@@ -69,17 +74,17 @@ ledger {
 }
 
 // Post a new message (content is private)
-export circuit postMessage(content: Opaque<"string">, author: Opaque<"address">): Field {
-  // Generate unique message ID
-  const messageId = ledger.messageCount.value();
+export circuit postMessage(content: Opaque<"string">, author: Opaque<"address">): Uint<64> {
+  // Generate unique message ID using counter read
+  const messageId = ledger.messageCount.read();
   
   // Store message privately
-  ledger.messages.insert(messageId, content);
-  ledger.authors.insert(messageId, author);
+  ledger.messages.insert(messageId as Field, content);
+  ledger.authors.insert(messageId as Field, author);
   
   // Update public counters
   ledger.messageCount.increment(1);
-  ledger.messageIds.add(messageId);
+  ledger.messageIds.add(messageId as Field);
   
   return messageId;
 }
@@ -706,27 +711,31 @@ ledger {
 }
 
 // Increment the counter by 1
-export circuit increment(): Field {
+export circuit increment(): Uint<64> {
   ledger.counter.increment(1);
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
 
 // Decrement the counter by 1  
-export circuit decrement(): Field {
-  assert(ledger.counter.value() > 0, "Cannot go below zero");
+export circuit decrement(): Uint<64> {
+  assert(ledger.counter.read() > 0 as Uint<64>, "Cannot go below zero");
   ledger.counter.decrement(1);
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
 
 // Get current value
-export circuit get(): Field {
-  return ledger.counter.value();
+export circuit get(): Uint<64> {
+  return ledger.counter.read();
 }
 
-// Reset to zero (add access control in real apps)
-export circuit reset(): Void {
-  const current = ledger.counter.value();
-  ledger.counter.decrement(current);
+// Check if below threshold
+export circuit isBelowLimit(limit: Uint<64>): Boolean {
+  return ledger.counter.lessThan(limit);
+}
+
+// Reset to zero
+export circuit reset(): [] {
+  ledger.counter.resetToDefault();
 }
 `,
 

@@ -574,13 +574,13 @@ export circuit divide(a: Uint<64>, b: Uint<64>): Uint<64> {
     expect(division?.suggestion).toContain("witness");
   });
 
-  it("should detect Counter.value access", async () => {
+  it("should detect Counter.value() access and suggest .read()", async () => {
     const code = `pragma language_version >= 0.16;
 
 ledger gameCount: Counter;
 
 export circuit getCount(): Uint<64> {
-  return gameCount.value;
+  return gameCount.value();
 }
 `;
     const result = await extractContractStructure({ code });
@@ -595,7 +595,8 @@ export circuit getCount(): Uint<64> {
       (i) => i.type === "invalid_counter_access"
     );
     expect(counter?.message).toContain("gameCount");
-    expect(counter?.suggestion).toContain("increment");
+    expect(counter?.message).toContain("read()");
+    expect(counter?.suggestion).toContain("Counter ADT methods");
   });
 
   it("should warn about potential Uint overflow in multiplication", async () => {

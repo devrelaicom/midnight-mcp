@@ -346,14 +346,14 @@ export circuit check_broken(guess: Field): Boolean {
 
 ### Counter Operations
 \`\`\`compact
-// These work in circuits:
-counter.increment(1);
-counter.decrement(1);
-counter.resetToDefault();
+// ALL Counter methods work in circuits:
+counter.increment(1);           // Increase by amount (Uint<16>)
+counter.decrement(1);           // Decrease by amount (Uint<16>)
+const val = counter.read();     // Get current value (returns Uint<64>)
+const low = counter.lessThan(100); // Compare with threshold (returns Boolean)
+counter.resetToDefault();       // Reset to zero
 
-// ⚠️ DOES NOT WORK IN CIRCUITS:
-// const val = counter.value();  // ERROR: operation undefined
-// Instead, read counter value in TypeScript SDK: ledgerState.counter
+// ⚠️ WRONG: counter.value() does NOT exist - use counter.read()
 \`\`\`
 
 ### Map Operations

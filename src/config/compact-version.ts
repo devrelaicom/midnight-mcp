@@ -349,11 +349,16 @@ Or use bounded Uint<0..N> for parameters that need constraints`,
   },
   {
     error: 'operation "value" undefined for ledger field type Counter',
-    cause: "Trying to read Counter.value() inside a circuit",
-    fix: `Counter values cannot be read in circuits. Options:
-1. Use a witness: witness get_counter_value(): Uint<64>;
-2. Read from TypeScript SDK: ledgerState.counter
-3. Track the value in a separate Field ledger variable`,
+    cause: "Using wrong method name - Counter uses .read() not .value()",
+    fix: `Use counter.read() to get the current value:
+const current = ledger.counter.read();
+
+Counter ADT methods available in circuits:
+- increment(amount: Uint<16>): []  - increase counter
+- decrement(amount: Uint<16>): []  - decrease counter
+- read(): Uint<64>                 - get current value
+- lessThan(threshold: Uint<64>): Boolean - compare
+- resetToDefault(): []             - reset to zero`,
   },
   {
     error: "implicit disclosure of witness value",

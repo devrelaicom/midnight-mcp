@@ -825,7 +825,7 @@ export circuit increment(): [] {
           },
           {
             wrong: "counter.value()",
-            correct: "// Read via witness or TypeScript SDK",
+            correct: "counter.read()  // Returns Uint<64>",
             error: 'operation "value" undefined for Counter',
           },
           {
@@ -896,7 +896,7 @@ Use quickStartTemplate as your base. Check commonMistakes BEFORE submitting code
 
 KEY RULES:
 1. public_key() is NOT a builtin - use persistentHash pattern
-2. Counter.value() NOT available in circuits - use witnesses
+2. Counter uses .read() not .value() - all ADT methods work in circuits
 3. Map.lookup()/Set.member() ARE available in circuits (verified)
 4. Arithmetic results need casting: (a + b) as Uint<64>
 5. Uint→Bytes needs two casts: (amount as Field) as Bytes<32>

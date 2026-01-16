@@ -18,14 +18,16 @@ ledger {
     const result = parseCompactFile("test.compact", code);
 
     expect(result.metadata.hasLedger).toBe(true);
-    expect(result.codeUnits.filter((u) => u.type === "ledger").length).toBeGreaterThan(0);
+    expect(
+      result.codeUnits.filter((u) => u.type === "ledger").length
+    ).toBeGreaterThan(0);
   });
 
   it("should parse circuit definitions", () => {
     const code = `
 export circuit increment(amount: Field): Field {
   ledger.counter.increment(amount);
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
     `;
 
@@ -84,13 +86,14 @@ ledger {
 export circuit increment(amount: Field): Field {
   assert(amount > 0);
   ledger.counter.increment(amount);
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
 
-export circuit postMessage(content: Opaque<"string">): Void {
-  const id = ledger.counter.value();
+export circuit postMessage(content: Opaque): Field {
+  const id = ledger.counter.read();
   ledger.messages.insert(id, disclose(content));
   ledger.counter.increment(1);
+  return id;
 }
 
 witness getSecretKey(): Bytes<32> {

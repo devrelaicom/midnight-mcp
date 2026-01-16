@@ -13,7 +13,7 @@ ledger {
 export circuit increment(amount: Field): Field {
   assert(amount > 0);
   ledger.counter.increment(amount);
-  return ledger.counter.value();
+  return ledger.counter.read();
 }
     `;
 
