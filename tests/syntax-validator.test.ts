@@ -325,7 +325,7 @@ export circuit getValue(): Void {
           {
             content:
               "| `increment` | `(amount: Uint<64>): []` | Increases counter |",
-            source: { filePath: "docs/adt.md" },
+            source: { filePath: "docs/ledger-adt/counter.md" },
           },
         ],
         totalResults: 1,
@@ -347,7 +347,7 @@ export circuit getValue(): Void {
           {
             content:
               "| `increment` | `(amount): []` | Inc |\n| `decrement` | `(amount): []` | Dec |",
-            source: { filePath: "docs/adt.md" },
+            source: { filePath: "docs/ledger-adt/counter.md" },
           },
         ],
         totalResults: 1,

@@ -105,41 +105,61 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
       const content = result.content || result.code || "";
 
       // Track source document
-      if (!sourceDocPath && result.source.filePath.includes("ledger-adt")) {
+      const isLedgerADTDoc = result.source.filePath.includes("ledger-adt");
+      if (!sourceDocPath && isLedgerADTDoc) {
         sourceDocPath = result.source.filePath;
       }
 
-      // Extract method signatures from content
-      // Look for patterns like: | `method` | `signature` | description |
-      const methodPattern =
-        /\|\s*`?(\w+)`?\s*\|\s*`?\(([^)]*)\)\s*(?::\s*([^|`]+))?`?\s*\|\s*([^|]+)\|/g;
-      let match;
-      while ((match = methodPattern.exec(content)) !== null) {
-        const [, methodName, params, returnType, description] = match;
-        if (methodName && !operations.some((op) => op.method === methodName)) {
-          operations.push({
-            method: methodName,
-            signature: `(${params})${returnType ? `: ${returnType.trim()}` : ""}`,
-            description: description?.trim() || "",
-            worksInCircuits: true, // Documented methods work in circuits
-            source: "indexed-docs",
-          });
+      // Only extract method signatures from ledger-adt docs
+      if (isLedgerADTDoc) {
+        // Extract method signatures from content
+        // Look for patterns like: | `method` | `signature` | description |
+        const methodPattern =
+          /\|\s*`?(\w+)`?\s*\|\s*`?\(([^)]*)\)\s*(?::\s*([^|`]+))?`?\s*\|\s*([^|]+)\|/g;
+        let match;
+        while ((match = methodPattern.exec(content)) !== null) {
+          const [, methodName, params, returnType, description] = match;
+          if (
+            methodName &&
+            !operations.some((op) => op.method === methodName)
+          ) {
+            const descText = description?.trim() || "";
+            // Detect if method is NOT available in circuits based on description
+            const worksInCircuits =
+              !/not available|not supported|not in circuits|typescript|sdk|off[-\s]?chain/i.test(
+                descText
+              );
+            operations.push({
+              method: methodName,
+              signature: `(${params})${returnType ? `: ${returnType.trim()}` : ""}`,
+              description: descText,
+              worksInCircuits,
+              source: "indexed-docs",
+            });
+          }
         }
-      }
 
-      // Also look for inline method mentions
-      const inlinePattern =
-        /(?:method|operation|function)\s+`?(\w+)`?\s*\(([^)]*)\)/gi;
-      while ((match = inlinePattern.exec(content)) !== null) {
-        const [, methodName, params] = match;
-        if (methodName && !operations.some((op) => op.method === methodName)) {
-          operations.push({
-            method: methodName,
-            signature: `(${params})`,
-            description: "Extracted from documentation",
-            worksInCircuits: true,
-            source: "indexed-docs",
-          });
+        // Also look for inline method mentions
+        const inlinePattern =
+          /(?:method|operation|function)\s+`?(\w+)`?\s*\(([^)]*)\)/gi;
+        while ((match = inlinePattern.exec(content)) !== null) {
+          const [, methodName, params] = match;
+          if (
+            methodName &&
+            !operations.some((op) => op.method === methodName)
+          ) {
+            const worksInCircuits =
+              !/not available|not supported|not in circuits|typescript|sdk|off[-\s]?chain/i.test(
+                content
+              );
+            operations.push({
+              method: methodName,
+              signature: `(${params})`,
+              description: "Extracted from documentation",
+              worksInCircuits,
+              source: "indexed-docs",
+            });
+          }
         }
       }
 

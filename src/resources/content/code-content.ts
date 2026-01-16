@@ -241,8 +241,11 @@ export circuit deposit(
   amount: Field,
   nonce: Field
 ): Field {
-  // Create commitment: hash(amount, nonce, user)
-  const commitment = persistentHash<Field>(amount, nonce);
+  // Create commitment: hash(amount || nonce)
+  // Use a struct to combine values into a single hashable input
+  struct CommitmentInput { amount: Field, nonce: Field }
+  const input = CommitmentInput { amount: amount, nonce: nonce };
+  const commitment = persistentHash<Field>(input);
   
   // Store commitment (hides amount)
   balanceCommitments.insert(user, commitment);
@@ -257,7 +260,9 @@ export circuit proveBalance(
   minBalance: Field
 ): Boolean {
   // Verify commitment
-  const expectedCommitment = persistentHash<Field>(amount, nonce);
+  struct CommitmentInput { amount: Field, nonce: Field }
+  const input = CommitmentInput { amount: amount, nonce: nonce };
+  const expectedCommitment = persistentHash<Field>(input);
   assert(balanceCommitments.lookup(user) == expectedCommitment, "Invalid commitment");
   
   // Prove property without revealing value
@@ -342,7 +347,7 @@ export circuit transfer(
   const fromBalance = getBalance(from);
   
   // Validate
-  assert(amount > 0n, "Invalid amount");
+  assert(amount > 0, "Invalid amount");
   assert(fromBalance >= amount, "Insufficient balance");
   
   // Update balances privately
@@ -363,7 +368,7 @@ export circuit revealMyBalance(): Uint<64> {
 export circuit mint(to: Opaque<"address">, amount: Uint<64>): Boolean {
   // Add access control in production
   balances.insert(to, getBalance(to) + amount);
-  totalSupply.increment(1n);
+  totalSupply.increment(1);
   return true;
 }
 `,
@@ -399,15 +404,15 @@ witness computeNullifier(voter: Opaque<"address">, proposalId: Uint<32>): Bytes<
 export circuit createProposal(
   description: Bytes<256>,
   deadline: Uint<64>
-): Uint<32> {
+): Uint<64> {
   const proposalId = proposalCount.read();
   
-  // Store proposal
-  proposals.insert(scale(proposalId), description);
-  votingDeadlines.insert(scale(proposalId), deadline);
+  // Store proposal - proposalId is Uint<64> from Counter.read()
+  proposals.insert(proposalId, description);
+  votingDeadlines.insert(proposalId, deadline);
   
-  proposalCount.increment(1n);
-  return scale(proposalId);
+  proposalCount.increment(1);
+  return proposalId;
 }
 
 // Cast a private vote
@@ -470,10 +475,11 @@ witness computeNullifier(secret: Field, commitment: Field): Bytes<32>;
 witness computeActionNullifier(userSecret: Field, actionId: Field): Bytes<32>;
 
 // Claim a reward (can only claim once per user)
+// Note: rewardAmount is Uint<16> to match Counter.increment signature
 export circuit claimReward(
   secret: Field,
   commitment: Field,
-  rewardAmount: Uint<64>
+  rewardAmount: Uint<16>
 ): Boolean {
   // Compute the nullifier
   const nullifier = computeNullifier(secret, commitment);
@@ -487,7 +493,7 @@ export circuit claimReward(
   // Mark nullifier as used
   usedNullifiers.insert(nullifier);
   
-  // Process reward
+  // Process reward (Counter.increment takes Uint<16>)
   claimedRewards.increment(rewardAmount);
   
   return true;
