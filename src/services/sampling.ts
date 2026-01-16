@@ -97,7 +97,7 @@ export async function requestCompletion(
     }
 
     return response.content.text;
-  } catch (error) {
+  } catch (error: unknown) {
     const errorStr = String(error);
 
     // Check for "Method not found" error which indicates client doesn't support sampling
@@ -222,7 +222,7 @@ ${extractedCode}
       explanation: explanation.trim(),
       warnings: [],
     };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Contract generation failed", { error: String(error) });
     return {
       code: "",
@@ -327,7 +327,7 @@ Respond in JSON format:
       summary: response,
       issues: [],
     };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Contract review failed", { error: String(error) });
     return {
       summary: `Review failed: ${String(error)}`,
@@ -383,7 +383,7 @@ Add documentation comments above each:
         temperature: 0.5,
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Documentation generation failed", { error: String(error) });
     return `Documentation generation failed: ${String(error)}`;
   }

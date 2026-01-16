@@ -791,7 +791,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
           discrepancies: comprehensiveValidation.overall.totalDiscrepancies,
           enrichments: comprehensiveValidation.overall.totalEnrichments,
         });
-      } catch (err) {
+      } catch (err: unknown) {
         logger.warn(
           "Comprehensive validation failed, falling back to ADT-only validation",
           {

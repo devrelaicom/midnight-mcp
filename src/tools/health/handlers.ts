@@ -121,7 +121,7 @@ export async function checkVersion(_input: CheckVersionInput) {
             "MCP Logging, Progress, Completions capabilities",
           ],
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       currentVersion: CURRENT_VERSION,
       latestVersion: "unknown",

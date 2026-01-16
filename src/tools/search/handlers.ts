@@ -179,7 +179,7 @@ async function tryHostedSearch<
       result: finalResponse,
       cached: true,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.warn(
       `Hosted API ${searchType} search failed, falling back to local`,
       {
@@ -692,7 +692,7 @@ export async function fetchDocs(input: {
         ? `Extracted section matching: "${extractSection}"`
         : "Full page content",
     };
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof Error) {
       if (error.name === "AbortError") {
         return {

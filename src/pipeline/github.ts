@@ -27,7 +27,7 @@ async function withRetry<T>(
   for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
       return await operation();
-    } catch (error) {
+    } catch (error: unknown) {
       lastError = error as Error;
       const isRetryable = isRetryableError(error);
 
@@ -240,7 +240,7 @@ export class GitHubClient {
 
       this.repoInfoCache.set(cacheKey, result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Failed to get repository info for ${owner}/${repo}`, {
         error: String(error),
       });
@@ -289,7 +289,7 @@ export class GitHubClient {
 
       this.fileCache.set(cacheKey, result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn(`Failed to get file ${path} from ${owner}/${repo}`, {
         error: String(error),
       });
@@ -340,7 +340,7 @@ export class GitHubClient {
 
       this.treeCache.set(cacheKey, result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Failed to get repository tree for ${owner}/${repo}`, {
         error: String(error),
       });
@@ -438,7 +438,7 @@ export class GitHubClient {
         date: commit.commit.author?.date || "",
         url: commit.html_url,
       }));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Failed to get commits for ${owner}/${repo}`, {
         error: String(error),
       });
@@ -473,7 +473,7 @@ export class GitHubClient {
       }
 
       return Array.from(changedFiles);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Failed to get changed files for ${owner}/${repo}`, {
         error: String(error),
       });
@@ -511,7 +511,7 @@ export class GitHubClient {
         repository: item.repository.full_name,
         url: item.html_url,
       }));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn(`Code search failed for query: ${query}`, {
         error: String(error),
       });
@@ -542,7 +542,7 @@ export class GitHubClient {
       updateRateLimit(rateLimit);
 
       return rateLimit;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn("Failed to get rate limit", { error: String(error) });
       // Return defaults if we can't get rate limit
       return {

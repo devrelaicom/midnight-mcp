@@ -51,7 +51,7 @@ async function checkGitHubAPI(): Promise<{
       message: `Rate limit: ${rateLimit.remaining}/${rateLimit.limit}`,
       latency,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       status: "fail",
       message: `GitHub API error: ${error instanceof Error ? error.message : String(error)}`,

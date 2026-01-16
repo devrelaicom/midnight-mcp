@@ -73,7 +73,7 @@ export class ReleaseTracker {
           downloadUrl: asset.browser_download_url,
         })),
       }));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn(`Failed to fetch releases for ${owner}/${repo}`, {
         error: String(error),
       });
@@ -370,7 +370,7 @@ export class ReleaseTracker {
           : data.content;
 
       return { content, version };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn(
         `Failed to fetch ${filePath} at ${version} from ${owner}/${repo}`,
         {
