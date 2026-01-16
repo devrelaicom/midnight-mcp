@@ -2,7 +2,6 @@
  * Health check utilities for MCP server monitoring
  */
 
-import { createRequire } from "module";
 import { githubClient } from "../pipeline/index.js";
 
 export interface HealthStatus {
@@ -21,10 +20,9 @@ export interface HealthStatus {
 // Track server start time
 const startTime = Date.now();
 
-// Get package version - read from package.json for accurate version
-const require = createRequire(import.meta.url);
-const packageJson = require("../../package.json");
-const VERSION = packageJson.version || "0.2.10";
+// Get package version - injected at build time via tsup define
+// Falls back to env var or hardcoded version
+const VERSION = process.env.NPM_PACKAGE_VERSION || "0.2.12";
 
 /**
  * Check if GitHub API is accessible

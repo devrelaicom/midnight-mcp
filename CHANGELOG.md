@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-01-16
+
+### Fixed
+
+- **Critical: Package Startup** - Fixed `Cannot find module '../../package.json'` error
+  - v0.2.11 broke startup by using `createRequire` to load package.json at runtime
+  - Now uses build-time version injection via tsup `define` (which was already configured)
+  - Version is properly embedded during build, no runtime file loading needed
+
 ## [0.2.11] - 2026-01-16
 
 ### Fixed
