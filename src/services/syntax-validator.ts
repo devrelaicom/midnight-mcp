@@ -17,6 +17,35 @@ import {
 import { logger } from "../utils/index.js";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/** Maximum results to fetch from indexed docs for ADT info */
+const ADT_SEARCH_LIMIT = 10;
+
+/** Maximum results to merge for syntax patterns */
+const SYNTAX_RESULTS_LIMIT = 10;
+
+/** Maximum results for each sub-query (docs/code) */
+const SYNTAX_SUBQUERY_LIMIT = 5;
+
+/** Maximum content length to consider for notes extraction */
+const MAX_NOTE_SOURCE_LENGTH = 500;
+
+/** Valid note length range */
+const NOTE_MIN_LENGTH = 20;
+const NOTE_MAX_LENGTH = 300;
+
+/** Maximum notes to keep per ADT */
+const MAX_NOTES_PER_ADT = 3;
+
+/** Evidence snippet length for claim verification */
+const EVIDENCE_SNIPPET_LENGTH = 200;
+
+/** Maximum evidence items to return */
+const MAX_EVIDENCE_ITEMS = 3;
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -58,7 +87,7 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
     // Search docs for the ADT reference
     const docsResult = await searchDocsHosted(
       `${adtName} ADT operations methods ledger`,
-      10,
+      ADT_SEARCH_LIMIT,
       "reference"
     );
 
@@ -117,10 +146,13 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
       // Capture notes about the ADT
       if (
         content.toLowerCase().includes(adtName.toLowerCase()) &&
-        content.length < 500
+        content.length < MAX_NOTE_SOURCE_LENGTH
       ) {
         const cleanNote = content.replace(/\s+/g, " ").trim();
-        if (cleanNote.length > 20 && cleanNote.length < 300) {
+        if (
+          cleanNote.length > NOTE_MIN_LENGTH &&
+          cleanNote.length < NOTE_MAX_LENGTH
+        ) {
           notes.push(cleanNote);
         }
       }
@@ -134,12 +166,14 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
     return {
       name: adtName,
       operations,
-      notes: notes.slice(0, 3), // Keep top 3 notes
+      notes: notes.slice(0, MAX_NOTES_PER_ADT),
       sourceDocPath,
       lastVerified: new Date().toISOString(),
     };
-  } catch (error) {
-    logger.warn(`Failed to search indexed docs for ADT ${adtName}:`, error);
+  } catch (error: unknown) {
+    logger.warn(`Failed to search indexed docs for ADT ${adtName}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -157,8 +191,12 @@ export async function searchCompactSyntax(
   try {
     // Search both docs and code examples
     const [docsResult, codeResult] = await Promise.all([
-      searchDocsHosted(`Compact ${topic} syntax`, 5, "reference"),
-      searchCompactHosted(`${topic}`, 5),
+      searchDocsHosted(
+        `Compact ${topic} syntax`,
+        SYNTAX_SUBQUERY_LIMIT,
+        "reference"
+      ),
+      searchCompactHosted(`${topic}`, SYNTAX_SUBQUERY_LIMIT),
     ]);
 
     // Merge results, preferring docs for correctness
@@ -168,13 +206,15 @@ export async function searchCompactSyntax(
     ];
 
     return {
-      results: mergedResults.slice(0, 10),
+      results: mergedResults.slice(0, SYNTAX_RESULTS_LIMIT),
       totalResults: mergedResults.length,
       query: topic,
       lastIndexed: docsResult.lastIndexed || codeResult.lastIndexed,
     };
-  } catch (error) {
-    logger.warn(`Failed to search Compact syntax for topic ${topic}:`, error);
+  } catch (error: unknown) {
+    logger.warn(`Failed to search Compact syntax for topic ${topic}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -294,6 +334,11 @@ export async function validateADTOperations(
 // ============================================================================
 
 /**
+ * ADT types that have dedicated documentation
+ */
+const ADT_TYPES = ["Counter", "Map", "Set", "MerkleTree", "Cell"] as const;
+
+/**
  * Key documentation URLs that should be searched for comprehensive info
  */
 export const CRITICAL_DOC_TOPICS = [
@@ -307,28 +352,41 @@ export const CRITICAL_DOC_TOPICS = [
   { topic: "Type casting", query: "cast Uint Field Bytes conversion" },
   { topic: "Disclosure", query: "disclose witness disclosure" },
   { topic: "Built-in functions", query: "persistentHash pad hash builtin" },
-];
+] as const;
 
 /**
  * Search indexed docs for all critical topics to build comprehensive reference
+ * Uses parallel requests for better performance
  */
 export async function enrichSyntaxReference(): Promise<{
   adtInfo: Record<string, ADTInfo | null>;
   syntaxPatterns: Record<string, HostedSearchResponse | null>;
   lastEnriched: string;
 }> {
-  const adtInfo: Record<string, ADTInfo | null> = {};
-  const syntaxPatterns: Record<string, HostedSearchResponse | null> = {};
+  // Fetch all ADT info in parallel
+  const adtResults = await Promise.all(
+    ADT_TYPES.map(async (adt) => ({
+      type: adt,
+      info: await searchADTInfo(adt),
+    }))
+  );
 
-  // Search for ADT info
-  const adtTypes = ["Counter", "Map", "Set", "MerkleTree", "Cell"];
-  for (const adt of adtTypes) {
-    adtInfo[adt] = await searchADTInfo(adt);
+  const adtInfo: Record<string, ADTInfo | null> = {};
+  for (const { type, info } of adtResults) {
+    adtInfo[type] = info;
   }
 
-  // Search for syntax patterns
-  for (const { topic, query } of CRITICAL_DOC_TOPICS) {
-    syntaxPatterns[topic] = await searchCompactSyntax(query);
+  // Fetch all syntax patterns in parallel
+  const syntaxResults = await Promise.all(
+    CRITICAL_DOC_TOPICS.map(async ({ topic, query }) => ({
+      topic,
+      result: await searchCompactSyntax(query),
+    }))
+  );
+
+  const syntaxPatterns: Record<string, HostedSearchResponse | null> = {};
+  for (const { topic, result } of syntaxResults) {
+    syntaxPatterns[topic] = result;
   }
 
   return {
@@ -347,7 +405,7 @@ export async function verifyClaimAgainstDocs(claim: string): Promise<{
   searchResults: HostedSearchResponse | null;
 }> {
   try {
-    const results = await searchDocsHosted(claim, 5, "all");
+    const results = await searchDocsHosted(claim, SYNTAX_SUBQUERY_LIMIT, "all");
 
     if (!results.results || results.results.length === 0) {
       return {
@@ -358,9 +416,12 @@ export async function verifyClaimAgainstDocs(claim: string): Promise<{
     }
 
     const evidence: string[] = [];
-    for (const result of results.results.slice(0, 3)) {
+    for (const result of results.results.slice(0, MAX_EVIDENCE_ITEMS)) {
       const snippet =
-        (result.content || result.code || "").slice(0, 200) + "...";
+        (result.content || result.code || "").slice(
+          0,
+          EVIDENCE_SNIPPET_LENGTH
+        ) + "...";
       evidence.push(`[${result.source.filePath}]: ${snippet}`);
     }
 
@@ -369,10 +430,11 @@ export async function verifyClaimAgainstDocs(claim: string): Promise<{
       evidence,
       searchResults: results,
     };
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       verified: false,
-      evidence: [`Search failed: ${error}`],
+      evidence: [`Search failed: ${errorMessage}`],
       searchResults: null,
     };
   }
