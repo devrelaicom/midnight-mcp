@@ -155,10 +155,11 @@ Key Compact concepts:
 - \`Field\`, \`Boolean\`, \`Uint<N>\`, \`Bytes<N>\` - Primitive types
 
 Always include:
-1. Proper imports (include "std")
-2. Clear ledger state definitions
-3. Access control where appropriate
-4. Comprehensive inline comments
+1. Proper imports (import CompactStandardLibrary;)
+2. pragma language_version >= 0.18.0;
+3. Clear ledger state definitions
+4. Access control where appropriate
+5. Comprehensive inline comments
 
 Return ONLY the Compact code, no explanations.`;
 

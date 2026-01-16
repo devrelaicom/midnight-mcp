@@ -626,9 +626,13 @@ npm install @openzeppelin/compact-contracts
 ## Usage Example
 
 \`\`\`compact
-include "std";
-include "@openzeppelin/compact-contracts/token/FungibleToken.compact";
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+import "@openzeppelin/compact-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   // Inherit from OpenZeppelin contracts
@@ -664,8 +668,11 @@ The recommended standard for privacy-preserving tokens on Midnight.
 ## Basic Usage
 
 \`\`\`compact
-include "std";
-include "@openzeppelin/compact-contracts/token/FungibleToken.compact";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+import "@openzeppelin/compact-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
 
 ledger {
   ...FungibleToken.ledger;
@@ -706,7 +713,8 @@ export circuit revealBalance(): Field {
 ## Minting and Burning
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   ...FungibleToken.ledger;
@@ -749,7 +757,8 @@ Patterns for controlling who can call contract functions.
 Simple single-owner access control.
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   ...Ownable.ledger;
@@ -775,7 +784,8 @@ export circuit transferOwnership(newOwner: Address): Void {
 For more complex permission systems.
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/AccessControl.compact";
+import "@openzeppelin/compact-contracts/src/access/AccessControl"
+  prefix AccessControl_;
 
 ledger {
   ...AccessControl.ledger;
@@ -803,8 +813,10 @@ export circuit grantMinterRole(account: Address): Void {
 ## Combining Patterns
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
-include "@openzeppelin/compact-contracts/security/Pausable.compact";
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
+import "@openzeppelin/compact-contracts/src/security/Pausable"
+  prefix Pausable_;
 
 ledger {
   ...Ownable.ledger;
@@ -833,8 +845,10 @@ Security utilities for Compact contracts.
 Emergency stop mechanism for contracts.
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/security/Pausable.compact";
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+import "@openzeppelin/compact-contracts/src/security/Pausable"
+  prefix Pausable_;
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   ...Pausable.ledger;

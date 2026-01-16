@@ -57,8 +57,11 @@ witness getSecret(): Field {
 
   it("should parse imports", () => {
     const code = `
-include "std";
-include "crypto";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+import "@openzeppelin/compact-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
 
 ledger {
   counter: Counter;
@@ -67,13 +70,17 @@ ledger {
 
     const result = parseCompactFile("test.compact", code);
 
-    expect(result.imports).toContain("std");
-    expect(result.imports).toContain("crypto");
+    expect(result.imports).toContain("CompactStandardLibrary");
+    expect(result.imports).toContain(
+      "@openzeppelin/compact-contracts/src/token/FungibleToken"
+    );
   });
 
   it("should parse a complete contract", () => {
     const code = `
-include "std";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
 
 ledger {
   counter: Counter;
@@ -106,7 +113,7 @@ witness getSecretKey(): Bytes<32> {
     expect(result.metadata.hasLedger).toBe(true);
     expect(result.metadata.hasCircuits).toBe(true);
     expect(result.metadata.hasWitnesses).toBe(true);
-    expect(result.imports).toContain("std");
+    expect(result.imports).toContain("CompactStandardLibrary");
     expect(result.exports).toContain("increment");
     expect(result.exports).toContain("postMessage");
   });

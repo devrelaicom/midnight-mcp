@@ -664,7 +664,7 @@ export async function extractContractStructure(
   // 2. Detect standard library name collisions
   const hasStdlibImport =
     imports.includes("CompactStandardLibrary") ||
-    code.includes('include "std"');
+    code.includes("import CompactStandardLibrary");
 
   if (hasStdlibImport) {
     // Check circuits for name collisions
