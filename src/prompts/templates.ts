@@ -292,11 +292,11 @@ Please analyze:
    - Correct use of disclose() and commit()
    - Privacy guarantees provided
 
-4. **Best Practices**
-   - Code organization
-   - Naming conventions
-   - Documentation
-   - Error messages
+4. **Style Suggestions** (these are CONVENTIONS, not requirements)
+   - Code organization recommendations
+   - Naming conventions (project-specific)
+   - Documentation patterns
+   - Note: The Compact docs don't specify indentation, line length, or comment style
 
 5. **Performance**
    - Circuit complexity
@@ -307,6 +307,11 @@ Please analyze:
    - Critical issues to fix (start with P0 syntax errors)
    - Improvements to consider
    - Alternative approaches
+
+**IMPORTANT**: Clearly distinguish between:
+- ERRORS: Actual syntax/compilation issues (required fixes)
+- WARNINGS: Security/logic concerns (should fix)
+- INFO: Style suggestions (optional, project-specific conventions)
 
 Please provide specific line references and code suggestions where applicable.`,
       },
