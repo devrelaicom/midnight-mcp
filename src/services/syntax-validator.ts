@@ -461,7 +461,11 @@ export interface StaticDataValidation {
  * Checks if claimed builtins actually exist in the language
  */
 export async function validateBuiltinFunctions(
-  staticBuiltins: Array<{ name: string; signature: string; description: string }>
+  staticBuiltins: Array<{
+    name: string;
+    signature: string;
+    description: string;
+  }>
 ): Promise<StaticDataValidation> {
   const discrepancies: string[] = [];
   const enrichments: string[] = [];
@@ -518,7 +522,12 @@ export async function validateBuiltinFunctions(
  * Validate type compatibility rules against indexed docs
  */
 export async function validateTypeCompatibility(
-  staticRules: Array<{ types: string; works: boolean; fix?: string; note?: string }>
+  staticRules: Array<{
+    types: string;
+    works: boolean;
+    fix?: string;
+    note?: string;
+  }>
 ): Promise<StaticDataValidation> {
   const discrepancies: string[] = [];
   const enrichments: string[] = [];
@@ -534,8 +543,15 @@ export async function validateTypeCompatibility(
 
       // Check for any rules that contradict our static data
       for (const rule of staticRules) {
-        const typeA = rule.types.split(/[=<>+*]/)[0].trim().toLowerCase();
-        const typeB = rule.types.split(/[=<>+*]/).pop()?.trim().toLowerCase();
+        const typeA = rule.types
+          .split(/[=<>+*]/)[0]
+          .trim()
+          .toLowerCase();
+        const typeB = rule.types
+          .split(/[=<>+*]/)
+          .pop()
+          ?.trim()
+          .toLowerCase();
 
         if (typeA && typeB) {
           // If doc says these types work together but we say they don't
@@ -618,7 +634,8 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
   {
     pattern: /ledger\s*\{/,
     name: "ledger-block",
-    message: "Deprecated: Use 'export ledger field: Type;' instead of ledger { } block",
+    message:
+      "Deprecated: Use 'export ledger field: Type;' instead of ledger { } block",
     since: "0.16",
   },
   {
@@ -642,7 +659,8 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
   {
     pattern: /::\w+/,
     name: "rust-enum-syntax",
-    message: "Rust-style :: enum access doesn't work, use dot notation (Choice.rock)",
+    message:
+      "Rust-style :: enum access doesn't work, use dot notation (Choice.rock)",
     since: "always",
   },
   {
@@ -654,7 +672,8 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
   {
     pattern: /witness\s+\w+\s*\([^)]*\)\s*:\s*\w+\s*\{/,
     name: "witness-with-body",
-    message: "Witnesses are declarations only - no body allowed. Implementation goes in TypeScript prover.",
+    message:
+      "Witnesses are declarations only - no body allowed. Implementation goes in TypeScript prover.",
     since: "always",
   },
 ] as const;
@@ -665,7 +684,11 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
 export function scanForDeprecatedPatterns(
   code: string
 ): Array<{ pattern: string; message: string; lineNumber?: number }> {
-  const issues: Array<{ pattern: string; message: string; lineNumber?: number }> = [];
+  const issues: Array<{
+    pattern: string;
+    message: string;
+    lineNumber?: number;
+  }> = [];
   const lines = code.split("\n");
 
   for (const { pattern, name, message } of DEPRECATED_SYNTAX_PATTERNS) {
@@ -688,39 +711,65 @@ export function scanForDeprecatedPatterns(
  * Call this to validate everything at once
  */
 export async function validateAllStaticData(staticData: {
-  builtinFunctions?: Array<{ name: string; signature: string; description: string }>;
-  typeCompatibility?: Array<{ types: string; works: boolean; fix?: string; note?: string }>;
+  builtinFunctions?: Array<{
+    name: string;
+    signature: string;
+    description: string;
+  }>;
+  typeCompatibility?: Array<{
+    types: string;
+    works: boolean;
+    fix?: string;
+    note?: string;
+  }>;
   commonErrors?: Array<{ error: string; cause: string; fix: string }>;
-  ledgerTypeLimits?: Record<string, { circuitOperations: Array<{ method: string; works: boolean; note: string }> }>;
+  ledgerTypeLimits?: Record<
+    string,
+    {
+      circuitOperations: Array<{
+        method: string;
+        works: boolean;
+        note: string;
+      }>;
+    }
+  >;
 }): Promise<{
-  overall: { validated: boolean; totalDiscrepancies: number; totalEnrichments: number };
+  overall: {
+    validated: boolean;
+    totalDiscrepancies: number;
+    totalEnrichments: number;
+  };
   results: Record<string, StaticDataValidation>;
   lastValidated: string;
 }> {
   const results: Record<string, StaticDataValidation> = {};
 
   // Run all validations in parallel
-  const [builtinResult, typeResult, errorResult, adtResults] = await Promise.all([
-    staticData.builtinFunctions
-      ? validateBuiltinFunctions(staticData.builtinFunctions)
-      : Promise.resolve(null),
-    staticData.typeCompatibility
-      ? validateTypeCompatibility(staticData.typeCompatibility)
-      : Promise.resolve(null),
-    staticData.commonErrors
-      ? validateCommonErrors(staticData.commonErrors)
-      : Promise.resolve(null),
-    staticData.ledgerTypeLimits
-      ? Promise.all(
-          Object.entries(staticData.ledgerTypeLimits).map(
-            async ([name, data]) => ({
-              name,
-              result: await validateADTOperations(name, data.circuitOperations),
-            })
+  const [builtinResult, typeResult, errorResult, adtResults] =
+    await Promise.all([
+      staticData.builtinFunctions
+        ? validateBuiltinFunctions(staticData.builtinFunctions)
+        : Promise.resolve(null),
+      staticData.typeCompatibility
+        ? validateTypeCompatibility(staticData.typeCompatibility)
+        : Promise.resolve(null),
+      staticData.commonErrors
+        ? validateCommonErrors(staticData.commonErrors)
+        : Promise.resolve(null),
+      staticData.ledgerTypeLimits
+        ? Promise.all(
+            Object.entries(staticData.ledgerTypeLimits).map(
+              async ([name, data]) => ({
+                name,
+                result: await validateADTOperations(
+                  name,
+                  data.circuitOperations
+                ),
+              })
+            )
           )
-        )
-      : Promise.resolve([]),
-  ]);
+        : Promise.resolve([]),
+    ]);
 
   if (builtinResult) results.builtinFunctions = builtinResult;
   if (typeResult) results.typeCompatibility = typeResult;
@@ -739,7 +788,9 @@ export async function validateAllStaticData(staticData: {
   }
 
   // Calculate overall stats
-  const allDiscrepancies = Object.values(results).flatMap((r) => r.discrepancies);
+  const allDiscrepancies = Object.values(results).flatMap(
+    (r) => r.discrepancies
+  );
   const allEnrichments = Object.values(results).flatMap((r) => r.enrichments);
 
   return {

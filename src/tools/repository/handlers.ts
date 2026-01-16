@@ -758,14 +758,22 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       // HYBRID VALIDATION: Validate ALL static data against indexed docs
       // The indexed docs are the source of truth - static is fallback
       // ============================================================
-      logger.debug("Starting comprehensive hybrid validation against indexed docs");
+      logger.debug(
+        "Starting comprehensive hybrid validation against indexed docs"
+      );
 
       // Validate ALL static data types in parallel
-      let comprehensiveValidation: {
-        overall: { validated: boolean; totalDiscrepancies: number; totalEnrichments: number };
-        results: Record<string, StaticDataValidation>;
-        lastValidated: string;
-      } | undefined;
+      let comprehensiveValidation:
+        | {
+            overall: {
+              validated: boolean;
+              totalDiscrepancies: number;
+              totalEnrichments: number;
+            };
+            results: Record<string, StaticDataValidation>;
+            lastValidated: string;
+          }
+        | undefined;
 
       try {
         comprehensiveValidation = await validateAllStaticData({
@@ -784,9 +792,12 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
           enrichments: comprehensiveValidation.overall.totalEnrichments,
         });
       } catch (err) {
-        logger.warn("Comprehensive validation failed, falling back to ADT-only validation", {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        logger.warn(
+          "Comprehensive validation failed, falling back to ADT-only validation",
+          {
+            error: err instanceof Error ? err.message : String(err),
+          }
+        );
       }
 
       // Collect all validation warnings and enrichments
@@ -794,12 +805,18 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       const validationEnrichments: string[] = [];
 
       if (comprehensiveValidation) {
-        for (const [key, result] of Object.entries(comprehensiveValidation.results)) {
+        for (const [key, result] of Object.entries(
+          comprehensiveValidation.results
+        )) {
           if (result.discrepancies.length > 0) {
-            validationWarnings.push(`${key}: ${result.discrepancies.join("; ")}`);
+            validationWarnings.push(
+              `${key}: ${result.discrepancies.join("; ")}`
+            );
           }
           if (result.enrichments.length > 0) {
-            validationEnrichments.push(`${key}: ${result.enrichments.join("; ")}`);
+            validationEnrichments.push(
+              `${key}: ${result.enrichments.join("; ")}`
+            );
           }
         }
       }
@@ -827,7 +844,8 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       const validatedLedgerTypeLimits: Record<string, unknown> = {};
       for (const [adtName, staticInfo] of Object.entries(LEDGER_TYPE_LIMITS)) {
         const typedStaticInfo = staticInfo as LedgerADTOperations;
-        const adtValidation = comprehensiveValidation?.results[`adt_${adtName}`];
+        const adtValidation =
+          comprehensiveValidation?.results[`adt_${adtName}`];
 
         if (adtValidation?.validated) {
           // Use validated data
@@ -858,7 +876,8 @@ export ledger counter: Counter;
 export circuit increment(): [] {
   counter.increment(1);
 }`;
-      const deprecatedInTemplate = scanForDeprecatedPatterns(quickStartTemplate);
+      const deprecatedInTemplate =
+        scanForDeprecatedPatterns(quickStartTemplate);
 
       return {
         repository: "midnightntwrk/compact",
@@ -900,7 +919,8 @@ export circuit increment(): [] {
           deprecatedPatternsInTemplate:
             deprecatedInTemplate.length > 0 ? deprecatedInTemplate : undefined,
           // Last validation timestamp
-          lastValidated: comprehensiveValidation?.lastValidated || new Date().toISOString(),
+          lastValidated:
+            comprehensiveValidation?.lastValidated || new Date().toISOString(),
         },
 
         // Quick start template - ALWAYS compiles
