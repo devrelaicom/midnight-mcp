@@ -86,11 +86,21 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
   let hasCircuits = false;
   let hasWitnesses = false;
 
-  // Extract imports
-  const importRegex = /^include\s+["']([^"']+)["'];?/gm;
-  let importMatch;
-  while ((importMatch = importRegex.exec(content)) !== null) {
-    imports.push(importMatch[1]);
+  // Extract imports - supports both new 'import' syntax and legacy 'include' for compatibility
+  // New: import CompactStandardLibrary;
+  // New: import "path/to/module" prefix Name_;
+  // Legacy: include "module";
+  const importPatterns = [
+    /^import\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/gm, // import CompactStandardLibrary;
+    /^import\s+["']([^"']+)["']\s*(?:prefix\s+\w+_)?\s*;?/gm, // import "path" prefix X_;
+    /^include\s+["']([^"']+)["'];?/gm, // legacy: include "std";
+  ];
+
+  for (const importRegex of importPatterns) {
+    let importMatch;
+    while ((importMatch = importRegex.exec(content)) !== null) {
+      imports.push(importMatch[1]);
+    }
   }
 
   // Parse ledger block

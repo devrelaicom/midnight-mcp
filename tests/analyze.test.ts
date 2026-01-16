@@ -4,7 +4,9 @@ import { analyzeContract, explainCircuit } from "../src/tools/analyze/index.js";
 describe("Contract Analyzer", () => {
   it("should analyze a simple counter contract", async () => {
     const code = `
-include "std";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
 
 ledger {
   counter: Counter;

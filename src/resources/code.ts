@@ -122,7 +122,7 @@ export async function getCode(uri: string): Promise<string | null> {
           return file.content;
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn(`Could not fetch code from GitHub: ${uri}`);
     }
   }

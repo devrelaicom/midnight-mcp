@@ -63,12 +63,14 @@ Always import the standard library:
 import CompactStandardLibrary;
 \`\`\`
 
-For multi-file contracts, use \`include\`:
+For modular code, use module imports (not a separate \`include\` directive):
 \`\`\`compact
-include "types";
-include "ledger";
-include "circuits";
+import "path/to/module";
+import { SomeType } from "other/module";
 \`\`\`
+
+> **Note:** The docs describe modules and \`import\` syntax, but do not document
+> a separate \`include\` directive. Use \`import\` for code organization.
 
 ---
 
@@ -113,6 +115,14 @@ ledger privateData: Field;                 // Private, not exported
 | \`Bytes<N>\` | Fixed-size byte array | \`hash: Bytes<32>\` |
 | \`Uint<N>\` | Unsigned integer (N = 8, 16, 32, 64, 128, 256) | \`balance: Uint<64>\` |
 | \`Uint<MIN..MAX>\` | Bounded unsigned integer | \`score: Uint<0..100>\` |
+
+**⚠️ Uint Type Equivalence:** \`Uint<N>\` (sized) and \`Uint<0..MAX>\` (bounded) are the **SAME type family**.
+\`Uint<N>\` is exactly equivalent to \`Uint<0..(2^N - 1)>\`:
+- \`Uint<8>\` = \`Uint<0..255>\` (2^8 - 1 = 255)
+- \`Uint<16>\` = \`Uint<0..65535>\` (2^16 - 1 = 65535)
+- \`Uint<64>\` = \`Uint<0..18446744073709551615>\`
+
+These can be used interchangeably - they are **not** separate types.
 
 ### Collection Types
 | Type | Description | Example |
@@ -358,28 +368,47 @@ counter.resetToDefault();       // Reset to zero
 
 ### Map Operations
 \`\`\`compact
-// These work in circuits:
-balances.insert(address, 100);
-balances.remove(address);
+// Map<key_type, value_type> - All operations work in circuits unless noted
 
-// ⚠️ DOES NOT WORK IN CIRCUITS:
-// const balance = balances.lookup(address);  // ERROR
-// const exists = balances.member(address);   // ERROR
-// Instead, use witnesses to read values:
-witness get_balance(addr: Bytes<32>): Uint<64>;
+// Insert/update operations
+balances.insert(address, 100);           // insert(key, value): []
+balances.insertDefault(address);         // insertDefault(key): [] - inserts default value
+
+// Query operations (all work in circuits ✅)
+const balance = balances.lookup(address);  // lookup(key): value_type
+const exists = balances.member(address);   // member(key): Boolean
+const empty = balances.isEmpty();          // isEmpty(): Boolean
+const count = balances.size();             // size(): Uint<64>
+
+// Remove operations
+balances.remove(address);                // remove(key): []
+balances.resetToDefault();               // resetToDefault(): [] - clears entire map
+
+// Coin-specific (only when value_type is QualifiedCoinInfo)
+// coinMap.insertCoin(key, coinInfo, recipient): []
 \`\`\`
+
+**TypeScript-only:** \`[Symbol.iterator]()\` for iteration - not available in circuits.
 
 ### Set Operations
 \`\`\`compact
-// These work in circuits:
-members.insert(address);
-members.remove(address);
+// Set<value_type> - All operations work in circuits unless noted
 
-// ⚠️ DOES NOT WORK IN CIRCUITS:
-// const isMember = members.member(address);  // ERROR
-// Use witness instead:
-witness is_member(addr: Bytes<32>): Boolean;
+// Insert/remove operations
+members.insert(address);                    // insert(elem): []
+members.remove(address);                    // remove(elem): []
+members.resetToDefault();                   // resetToDefault(): [] - clears entire set
+
+// Query operations (all work in circuits ✅)
+const isMember = members.member(address);   // member(elem): Boolean
+const empty = members.isEmpty();            // isEmpty(): Boolean
+const count = members.size();               // size(): Uint<64>
+
+// Coin-specific (only when value_type is QualifiedCoinInfo)
+// coinSet.insertCoin(coinInfo, recipient): []
 \`\`\`
+
+**TypeScript-only:** \`[Symbol.iterator]()\` for iteration - not available in circuits.
 
 ### Maybe Operations
 \`\`\`compact
@@ -597,9 +626,13 @@ npm install @openzeppelin/compact-contracts
 ## Usage Example
 
 \`\`\`compact
-include "std";
-include "@openzeppelin/compact-contracts/token/FungibleToken.compact";
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+import "@openzeppelin/compact-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   // Inherit from OpenZeppelin contracts
@@ -635,8 +668,11 @@ The recommended standard for privacy-preserving tokens on Midnight.
 ## Basic Usage
 
 \`\`\`compact
-include "std";
-include "@openzeppelin/compact-contracts/token/FungibleToken.compact";
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+import "@openzeppelin/compact-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
 
 ledger {
   ...FungibleToken.ledger;
@@ -677,7 +713,8 @@ export circuit revealBalance(): Field {
 ## Minting and Burning
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   ...FungibleToken.ledger;
@@ -720,7 +757,8 @@ Patterns for controlling who can call contract functions.
 Simple single-owner access control.
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   ...Ownable.ledger;
@@ -746,7 +784,8 @@ export circuit transferOwnership(newOwner: Address): Void {
 For more complex permission systems.
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/AccessControl.compact";
+import "@openzeppelin/compact-contracts/src/access/AccessControl"
+  prefix AccessControl_;
 
 ledger {
   ...AccessControl.ledger;
@@ -774,8 +813,10 @@ export circuit grantMinterRole(account: Address): Void {
 ## Combining Patterns
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
-include "@openzeppelin/compact-contracts/security/Pausable.compact";
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
+import "@openzeppelin/compact-contracts/src/security/Pausable"
+  prefix Pausable_;
 
 ledger {
   ...Ownable.ledger;
@@ -804,8 +845,10 @@ Security utilities for Compact contracts.
 Emergency stop mechanism for contracts.
 
 \`\`\`compact
-include "@openzeppelin/compact-contracts/security/Pausable.compact";
-include "@openzeppelin/compact-contracts/access/Ownable.compact";
+import "@openzeppelin/compact-contracts/src/security/Pausable"
+  prefix Pausable_;
+import "@openzeppelin/compact-contracts/src/access/Ownable"
+  prefix Ownable_;
 
 ledger {
   ...Pausable.ledger;

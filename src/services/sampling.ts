@@ -97,7 +97,7 @@ export async function requestCompletion(
     }
 
     return response.content.text;
-  } catch (error) {
+  } catch (error: unknown) {
     const errorStr = String(error);
 
     // Check for "Method not found" error which indicates client doesn't support sampling
@@ -155,10 +155,11 @@ Key Compact concepts:
 - \`Field\`, \`Boolean\`, \`Uint<N>\`, \`Bytes<N>\` - Primitive types
 
 Always include:
-1. Proper imports (include "std")
-2. Clear ledger state definitions
-3. Access control where appropriate
-4. Comprehensive inline comments
+1. Proper imports (import CompactStandardLibrary;)
+2. pragma language_version >= 0.18.0;
+3. Clear ledger state definitions
+4. Access control where appropriate
+5. Comprehensive inline comments
 
 Return ONLY the Compact code, no explanations.`;
 
@@ -222,7 +223,7 @@ ${extractedCode}
       explanation: explanation.trim(),
       warnings: [],
     };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Contract generation failed", { error: String(error) });
     return {
       code: "",
@@ -327,7 +328,7 @@ Respond in JSON format:
       summary: response,
       issues: [],
     };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Contract review failed", { error: String(error) });
     return {
       summary: `Review failed: ${String(error)}`,
@@ -383,7 +384,7 @@ Add documentation comments above each:
         temperature: 0.5,
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Documentation generation failed", { error: String(error) });
     return `Documentation generation failed: ${String(error)}`;
   }

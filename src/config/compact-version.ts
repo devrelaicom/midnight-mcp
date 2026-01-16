@@ -273,9 +273,24 @@ export const TYPE_COMPATIBILITY = {
 };
 
 /**
+ * Type definition for ADT operation info
+ */
+export interface LedgerADTOperations {
+  circuitOperations: Array<{
+    method: string;
+    works: boolean;
+    note: string;
+  }>;
+  typescriptAccess: string;
+  note?: string;
+  pattern?: string;
+  reason?: string;
+}
+
+/**
  * Ledger type limitations - what works in circuits vs TypeScript
  */
-export const LEDGER_TYPE_LIMITS = {
+export const LEDGER_TYPE_LIMITS: Record<string, LedgerADTOperations> = {
   Counter: {
     circuitOperations: [
       {
@@ -311,21 +326,41 @@ export const LEDGER_TYPE_LIMITS = {
         works: true,
         note: "Adds/updates entry",
       },
+      {
+        method: ".insertDefault(key)",
+        works: true,
+        note: "Inserts default value for key",
+      },
       { method: ".remove(key)", works: true, note: "Removes entry" },
       {
         method: ".lookup(key)",
         works: true,
-        note: "Returns Option<ValueType> - use in circuits",
+        note: "Returns value_type - gets value for key",
       },
       {
         method: ".member(key)",
         works: true,
         note: "Returns Boolean - checks if key exists",
       },
+      {
+        method: ".isEmpty()",
+        works: true,
+        note: "Returns Boolean - checks if map is empty",
+      },
+      {
+        method: ".size()",
+        works: true,
+        note: "Returns Uint<64> - number of entries",
+      },
+      {
+        method: ".resetToDefault()",
+        works: true,
+        note: "Clears entire map",
+      },
     ],
     typescriptAccess:
-      "Query map via `contractState.data.get(key)` in TypeScript SDK",
-    note: "Map.lookup() and Map.member() ARE available in circuits (verified with OpenZeppelin contracts)",
+      "Query map via `contractState.data.get(key)` or iterate with `[Symbol.iterator]()` in TypeScript SDK",
+    note: "All Map operations work in circuits. insertCoin() available when value_type is QualifiedCoinInfo.",
   },
   Set: {
     circuitOperations: [
@@ -336,10 +371,25 @@ export const LEDGER_TYPE_LIMITS = {
         works: true,
         note: "Returns Boolean - checks if value exists in set",
       },
+      {
+        method: ".isEmpty()",
+        works: true,
+        note: "Returns Boolean - checks if set is empty",
+      },
+      {
+        method: ".size()",
+        works: true,
+        note: "Returns Uint<64> - number of elements",
+      },
+      {
+        method: ".resetToDefault()",
+        works: true,
+        note: "Clears entire set",
+      },
     ],
     typescriptAccess:
-      "Check membership via `contractState.set.has(value)` in TypeScript SDK",
-    note: "Set.member() IS available in circuits",
+      "Check membership via `contractState.set.has(value)` or iterate with `[Symbol.iterator]()` in TypeScript SDK",
+    note: "All Set operations work in circuits. insertCoin() available when value_type is QualifiedCoinInfo.",
   },
   MerkleTree: {
     circuitOperations: [

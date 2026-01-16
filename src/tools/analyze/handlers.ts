@@ -88,11 +88,12 @@ export async function analyzeContract(input: AnalyzeContractInput) {
     }
 
     // Check for common patterns
-    if (!parsed.imports.includes("std")) {
+    if (!parsed.imports.includes("CompactStandardLibrary")) {
       findings.push({
         severity: "info",
         message: "Standard library not imported",
-        suggestion: "Consider adding 'include \"std\";' for common utilities",
+        suggestion:
+          "Consider adding 'import CompactStandardLibrary;' for common utilities",
       });
     }
   }

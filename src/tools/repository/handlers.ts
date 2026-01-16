@@ -21,7 +21,14 @@ import {
   TYPE_COMPATIBILITY,
   LEDGER_TYPE_LIMITS,
   COMMON_ERRORS,
+  type LedgerADTOperations,
 } from "../../config/compact-version.js";
+import {
+  searchCompactSyntax,
+  validateAllStaticData,
+  scanForDeprecatedPatterns,
+  type StaticDataValidation,
+} from "../../services/syntax-validator.js";
 import type {
   GetFileInput,
   ListExamplesInput,
@@ -747,6 +754,131 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
     }
 
     if (compactReference) {
+      // ============================================================
+      // HYBRID VALIDATION: Validate ALL static data against indexed docs
+      // The indexed docs are the source of truth - static is fallback
+      // ============================================================
+      logger.debug(
+        "Starting comprehensive hybrid validation against indexed docs"
+      );
+
+      // Validate ALL static data types in parallel
+      let comprehensiveValidation:
+        | {
+            overall: {
+              validated: boolean;
+              totalDiscrepancies: number;
+              totalEnrichments: number;
+            };
+            results: Record<string, StaticDataValidation>;
+            lastValidated: string;
+          }
+        | undefined;
+
+      try {
+        comprehensiveValidation = await validateAllStaticData({
+          builtinFunctions: BUILTIN_FUNCTIONS.stdlib,
+          typeCompatibility: [
+            ...TYPE_COMPATIBILITY.comparisons,
+            ...TYPE_COMPATIBILITY.arithmetic,
+          ],
+          commonErrors: COMMON_ERRORS,
+          ledgerTypeLimits: LEDGER_TYPE_LIMITS,
+        });
+
+        logger.debug("Comprehensive validation complete", {
+          validated: comprehensiveValidation.overall.validated,
+          discrepancies: comprehensiveValidation.overall.totalDiscrepancies,
+          enrichments: comprehensiveValidation.overall.totalEnrichments,
+        });
+      } catch (err: unknown) {
+        logger.warn(
+          "Comprehensive validation failed, falling back to ADT-only validation",
+          {
+            error: err instanceof Error ? err.message : String(err),
+          }
+        );
+      }
+
+      // Collect all validation warnings and enrichments
+      const validationWarnings: string[] = [];
+      const validationEnrichments: string[] = [];
+
+      if (comprehensiveValidation) {
+        for (const [key, result] of Object.entries(
+          comprehensiveValidation.results
+        )) {
+          if (result.discrepancies.length > 0) {
+            validationWarnings.push(
+              `${key}: ${result.discrepancies.join("; ")}`
+            );
+          }
+          if (result.enrichments.length > 0) {
+            validationEnrichments.push(
+              `${key}: ${result.enrichments.join("; ")}`
+            );
+          }
+        }
+      }
+
+      // Search indexed docs for additional syntax patterns
+      let indexedSyntaxPatterns: Record<string, unknown> | undefined;
+      try {
+        const syntaxSearch = await searchCompactSyntax(
+          "circuit witness ledger pragma"
+        );
+        if (syntaxSearch && syntaxSearch.results.length > 0) {
+          indexedSyntaxPatterns = {
+            resultCount: syntaxSearch.results.length,
+            topSources: syntaxSearch.results.slice(0, 3).map((r) => ({
+              path: r.source.filePath,
+              repo: r.source.repository,
+            })),
+          };
+        }
+      } catch {
+        // Syntax search failed, continue with static data
+      }
+
+      // Build validated ledger type limits from comprehensive validation
+      const validatedLedgerTypeLimits: Record<string, unknown> = {};
+      for (const [adtName, staticInfo] of Object.entries(LEDGER_TYPE_LIMITS)) {
+        const typedStaticInfo = staticInfo as LedgerADTOperations;
+        const adtValidation =
+          comprehensiveValidation?.results[`adt_${adtName}`];
+
+        if (adtValidation?.validated) {
+          // Use validated data
+          validatedLedgerTypeLimits[adtName] = {
+            ...typedStaticInfo,
+            validatedAgainstDocs: true,
+            validationDiscrepancies: adtValidation.discrepancies,
+            validationEnrichments: adtValidation.enrichments,
+          };
+        } else {
+          // Fallback to static data
+          validatedLedgerTypeLimits[adtName] = {
+            ...typedStaticInfo,
+            validatedAgainstDocs: false,
+            warning:
+              "Could not validate against indexed docs - using static reference",
+          };
+        }
+      }
+
+      // Scan the quick start template for deprecated patterns
+      const quickStartTemplate = `${RECOMMENDED_PRAGMA}
+
+import CompactStandardLibrary;
+
+export ledger counter: Counter;
+
+export circuit increment(): [] {
+  counter.increment(1);
+}`;
+      const deprecatedInTemplate =
+        scanForDeprecatedPatterns(quickStartTemplate);
+
       return {
         repository: "midnightntwrk/compact",
         version: `${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (current)`,
@@ -758,6 +890,38 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
             "See docs/SYNTAX_MAINTENANCE.md for update instructions",
         },
         ...(versionWarning && { versionWarning }),
+
+        // Comprehensive hybrid validation status
+        hybridValidation: {
+          enabled: true,
+          comprehensive: true,
+          // Overall validation stats
+          overall: comprehensiveValidation?.overall || {
+            validated: false,
+            totalDiscrepancies: 0,
+            totalEnrichments: 0,
+          },
+          // Which data types were validated
+          validatedDataTypes: comprehensiveValidation
+            ? Object.keys(comprehensiveValidation.results)
+            : [],
+          // All warnings from ALL static data validation
+          warnings:
+            validationWarnings.length > 0 ? validationWarnings : undefined,
+          // All enrichments discovered from indexed docs
+          enrichments:
+            validationEnrichments.length > 0
+              ? validationEnrichments
+              : undefined,
+          // Indexed syntax pattern sources
+          indexedSyntaxPatterns,
+          // Deprecated patterns found in quick start template (should be none!)
+          deprecatedPatternsInTemplate:
+            deprecatedInTemplate.length > 0 ? deprecatedInTemplate : undefined,
+          // Last validation timestamp
+          lastValidated:
+            comprehensiveValidation?.lastValidated || new Date().toISOString(),
+        },
 
         // Quick start template - ALWAYS compiles
         quickStartTemplate: `${RECOMMENDED_PRAGMA}
@@ -779,8 +943,8 @@ export circuit increment(): [] {
         // Type compatibility rules
         typeCompatibility: TYPE_COMPATIBILITY,
 
-        // Ledger type limitations in circuits
-        ledgerTypeLimits: LEDGER_TYPE_LIMITS,
+        // Ledger type limitations - VALIDATED against indexed docs
+        ledgerTypeLimits: validatedLedgerTypeLimits,
 
         // Common compilation errors with fixes
         commonErrors: COMMON_ERRORS,

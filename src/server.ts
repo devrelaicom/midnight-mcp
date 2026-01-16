@@ -508,7 +508,7 @@ function registerToolHandlers(server: Server): void {
         // This allows clients to parse results without JSON.parse()
         structuredContent: result,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       const durationMs = Date.now() - startTime;
       logger.error(`Tool error: ${name}`, { error: String(error) });
 
@@ -640,7 +640,7 @@ function registerResourceHandlers(server: Server): void {
           },
         ],
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Resource error: ${uri}`, { error: String(error) });
       const errorResponse = formatErrorResponse(error, `resource:${uri}`);
       return {
@@ -806,7 +806,7 @@ function setupSampling(server: Server): void {
       );
 
       return response;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Sampling request failed", { error: String(error) });
       throw error;
     }
@@ -832,7 +832,7 @@ export async function initializeServer(): Promise<Server> {
   try {
     await vectorStore.initialize();
     logger.info("Vector store initialized");
-  } catch (error) {
+  } catch (error: unknown) {
     logger.warn("Vector store initialization failed, continuing without it", {
       error: String(error),
     });
@@ -925,7 +925,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       };
       try {
         await mcpServer.connect(transport);
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error("Failed to connect streamable transport", {
           error: String(error),
         });
@@ -965,7 +965,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
 
     try {
       await mcpServer.connect(transport);
-    } catch (error) {
+    } catch (error: unknown) {
       delete transports.sse[transport.sessionId];
       logger.error(`SSE connection failed: ${transport.sessionId}`, {
         error: String(error),

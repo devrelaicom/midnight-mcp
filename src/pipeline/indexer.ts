@@ -211,7 +211,7 @@ export async function indexRepository(
     }
 
     return { fileCount: files.length, chunkCount };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error(`Failed to index repository ${repoName}`, {
       error: String(error),
     });
@@ -239,7 +239,7 @@ export async function indexAllRepositories(): Promise<IndexStats> {
       stats.totalFiles += fileCount;
       stats.totalChunks += chunkCount;
       stats.repositoriesIndexed.push(`${repoConfig.owner}/${repoConfig.repo}`);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Failed to index ${repoConfig.owner}/${repoConfig.repo}`, {
         error: String(error),
       });
@@ -335,7 +335,7 @@ export async function incrementalUpdate(
     }
 
     return { fileCount: filteredPaths.length, chunkCount };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error(`Failed incremental update for ${repoName}`, {
       error: String(error),
     });

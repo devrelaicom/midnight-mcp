@@ -47,7 +47,7 @@ export class EmbeddingGenerator {
         model: this.model,
         tokenCount: response.usage?.total_tokens,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to generate embedding", { error: String(error) });
       throw error;
     }
@@ -90,7 +90,7 @@ export class EmbeddingGenerator {
       }
 
       return results;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to generate batch embeddings", {
         error: String(error),
       });

@@ -160,7 +160,7 @@ async function makeRequest<T>(
     }
 
     return (await response.json()) as T;
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(
         `Request to ${endpoint} timed out after ${API_TIMEOUT / 1000}s.`
@@ -185,7 +185,7 @@ async function apiRequest<T>(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       return await makeRequest<T>(url, endpoint, options);
-    } catch (error) {
+    } catch (error: unknown) {
       lastError = error as Error;
 
       // Don't retry non-retryable errors (4xx client errors, etc.)
@@ -319,7 +319,7 @@ export async function checkHostedApiHealth(): Promise<{
       available: response.status === "healthy",
       documentsIndexed: response.vectorStore?.documentsIndexed,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       available: false,
       error: error instanceof Error ? error.message : String(error),

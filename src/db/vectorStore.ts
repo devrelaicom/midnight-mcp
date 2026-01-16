@@ -63,7 +63,7 @@ class VectorStore {
 
       this.initialized = true;
       logger.info("Vector store initialized successfully");
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to initialize vector store", {
         error: String(error),
       });
@@ -104,7 +104,7 @@ class VectorStore {
       });
 
       logger.debug(`Added ${documents.length} documents to vector store`);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to add documents to vector store", {
         error: String(error),
       });
@@ -165,7 +165,7 @@ class VectorStore {
       }
 
       return searchResults;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Search failed", { error: String(error) });
       return [];
     }
@@ -185,7 +185,7 @@ class VectorStore {
         },
       });
       logger.debug(`Deleted documents for ${repository}:${filePath}`);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to delete documents", { error: String(error) });
     }
   }
@@ -201,7 +201,7 @@ class VectorStore {
         where: { repository },
       });
       logger.info(`Deleted all documents for repository ${repository}`);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to delete repository documents", {
         error: String(error),
       });
@@ -219,7 +219,7 @@ class VectorStore {
     try {
       const count = await this.collection.count();
       return { count };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to get stats", { error: String(error) });
       return { count: 0 };
     }
@@ -237,7 +237,7 @@ class VectorStore {
         name: this.collectionName,
       });
       logger.info("Vector store cleared");
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to clear vector store", { error: String(error) });
     }
   }

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-01-16
+
+### Added
+
+- **Hybrid Syntax Validation** - Every `midnight-get-latest-syntax` call now validates static content against indexed documentation
+  - New `syntax-validator.ts` service with functions: `searchADTInfo()`, `validateADTOperations()`, `searchCompactSyntax()`, `enrichSyntaxReference()`, `verifyClaimAgainstDocs()`
+  - Validates all ADT types (Counter, Map, Set, MerkleTree) against indexed docs on each request
+  - Reports discrepancies between static references and indexed documentation
+  - Returns `hybridValidation` field with validation status, warnings, and enrichments
+  - Indexed docs are now the source of truth; static data is fallback
+
+### Fixed
+
+- **Counter ADT Method** - Fixed incorrect `.value()` references to correct `.read()` method
+  - Counter ADT uses `.read()` to get current value, NOT `.value()` (which never existed)
+  - Updated across all documentation, error messages, and static references
+
+### Changed
+
+- **Architecture Improvement** - Static syntax data is now always validated against indexed docs
+  - Previously, `midnight-get-latest-syntax` returned hardcoded static content without verification
+  - Now performs hybrid validation: static (fast) + indexed (correct) = best of both
+  - `LedgerADTOperations` interface added for type safety in compact-version.ts
+
 ## [0.2.9] - 2026-01-14
 
 ### Added
