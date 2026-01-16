@@ -366,20 +366,47 @@ counter.resetToDefault();       // Reset to zero
 
 ### Map Operations
 \`\`\`compact
-// All these work in circuits:
-balances.insert(address, 100);      // Insert/update key-value
-balances.remove(address);           // Remove key
-const balance = balances.lookup(address);  // ✅ Get value (returns value type)
-const exists = balances.member(address);   // ✅ Check if key exists (returns Boolean)
+// Map<key_type, value_type> - All operations work in circuits unless noted
+
+// Insert/update operations
+balances.insert(address, 100);           // insert(key, value): []
+balances.insertDefault(address);         // insertDefault(key): [] - inserts default value
+
+// Query operations (all work in circuits ✅)
+const balance = balances.lookup(address);  // lookup(key): value_type
+const exists = balances.member(address);   // member(key): Boolean
+const empty = balances.isEmpty();          // isEmpty(): Boolean
+const count = balances.size();             // size(): Uint<64>
+
+// Remove operations
+balances.remove(address);                // remove(key): []
+balances.resetToDefault();               // resetToDefault(): [] - clears entire map
+
+// Coin-specific (only when value_type is QualifiedCoinInfo)
+// coinMap.insertCoin(key, coinInfo, recipient): []
 \`\`\`
+
+**TypeScript-only:** \`[Symbol.iterator]()\` for iteration - not available in circuits.
 
 ### Set Operations
 \`\`\`compact
-// All these work in circuits:
-members.insert(address);                    // Add to set
-members.remove(address);                    // Remove from set
-const isMember = members.member(address);   // ✅ Check membership (returns Boolean)
+// Set<value_type> - All operations work in circuits unless noted
+
+// Insert/remove operations
+members.insert(address);                    // insert(elem): []
+members.remove(address);                    // remove(elem): []
+members.resetToDefault();                   // resetToDefault(): [] - clears entire set
+
+// Query operations (all work in circuits ✅)
+const isMember = members.member(address);   // member(elem): Boolean
+const empty = members.isEmpty();            // isEmpty(): Boolean
+const count = members.size();               // size(): Uint<64>
+
+// Coin-specific (only when value_type is QualifiedCoinInfo)
+// coinSet.insertCoin(coinInfo, recipient): []
 \`\`\`
+
+**TypeScript-only:** \`[Symbol.iterator]()\` for iteration - not available in circuits.
 
 ### Maybe Operations
 \`\`\`compact
