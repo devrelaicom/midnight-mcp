@@ -21,7 +21,13 @@ import {
   TYPE_COMPATIBILITY,
   LEDGER_TYPE_LIMITS,
   COMMON_ERRORS,
+  type LedgerADTOperations,
 } from "../../config/compact-version.js";
+import {
+  validateADTOperations,
+  searchCompactSyntax,
+  type ADTOperation,
+} from "../../services/syntax-validator.js";
 import type {
   GetFileInput,
   ListExamplesInput,
@@ -747,6 +753,104 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
     }
 
     if (compactReference) {
+      // ============================================================
+      // HYBRID VALIDATION: Validate static data against indexed docs
+      // The indexed docs are the source of truth - static is fallback
+      // ============================================================
+      logger.debug("Starting hybrid validation against indexed docs");
+
+      // Validate ADT operations against indexed documentation
+      const adtValidations: Record<
+        string,
+        {
+          validated: boolean;
+          operations: ADTOperation[];
+          discrepancies: string[];
+          enrichments: string[];
+        }
+      > = {};
+
+      const validationWarnings: string[] = [];
+      const validationEnrichments: string[] = [];
+
+      // Validate each ADT type against indexed docs
+      for (const [adtName, staticInfo] of Object.entries(LEDGER_TYPE_LIMITS)) {
+        const typedInfo = staticInfo as LedgerADTOperations;
+        if (typedInfo && typedInfo.circuitOperations) {
+          try {
+            const validation = await validateADTOperations(
+              adtName,
+              typedInfo.circuitOperations
+            );
+            adtValidations[adtName] = validation;
+
+            // Collect all discrepancies and enrichments
+            if (validation.discrepancies.length > 0) {
+              validationWarnings.push(
+                `${adtName}: ${validation.discrepancies.join("; ")}`
+              );
+            }
+            if (validation.enrichments.length > 0) {
+              validationEnrichments.push(
+                `${adtName}: ${validation.enrichments.join("; ")}`
+              );
+            }
+          } catch (err) {
+            logger.warn(`Failed to validate ${adtName} ADT:`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+
+      // Search indexed docs for additional syntax patterns
+      let indexedSyntaxPatterns: Record<string, unknown> | undefined;
+      try {
+        const syntaxSearch = await searchCompactSyntax(
+          "circuit witness ledger pragma"
+        );
+        if (syntaxSearch && syntaxSearch.results.length > 0) {
+          indexedSyntaxPatterns = {
+            resultCount: syntaxSearch.results.length,
+            topSources: syntaxSearch.results.slice(0, 3).map((r) => ({
+              path: r.source.filePath,
+              repo: r.source.repository,
+            })),
+          };
+        }
+      } catch {
+        // Syntax search failed, continue with static data
+      }
+
+      // Build validated ledger type limits
+      const validatedLedgerTypeLimits: Record<string, unknown> = {};
+      for (const [adtName, staticInfo] of Object.entries(LEDGER_TYPE_LIMITS)) {
+        const validation = adtValidations[adtName];
+        const typedStaticInfo = staticInfo as LedgerADTOperations;
+        if (validation?.validated && validation.operations.length > 0) {
+          // Use validated data from indexed docs
+          validatedLedgerTypeLimits[adtName] = {
+            circuitOperations: validation.operations.map((op) => ({
+              method: op.method,
+              works: op.worksInCircuits,
+              note: op.description,
+              source: op.source || "indexed-docs",
+            })),
+            validatedAgainstDocs: true,
+            typescriptAccess: typedStaticInfo.typescriptAccess,
+            note: typedStaticInfo.note,
+          };
+        } else {
+          // Fallback to static data
+          validatedLedgerTypeLimits[adtName] = {
+            ...typedStaticInfo,
+            validatedAgainstDocs: false,
+            warning:
+              "Could not validate against indexed docs - using static reference",
+          };
+        }
+      }
+
       return {
         repository: "midnightntwrk/compact",
         version: `${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (current)`,
@@ -758,6 +862,21 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
             "See docs/SYNTAX_MAINTENANCE.md for update instructions",
         },
         ...(versionWarning && { versionWarning }),
+
+        // Hybrid validation status
+        hybridValidation: {
+          enabled: true,
+          validatedADTs: Object.keys(adtValidations).filter(
+            (k) => adtValidations[k]?.validated
+          ),
+          warnings:
+            validationWarnings.length > 0 ? validationWarnings : undefined,
+          enrichments:
+            validationEnrichments.length > 0
+              ? validationEnrichments
+              : undefined,
+          indexedSyntaxPatterns,
+        },
 
         // Quick start template - ALWAYS compiles
         quickStartTemplate: `${RECOMMENDED_PRAGMA}
@@ -779,8 +898,8 @@ export circuit increment(): [] {
         // Type compatibility rules
         typeCompatibility: TYPE_COMPATIBILITY,
 
-        // Ledger type limitations in circuits
-        ledgerTypeLimits: LEDGER_TYPE_LIMITS,
+        // Ledger type limitations - VALIDATED against indexed docs
+        ledgerTypeLimits: validatedLedgerTypeLimits,
 
         // Common compilation errors with fixes
         commonErrors: COMMON_ERRORS,

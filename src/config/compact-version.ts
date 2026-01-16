@@ -273,9 +273,24 @@ export const TYPE_COMPATIBILITY = {
 };
 
 /**
+ * Type definition for ADT operation info
+ */
+export interface LedgerADTOperations {
+  circuitOperations: Array<{
+    method: string;
+    works: boolean;
+    note: string;
+  }>;
+  typescriptAccess: string;
+  note?: string;
+  pattern?: string;
+  reason?: string;
+}
+
+/**
  * Ledger type limitations - what works in circuits vs TypeScript
  */
-export const LEDGER_TYPE_LIMITS = {
+export const LEDGER_TYPE_LIMITS: Record<string, LedgerADTOperations> = {
   Counter: {
     circuitOperations: [
       {
