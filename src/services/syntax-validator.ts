@@ -439,3 +439,316 @@ export async function verifyClaimAgainstDocs(claim: string): Promise<{
     };
   }
 }
+
+// ============================================================================
+// Comprehensive Static Data Validation
+// ============================================================================
+
+/**
+ * Validation result for any static data
+ */
+export interface StaticDataValidation {
+  dataType: string;
+  validated: boolean;
+  discrepancies: string[];
+  enrichments: string[];
+  deprecatedPatterns: string[];
+  lastValidated: string;
+}
+
+/**
+ * Validate builtin functions against indexed docs
+ * Checks if claimed builtins actually exist in the language
+ */
+export async function validateBuiltinFunctions(
+  staticBuiltins: Array<{ name: string; signature: string; description: string }>
+): Promise<StaticDataValidation> {
+  const discrepancies: string[] = [];
+  const enrichments: string[] = [];
+
+  // Search for each builtin
+  const results = await Promise.all(
+    staticBuiltins.map(async (builtin) => {
+      const searchResult = await searchCompactSyntax(
+        `${builtin.name} function builtin`
+      );
+      return { builtin, found: (searchResult?.results?.length || 0) > 0 };
+    })
+  );
+
+  for (const { builtin, found } of results) {
+    if (!found) {
+      discrepancies.push(
+        `Builtin "${builtin.name}" not found in indexed docs - may not exist or have different name`
+      );
+    }
+  }
+
+  // Search for builtins we might be missing
+  const allBuiltinsSearch = await searchCompactSyntax(
+    "builtin function stdlib standard library"
+  );
+  if (allBuiltinsSearch?.results) {
+    const knownNames = new Set(staticBuiltins.map((b) => b.name.toLowerCase()));
+    for (const result of allBuiltinsSearch.results) {
+      const content = result.content || result.code || "";
+      // Look for function definitions we don't have
+      const funcPattern = /\b(export\s+)?function\s+(\w+)/gi;
+      let match;
+      while ((match = funcPattern.exec(content)) !== null) {
+        const funcName = match[2].toLowerCase();
+        if (!knownNames.has(funcName) && funcName.length > 2) {
+          enrichments.push(`Indexed docs mention "${match[2]}" function`);
+        }
+      }
+    }
+  }
+
+  return {
+    dataType: "BUILTIN_FUNCTIONS",
+    validated: discrepancies.length === 0,
+    discrepancies,
+    enrichments: [...new Set(enrichments)].slice(0, 10),
+    deprecatedPatterns: [],
+    lastValidated: new Date().toISOString(),
+  };
+}
+
+/**
+ * Validate type compatibility rules against indexed docs
+ */
+export async function validateTypeCompatibility(
+  staticRules: Array<{ types: string; works: boolean; fix?: string; note?: string }>
+): Promise<StaticDataValidation> {
+  const discrepancies: string[] = [];
+  const enrichments: string[] = [];
+
+  // Search for type casting and compatibility info
+  const typeSearch = await searchCompactSyntax(
+    "type cast Field Uint Bytes conversion compatible"
+  );
+
+  if (typeSearch?.results) {
+    for (const result of typeSearch.results) {
+      const content = (result.content || result.code || "").toLowerCase();
+
+      // Check for any rules that contradict our static data
+      for (const rule of staticRules) {
+        const typeA = rule.types.split(/[=<>+*]/)[0].trim().toLowerCase();
+        const typeB = rule.types.split(/[=<>+*]/).pop()?.trim().toLowerCase();
+
+        if (typeA && typeB) {
+          // If doc says these types work together but we say they don't
+          if (
+            content.includes(typeA) &&
+            content.includes(typeB) &&
+            content.includes("compatible")
+          ) {
+            if (!rule.works) {
+              discrepancies.push(
+                `Static says "${rule.types}" doesn't work, but docs suggest compatibility`
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    dataType: "TYPE_COMPATIBILITY",
+    validated: discrepancies.length === 0,
+    discrepancies,
+    enrichments,
+    deprecatedPatterns: [],
+    lastValidated: new Date().toISOString(),
+  };
+}
+
+/**
+ * Validate common errors against indexed docs
+ */
+export async function validateCommonErrors(
+  staticErrors: Array<{ error: string; cause: string; fix: string }>
+): Promise<StaticDataValidation> {
+  const discrepancies: string[] = [];
+  const enrichments: string[] = [];
+
+  // Search for error messages in docs
+  const errorSearch = await searchDocsHosted(
+    "error compile compilation failure parse",
+    ADT_SEARCH_LIMIT,
+    "all"
+  );
+
+  if (errorSearch?.results) {
+    const knownErrors = new Set(
+      staticErrors.map((e) => e.error.toLowerCase().slice(0, 30))
+    );
+
+    for (const result of errorSearch.results) {
+      const content = result.content || result.code || "";
+
+      // Look for error patterns we don't have documented
+      const errorPattern = /(?:error|Error):\s*["']?([^"'\n]+)["']?/g;
+      let match;
+      while ((match = errorPattern.exec(content)) !== null) {
+        const errorMsg = match[1].toLowerCase().slice(0, 30);
+        if (!knownErrors.has(errorMsg) && errorMsg.length > 10) {
+          enrichments.push(`Docs mention error: "${match[1].slice(0, 50)}..."`);
+        }
+      }
+    }
+  }
+
+  return {
+    dataType: "COMMON_ERRORS",
+    validated: true, // Errors are informational, hard to validate
+    discrepancies,
+    enrichments: [...new Set(enrichments)].slice(0, 10),
+    deprecatedPatterns: [],
+    lastValidated: new Date().toISOString(),
+  };
+}
+
+/**
+ * Deprecated syntax patterns that should be flagged in any code
+ */
+export const DEPRECATED_SYNTAX_PATTERNS = [
+  {
+    pattern: /ledger\s*\{/,
+    name: "ledger-block",
+    message: "Deprecated: Use 'export ledger field: Type;' instead of ledger { } block",
+    since: "0.16",
+  },
+  {
+    pattern: /Cell\s*<\s*\w+\s*>/,
+    name: "cell-wrapper",
+    message: "Deprecated: Cell<T> wrapper removed, use Type directly",
+    since: "0.15",
+  },
+  {
+    pattern: /:\s*Void\b/,
+    name: "void-type",
+    message: "Void type doesn't exist, use [] (empty tuple) for no return",
+    since: "always",
+  },
+  {
+    pattern: /\.\s*value\s*\(\s*\)/,
+    name: "counter-value",
+    message: "Counter.value() doesn't exist, use Counter.read() instead",
+    since: "always",
+  },
+  {
+    pattern: /::\w+/,
+    name: "rust-enum-syntax",
+    message: "Rust-style :: enum access doesn't work, use dot notation (Choice.rock)",
+    since: "always",
+  },
+  {
+    pattern: /pure\s+function\b/,
+    name: "pure-function",
+    message: "Use 'pure circuit' not 'pure function' for helper functions",
+    since: "0.16",
+  },
+  {
+    pattern: /witness\s+\w+\s*\([^)]*\)\s*:\s*\w+\s*\{/,
+    name: "witness-with-body",
+    message: "Witnesses are declarations only - no body allowed. Implementation goes in TypeScript prover.",
+    since: "always",
+  },
+] as const;
+
+/**
+ * Scan code for deprecated patterns
+ */
+export function scanForDeprecatedPatterns(
+  code: string
+): Array<{ pattern: string; message: string; lineNumber?: number }> {
+  const issues: Array<{ pattern: string; message: string; lineNumber?: number }> = [];
+  const lines = code.split("\n");
+
+  for (const { pattern, name, message } of DEPRECATED_SYNTAX_PATTERNS) {
+    for (let i = 0; i < lines.length; i++) {
+      if (pattern.test(lines[i])) {
+        issues.push({
+          pattern: name,
+          message,
+          lineNumber: i + 1,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Comprehensive validation of ALL static data
+ * Call this to validate everything at once
+ */
+export async function validateAllStaticData(staticData: {
+  builtinFunctions?: Array<{ name: string; signature: string; description: string }>;
+  typeCompatibility?: Array<{ types: string; works: boolean; fix?: string; note?: string }>;
+  commonErrors?: Array<{ error: string; cause: string; fix: string }>;
+  ledgerTypeLimits?: Record<string, { circuitOperations: Array<{ method: string; works: boolean; note: string }> }>;
+}): Promise<{
+  overall: { validated: boolean; totalDiscrepancies: number; totalEnrichments: number };
+  results: Record<string, StaticDataValidation>;
+  lastValidated: string;
+}> {
+  const results: Record<string, StaticDataValidation> = {};
+
+  // Run all validations in parallel
+  const [builtinResult, typeResult, errorResult, adtResults] = await Promise.all([
+    staticData.builtinFunctions
+      ? validateBuiltinFunctions(staticData.builtinFunctions)
+      : Promise.resolve(null),
+    staticData.typeCompatibility
+      ? validateTypeCompatibility(staticData.typeCompatibility)
+      : Promise.resolve(null),
+    staticData.commonErrors
+      ? validateCommonErrors(staticData.commonErrors)
+      : Promise.resolve(null),
+    staticData.ledgerTypeLimits
+      ? Promise.all(
+          Object.entries(staticData.ledgerTypeLimits).map(
+            async ([name, data]) => ({
+              name,
+              result: await validateADTOperations(name, data.circuitOperations),
+            })
+          )
+        )
+      : Promise.resolve([]),
+  ]);
+
+  if (builtinResult) results.builtinFunctions = builtinResult;
+  if (typeResult) results.typeCompatibility = typeResult;
+  if (errorResult) results.commonErrors = errorResult;
+
+  // Add ADT validations
+  for (const { name, result } of adtResults) {
+    results[`adt_${name}`] = {
+      dataType: `LEDGER_TYPE_LIMITS.${name}`,
+      validated: result.validated,
+      discrepancies: result.discrepancies,
+      enrichments: result.enrichments,
+      deprecatedPatterns: [],
+      lastValidated: new Date().toISOString(),
+    };
+  }
+
+  // Calculate overall stats
+  const allDiscrepancies = Object.values(results).flatMap((r) => r.discrepancies);
+  const allEnrichments = Object.values(results).flatMap((r) => r.enrichments);
+
+  return {
+    overall: {
+      validated: allDiscrepancies.length === 0,
+      totalDiscrepancies: allDiscrepancies.length,
+      totalEnrichments: allEnrichments.length,
+    },
+    results,
+    lastValidated: new Date().toISOString(),
+  };
+}
