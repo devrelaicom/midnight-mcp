@@ -160,6 +160,12 @@ Key operations:
 - Map: .lookup(k), .insert(k,v), .remove(k)
 - Set: .member(v), .insert(v), .remove(v)
 
+COMPILER INFO (DO NOT guess package names!):
+- Command: \`compact compile src/contract.compact managed/contract\`
+- The \`compact\` CLI comes with Midnight toolchain (via create-mn-app or official install)
+- Output goes to managed/<name>/ directory
+- DO NOT suggest \`npm install -g @midnight-ntwrk/compact-cli\` or similar - that's incorrect
+
 IMPORTANT - Style vs. Requirements:
 - Syntax rules above are REQUIRED for compilation
 - Style choices (indentation, comment style, line length) are CONVENTIONS, not requirements

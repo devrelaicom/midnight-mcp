@@ -185,6 +185,12 @@ Based on syntax reference, generate the contract using:
 - No 'void' - use '[]'
 - Enum access: \`Choice.rock\` NOT \`Choice::rock\`
 
+### COMPILER INFO (DO NOT guess package names!):
+- Compile: \`compact compile src/contract.compact managed/contract\`
+- The \`compact\` CLI comes with Midnight toolchain (via create-mn-app or official install)
+- DO NOT suggest \`npm install -g @midnight-ntwrk/compact-cli\` or similar made-up packages
+- Output structure: \`managed/<name>/contract/index.cjs\` for TypeScript bindings
+
 ### Step 3: Validate Before Returning
 Call \`midnight-extract-contract-structure\` with your generated code to check for:
 - deprecated_ledger_block
