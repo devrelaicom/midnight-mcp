@@ -185,6 +185,12 @@ Based on syntax reference, generate the contract using:
 - No 'void' - use '[]'
 - Enum access: \`Choice.rock\` NOT \`Choice::rock\`
 
+### ⚠️ UNDOCUMENTED FEATURES - Use with caution:
+- Division \`/\` and modulo \`%\`: NOT in official docs (only +, -, * are documented)
+- Tuple destructuring: \`const [a, b] = pair;\` - not documented, may not work
+- Constant folding in indices: docs say "numeric literal" required
+- Map.lookup() returns value_type, NOT Maybe<value_type> - check member() first!
+
 ### COMPILER INFO (DO NOT guess package names!):
 - Compile: \`compact compile src/contract.compact managed/contract\`
 - The \`compact\` CLI comes with Midnight toolchain (via create-mn-app or official install)

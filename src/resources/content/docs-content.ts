@@ -127,9 +127,10 @@ ledger privateData: Field;                 // Private, not exported
 These can be used interchangeably. The lower bound must currently be 0.
 
 **Arithmetic** (documented in [Binary Arithmetic](https://docs.midnight.network/develop/reference/compact/lang-ref#binary-arithmetic-expressions)):
-- Operators: \`+\`, \`-\`, \`*\` only (division is NOT mentioned in docs)
+- Operators: \`+\`, \`-\`, \`*\` only (division \`/\` and modulo \`%\` are NOT mentioned in docs)
 - Result types expand: \`Uint<0..m> + Uint<0..n>\` → \`Uint<0..m+n>\`
 - Subtraction can fail at runtime if result would be negative
+- ⚠️ If you need division, you may need a witness to compute it off-chain
 
 ### Collection Types
 | Type | Description | Example |
@@ -139,8 +140,8 @@ These can be used interchangeably. The lower bound must currently be 0.
 | \`Set<T>\` | Unique value collection | \`Set<Bytes<32>>\` |
 | \`Vector<N, T>\` | Fixed-size array | \`Vector<3, Field>\` |
 | \`List<T>\` | Dynamic list | \`List<Bytes<32>>\` |
-| \`Maybe<T>\` | Optional value | \`Maybe<Bytes<32>>\` |
-| \`Either<L, R>\` | Union type | \`Either<Field, Bytes<32>>\` |
+| \`Maybe<T>\` | Optional value (has/hasn't) | \`Maybe<Bytes<32>>\` |
+| \`Either<L, R>\` | Sum type (one or other) | \`Either<Field, Bytes<32>>\` |
 | \`Opaque<s>\` | Opaque value tagged by string s | \`Opaque<"string">\` |
 
 **Opaque Types** ([Primitive Types](https://docs.midnight.network/develop/reference/compact/lang-ref#primitive-types)):
@@ -391,6 +392,14 @@ balances.insertDefault(address);         // insertDefault(key): [] - inserts def
 // Query operations (all work in circuits ✅)
 const balance = balances.lookup(address);  // lookup(key): value_type
 const exists = balances.member(address);   // member(key): Boolean
+
+// ⚠️ UNDOCUMENTED: Map.lookup() behavior when key doesn't exist
+// The docs show: lookup(key: key_type): value_type (NOT Maybe<value_type>)
+// This implies it returns a default value, not an optional.
+// RECOMMENDED: Always check member() first:
+if (balances.member(address)) {
+  const balance = balances.lookup(address);  // Safe
+}
 const empty = balances.isEmpty();          // isEmpty(): Boolean
 const count = balances.size();             // size(): Uint<64>
 
@@ -426,11 +435,43 @@ const count = members.size();               // size(): Uint<64>
 
 ### Maybe Operations
 \`\`\`compact
-const opt: Maybe<Field> = some<Field>(42);
-const empty: Maybe<Field> = none<Field>();
+// Creating Maybe values
+const opt: Maybe<Field> = some<Field>(42);     // Wrap a value
+const empty: Maybe<Field> = none<Field>();     // No value
 
+// Checking and accessing
 if (opt.is_some) {
-  const val = opt.value;
+  const val = opt.value;  // Safe to access when is_some is true
+}
+
+// Common patterns
+witness find_user(id: Bytes<32>): Maybe<UserRecord>;
+
+export circuit getUser(id: Bytes<32>): UserRecord {
+  const result = find_user(id);
+  assert(disclose(result.is_some), "User not found");
+  return result.value;
+}
+\`\`\`
+
+### Either Operations
+\`\`\`compact
+// Creating Either values
+const success: Either<Field, Bytes<32>> = left<Field, Bytes<32>>(42);
+const failure: Either<Field, Bytes<32>> = right<Field, Bytes<32>>(errorHash);
+
+// Checking which side
+if (result.is_left) {
+  const value = result.left;   // The left value (often "success")
+} else {
+  const error = result.right;  // The right value (often "error")
+}
+
+// Common pattern: burnAddress() returns Either<ZswapCoinPublicKey, ContractAddress>
+export circuit withdraw(): [] {
+  const addr = burnAddress();
+  assert(disclose(addr.is_right), "Expected contract address");
+  // addr.right is the ContractAddress
 }
 \`\`\`
 
@@ -465,6 +506,10 @@ const index: Field = choice as Field;
 
 // ⚠️ Boolean → Field is NOT allowed!
 // Must go through Uint: (flag as Uint<0..1>) as Field
+
+// ⚠️ UNDOCUMENTED: Bytes<n> ↔ Vector<n, Uint<8>> casting
+// The type cast table doesn't mention this conversion.
+// If you need to convert, you may need a witness helper.
 \`\`\`
 
 ### Hashing
@@ -502,7 +547,22 @@ assert(disclose(caller == owner), "Not authorized");
 
 ---
 
-## 12. Exports for TypeScript
+## 12. Undocumented / Unclear Features
+
+These features are not clearly documented. Use with caution:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Tuple destructuring | ❓ Unknown | \`const [a, b] = pair;\` - not documented |
+| Constant folding in indices | ❓ Unknown | \`v[2 * i]\` where i is const - docs say "numeric literal" required |
+| Division \`/\` and modulo \`%\` | ❓ Not in docs | Only +, -, * are documented |
+| \`Bytes<n>\` ↔ \`Vector<n, Uint<8>>\` | ❓ Not in cast table | May need witness workaround |
+
+**Recommendation**: Test these in the compiler before relying on them in production contracts.
+
+---
+
+## 13. Exports for TypeScript
 
 To use types/values in TypeScript, they must be exported:
 
