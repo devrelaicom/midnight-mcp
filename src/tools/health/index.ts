@@ -9,10 +9,12 @@ export {
   GetStatusInputSchema,
   CheckVersionInputSchema,
   AutoUpdateConfigInputSchema,
+  GetUpdateInstructionsInputSchema,
   type HealthCheckInput,
   type GetStatusInput,
   type CheckVersionInput,
   type AutoUpdateConfigInput,
+  type GetUpdateInstructionsInput,
 } from "./schemas.js";
 
 // Handlers
@@ -21,6 +23,7 @@ export {
   getStatus,
   checkVersion,
   getAutoUpdateConfig,
+  getUpdateInstructions,
 } from "./handlers.js";
 
 // Tools

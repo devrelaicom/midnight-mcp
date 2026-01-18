@@ -117,13 +117,18 @@ export function isVersionSupported(version: string): boolean {
 /**
  * Built-in functions vs patterns you must implement yourself
  * CRITICAL: These are the actual stdlib functions available in Compact
+ *
+ * NOTE: The exact generic signatures (e.g., persistentHash<T>) are inferred from
+ * usage patterns in docs/examples. The stdlib overview confirms these functions
+ * exist but doesn't provide full type signatures.
+ * See: https://docs.midnight.network/develop/reference/compact/compact-std-library
  */
 export const BUILTIN_FUNCTIONS = {
   /** Actually built into the language/stdlib */
   stdlib: [
     {
       name: "persistentHash",
-      signature: "persistentHash<T>(value: T): Bytes<32>",
+      signature: "persistentHash<T>(value: T): Bytes<32>", // Signature inferred from examples
       description:
         "Poseidon hash that produces consistent results across calls",
     },
@@ -190,8 +195,15 @@ witness get_random_value(): Field;`,
 
 /**
  * Type compatibility rules - what types can be compared/operated together
+ *
+ * SOURCE NOTES:
+ * - Comparisons: Standard operators (==, !=, <, <=, >, >=) are used in examples
+ *   but the exact operator set is not explicitly documented in the language reference.
+ * - Arithmetic: Only +, -, * are documented. Division (/) is NOT mentioned.
+ *   See: https://docs.midnight.network/develop/reference/compact/lang-ref#binary-arithmetic-expressions
  */
 export const TYPE_COMPATIBILITY = {
+  // Note: Comparison operators work in practice but aren't explicitly listed in docs
   comparisons: [
     { types: "Field == Field", works: true, note: "Direct comparison" },
     {
@@ -210,7 +222,11 @@ export const TYPE_COMPATIBILITY = {
       works: true,
       note: "Bounded integers",
     },
-    { types: "Bytes<32> == Bytes<32>", works: true, note: "Direct comparison" },
+    {
+      types: "Bytes<32> == Bytes<32>",
+      works: true,
+      note: "Used in examples, but operators not explicitly listed in docs",
+    },
     { types: "Boolean == Boolean", works: true, note: "Direct comparison" },
   ],
   arithmetic: [
@@ -232,23 +248,79 @@ export const TYPE_COMPATIBILITY = {
       note: "Result is wide bounded type, cast back to target type",
     },
   ],
+  /**
+   * Type casting rules - based on official cast table
+   * See: https://docs.midnight.network/develop/reference/compact/lang-ref#type-cast-expressions
+   *
+   * Cast kinds: static (always succeeds), conversion (semantic change), checked (can fail)
+   */
   typeCasting: [
-    {
-      from: "Uint<64>",
-      to: "Bytes<32>",
-      direct: false,
-      fix: "Go through Field: (amount as Field) as Bytes<32>",
-    },
     {
       from: "Uint<N>",
       to: "Field",
       direct: true,
-      note: "Safe cast: value as Field",
+      kind: "static",
+      note: "Always succeeds",
+    },
+    {
+      from: "Field",
+      to: "Uint<0..n>",
+      direct: true,
+      kind: "checked",
+      note: "Fails at runtime if value > n",
+    },
+    {
+      from: "Field",
+      to: "Bytes<n>",
+      direct: true,
+      kind: "conversion",
+      note: "Can fail at runtime if value doesn't fit (little-endian)",
+    },
+    {
+      from: "Bytes<m>",
+      to: "Field",
+      direct: true,
+      kind: "conversion",
+      note: "Can fail at runtime if result exceeds max Field value",
+    },
+    {
+      from: "Boolean",
+      to: "Uint<0..n>",
+      direct: true,
+      kind: "conversion",
+      note: "false→0, true→1 (n must not be 0)",
+    },
+    {
+      from: "Boolean",
+      to: "Field",
+      direct: false,
+      fix: "Go through Uint: (flag as Uint<0..1>) as Field",
+    },
+    {
+      from: "Uint<N>",
+      to: "Bytes<M>",
+      direct: false,
+      fix: "Go through Field: (amount as Field) as Bytes<32>",
+    },
+    {
+      from: "enum",
+      to: "Field",
+      direct: true,
+      kind: "conversion",
+      note: "Enum variant index as Field",
+    },
+    {
+      from: "Uint<0..m>",
+      to: "Uint<0..n>",
+      direct: true,
+      kind: "static if m≤n, checked if m>n",
+      note: "Widening is static, narrowing is checked",
     },
     {
       from: "arithmetic result",
       to: "Uint<64>",
       direct: true,
+      kind: "checked",
       note: "Required cast: (a + b) as Uint<64>",
     },
   ],

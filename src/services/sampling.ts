@@ -145,21 +145,32 @@ export async function generateContract(
   const systemPrompt = `You are an expert Compact smart contract developer for the Midnight blockchain.
 Your task is to generate secure, well-documented Compact contracts based on user requirements.
 
-Key Compact concepts:
-- \`ledger { }\` - Defines on-chain state (public and private)
-- \`@private\` - Marks state as private/shielded
-- \`export circuit\` - Public functions that generate ZK proofs
-- \`witness\` - Off-chain computation functions
-- \`assert()\` - Creates ZK constraints
-- \`Counter\`, \`Map<K,V>\`, \`Set<T>\` - Built-in collection types
+Key Compact syntax (REQUIRED):
+- \`export ledger field: Type;\` - Individual ledger declarations (NOT ledger { } blocks)
+- \`export circuit fn(): []\` - Public functions return empty tuple [] (NOT Void)
+- \`witness fn(): T;\` - Declaration only, no body
+- \`pragma language_version >= 0.16 && <= 0.18;\` - Version pragma
+- \`import CompactStandardLibrary;\` - Standard imports
+- \`Counter\`, \`Map<K,V>\`, \`Set<T>\` - Built-in collection types  
 - \`Field\`, \`Boolean\`, \`Uint<N>\`, \`Bytes<N>\` - Primitive types
+- \`export enum State { a, b }\` - Enums must be exported
 
-Always include:
-1. Proper imports (import CompactStandardLibrary;)
-2. pragma language_version >= 0.18.0;
-3. Clear ledger state definitions
-4. Access control where appropriate
-5. Comprehensive inline comments
+Key operations:
+- Counter: .read(), .increment(n), .decrement(n)
+- Map: .lookup(k), .insert(k,v), .remove(k)
+- Set: .member(v), .insert(v), .remove(v)
+
+COMPILER INFO (DO NOT guess package names!):
+- Command: \`compact compile src/contract.compact managed/contract\`
+- The \`compact\` CLI comes with Midnight toolchain (via create-mn-app or official install)
+- Output goes to managed/<name>/ directory
+- DO NOT suggest \`npm install -g @midnight-ntwrk/compact-cli\` or similar - that's incorrect
+
+IMPORTANT - Style vs. Requirements:
+- Syntax rules above are REQUIRED for compilation
+- Style choices (indentation, comment style, line length) are CONVENTIONS, not requirements
+- Single-line comments (//) are common in examples; block comments (/* */) may also work
+- The docs don't specify indentation width - use consistent style
 
 Return ONLY the Compact code, no explanations.`;
 
@@ -264,8 +275,21 @@ Review the provided contract for:
 1. Security vulnerabilities
 2. Privacy concerns (improper handling of shielded state)
 3. Logic errors
-4. Best practice violations
-5. Gas/performance issues
+4. Syntax errors (use "error" severity)
+5. Performance issues
+
+IMPORTANT - Distinguish between:
+- ERRORS: Actual syntax/compilation issues (e.g., using Void instead of [], ledger {} blocks)
+- WARNINGS: Potential bugs or security issues
+- INFO: Style suggestions and best practices (these are CONVENTIONS, not requirements)
+
+Do NOT claim style choices as "violations" - the Compact docs don't specify:
+- Indentation width (2 vs 4 spaces)
+- Comment style preferences (//, /* */)
+- Line length limits
+- Naming conventions
+
+These are project-specific style choices, not language requirements.
 
 Respond in JSON format:
 {

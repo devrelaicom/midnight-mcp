@@ -55,14 +55,20 @@ let versionCheckResult: {
   isOutdated: boolean;
   latestVersion: string;
   updateMessage: string | null;
+  lastChecked: number;
 } = {
   isOutdated: false,
   latestVersion: CURRENT_VERSION,
   updateMessage: null,
+  lastChecked: 0,
 };
 
+// Tool call counter for periodic version checks
+let toolCallCount = 0;
+const VERSION_CHECK_INTERVAL = 10; // Re-check every 10 tool calls
+
 /**
- * Check for updates against npm registry (runs at startup)
+ * Check for updates against npm registry (runs at startup and periodically)
  */
 async function checkForUpdates(): Promise<void> {
   try {
@@ -84,17 +90,35 @@ async function checkForUpdates(): Promise<void> {
       versionCheckResult = {
         isOutdated: true,
         latestVersion,
-        updateMessage:
-          `⚠️ UPDATE AVAILABLE: v${latestVersion} (you have v${CURRENT_VERSION}). ` +
-          `Run: rm -rf ~/.npm/_npx && restart Claude Desktop. ` +
-          `Or update config to use: "midnight-mcp@latest"`,
+        lastChecked: Date.now(),
+        updateMessage: `🚨 UPDATE AVAILABLE: v${latestVersion} (you have v${CURRENT_VERSION})`,
       };
       logger.warn(
         `Outdated version detected: v${CURRENT_VERSION} -> v${latestVersion}`
       );
+    } else {
+      versionCheckResult = {
+        ...versionCheckResult,
+        lastChecked: Date.now(),
+      };
     }
   } catch {
     // Silently ignore version check failures (offline, timeout, etc.)
+  }
+}
+
+/**
+ * Periodic version check - runs every N tool calls
+ */
+function maybeCheckForUpdates(): void {
+  toolCallCount++;
+  if (toolCallCount >= VERSION_CHECK_INTERVAL) {
+    toolCallCount = 0;
+    // Only re-check if last check was > 5 minutes ago
+    const fiveMinutes = 5 * 60 * 1000;
+    if (Date.now() - versionCheckResult.lastChecked > fiveMinutes) {
+      checkForUpdates().catch(() => {});
+    }
   }
 }
 
@@ -458,31 +482,38 @@ function registerToolHandlers(server: Server): void {
       // Track successful tool call (fire-and-forget, won't block response)
       trackToolCall(name, true, durationMs, CURRENT_VERSION);
 
+      // Periodic version check (every N tool calls)
+      maybeCheckForUpdates();
+
       // Include prominent update prompt in ALL responses when outdated
       const updateWarning = getUpdateWarning();
 
       if (updateWarning && versionCheckResult.isOutdated) {
-        // Prepend update notice with MANUAL instructions (auto-update not possible in sandbox)
+        // Improved update notice with clear, actionable steps
         const updatePrompt = {
-          "🚨 UPDATE AVAILABLE": {
-            message: `You are using v${CURRENT_VERSION} but v${versionCheckResult.latestVersion} is available.`,
-            userAction: {
-              instruction:
-                "Tell the user to update manually. Auto-update is NOT possible because you run in a sandboxed environment without access to local files.",
-              steps: [
-                "1. Edit config file to use 'midnight-mcp@latest' instead of 'midnight-mcp'",
-                "2. Run: rm -rf ~/.npm/_npx (to clear npm cache)",
-                "3. Restart the editor completely (Cmd+Q on Mac, then reopen)",
-              ],
-              configLocations: {
-                claudeDesktop:
+          "🚨 UPDATE REQUIRED": {
+            current: `v${CURRENT_VERSION}`,
+            latest: `v${versionCheckResult.latestVersion}`,
+            quickFix: {
+              description: "Most users just need these 2 steps:",
+              step1: "Run in terminal: rm -rf ~/.npm/_npx",
+              step2: "Restart editor completely (Cmd+Q / Alt+F4, then reopen)",
+            },
+            ifStillOld: {
+              description: "If still showing old version after restart:",
+              action: "Edit your MCP config file to use @latest:",
+              change: 'Change "midnight-mcp" to "midnight-mcp@latest" in args',
+              configFiles: {
+                "Claude Desktop (Mac)":
                   "~/Library/Application Support/Claude/claude_desktop_config.json",
-                cursor: ".cursor/mcp.json",
-                vscode: ".vscode/mcp.json",
-                windsurf: "~/.codeium/windsurf/mcp_config.json",
+                "Claude Desktop (Win)":
+                  "%APPDATA%/Claude/claude_desktop_config.json",
+                Cursor: ".cursor/mcp.json",
+                "VS Code": ".vscode/mcp.json",
+                Windsurf: "~/.codeium/windsurf/mcp_config.json",
               },
             },
-            note: "If user already has @latest in config, they just need to clear cache (rm -rf ~/.npm/_npx) and restart.",
+            tip: "Use 'midnight-get-update-instructions' tool for detailed platform-specific steps.",
           },
           result,
         };

@@ -12,6 +12,7 @@ import {
   getStatus,
   checkVersion,
   getAutoUpdateConfig,
+  getUpdateInstructions,
 } from "./handlers.js";
 
 // ============================================================================
@@ -199,5 +200,47 @@ export const healthTools: ExtendedToolDefinition[] = [
       category: "health",
     },
     handler: getAutoUpdateConfig,
+  },
+  {
+    name: "midnight-get-update-instructions",
+    description:
+      "📋 Get detailed, platform-specific instructions for updating Midnight MCP to the latest version. " +
+      "Provides step-by-step guidance including config file locations, commands to run, and troubleshooting tips. " +
+      "Use this when a user needs help updating or is having issues with outdated versions.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        platform: {
+          type: "string",
+          enum: ["auto", "mac", "windows", "linux"],
+          description: "Target platform (auto-detects if not specified)",
+          default: "auto",
+        },
+        editor: {
+          type: "string",
+          enum: ["auto", "claude-desktop", "cursor", "vscode", "windsurf"],
+          description: "Target editor (defaults to Claude Desktop)",
+          default: "auto",
+        },
+      },
+    },
+    outputSchema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string" },
+        currentSetup: { type: "object" },
+        steps: { type: "array", items: { type: "object" } },
+        troubleshooting: { type: "array", items: { type: "object" } },
+        exampleConfig: { type: "object" },
+        helpfulLinks: { type: "object" },
+      },
+    },
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+      title: "📋 Get Update Instructions",
+      category: "health",
+    },
+    handler: getUpdateInstructions,
   },
 ];

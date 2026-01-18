@@ -68,14 +68,14 @@ export ledger messageIds: Set<Field>;
 // Private: actual message contents (no export = private)
 ledger messages: Map<Field, Opaque<"string">>;
 
-// Private: message authors
-ledger authors: Map<Field, Opaque<"address">>;
+// Private: message authors (stored as Bytes<32> addresses)
+ledger authors: Map<Field, Bytes<32>>;
 
 // Witness to fetch message content
 witness getMessageContent(id: Field): Opaque<"string">;
 
 // Post a new message (content is private)
-export circuit postMessage(content: Opaque<"string">, author: Opaque<"address">): Uint<64> {
+export circuit postMessage(content: Opaque<"string">, author: Bytes<32>): Uint<64> {
   // Generate unique message ID using counter read
   const messageId = messageCount.read();
   

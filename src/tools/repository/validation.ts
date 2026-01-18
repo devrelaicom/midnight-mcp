@@ -787,7 +787,10 @@ export async function extractContractStructure(
     }
   }
 
-  // 6. Detect division operator usage (not supported in Compact)
+  // 6. Detect division operator usage
+  // NOTE: The Compact docs only list +, -, * as binary arithmetic operators.
+  // Division is NOT mentioned (neither as supported nor unsupported).
+  // We flag this as a potential issue since it's not in the documented operator set.
   const divisionPattern = /[^/]\/[^/*]/g;
   let divMatch;
   while ((divMatch = divisionPattern.exec(code)) !== null) {
@@ -801,9 +804,9 @@ export async function extractContractStructure(
     potentialIssues.push({
       type: "unsupported_division",
       line: lineNum,
-      message: `Division operator '/' is not supported in Compact`,
-      suggestion: `Use a witness-based division pattern: 'witness divideWithRemainder(a, b): [quotient, remainder]' with on-chain verification`,
-      severity: "error",
+      message: `Division operator '/' is not in the documented Compact operators (+, -, *)`,
+      suggestion: `If you need division, compute it off-chain in a witness and verify on-chain: 'witness divide(a, b): [quotient, remainder]'`,
+      severity: "warning", // Changed to warning since it's inferred, not explicitly documented
     });
     break; // Only warn once
   }

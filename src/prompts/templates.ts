@@ -185,6 +185,18 @@ Based on syntax reference, generate the contract using:
 - No 'void' - use '[]'
 - Enum access: \`Choice.rock\` NOT \`Choice::rock\`
 
+### ⚠️ UNDOCUMENTED FEATURES - Use with caution:
+- Division \`/\` and modulo \`%\`: NOT in official docs (only +, -, * are documented)
+- Tuple destructuring: \`const [a, b] = pair;\` - not documented, may not work
+- Constant folding in indices: docs say "numeric literal" required
+- Map.lookup() returns value_type, NOT Maybe<value_type> - check member() first!
+
+### COMPILER INFO (DO NOT guess package names!):
+- Compile: \`compact compile src/contract.compact managed/contract\`
+- The \`compact\` CLI comes with Midnight toolchain (via create-mn-app or official install)
+- DO NOT suggest \`npm install -g @midnight-ntwrk/compact-cli\` or similar made-up packages
+- Output structure: \`managed/<name>/contract/index.cjs\` for TypeScript bindings
+
 ### Step 3: Validate Before Returning
 Call \`midnight-extract-contract-structure\` with your generated code to check for:
 - deprecated_ledger_block
@@ -292,11 +304,11 @@ Please analyze:
    - Correct use of disclose() and commit()
    - Privacy guarantees provided
 
-4. **Best Practices**
-   - Code organization
-   - Naming conventions
-   - Documentation
-   - Error messages
+4. **Style Suggestions** (these are CONVENTIONS, not requirements)
+   - Code organization recommendations
+   - Naming conventions (project-specific)
+   - Documentation patterns
+   - Note: The Compact docs don't specify indentation, line length, or comment style
 
 5. **Performance**
    - Circuit complexity
@@ -307,6 +319,11 @@ Please analyze:
    - Critical issues to fix (start with P0 syntax errors)
    - Improvements to consider
    - Alternative approaches
+
+**IMPORTANT**: Clearly distinguish between:
+- ERRORS: Actual syntax/compilation issues (required fixes)
+- WARNINGS: Security/logic concerns (should fix)
+- INFO: Style suggestions (optional, project-specific conventions)
 
 Please provide specific line references and code suggestions where applicable.`,
       },

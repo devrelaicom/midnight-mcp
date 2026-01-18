@@ -570,8 +570,9 @@ export circuit divide(a: Uint<64>, b: Uint<64>): Uint<64> {
     const division = result.potentialIssues!.find(
       (i) => i.type === "unsupported_division"
     );
-    expect(division?.message).toContain("not supported");
+    expect(division?.message).toContain("not in the documented");
     expect(division?.suggestion).toContain("witness");
+    expect(division?.severity).toBe("warning"); // Warning, not error - inferred from docs
   });
 
   it("should detect Counter.value() access and suggest .read()", async () => {
