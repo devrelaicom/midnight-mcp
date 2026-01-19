@@ -266,10 +266,8 @@ export circuit increment(): Void {
     expect(result.success).toBe(true);
     expect(result.validationType).toBe("static-analysis-fallback");
     expect(result.serviceAvailable).toBe(false);
-    expect(result.message).toContain("static analysis fallback");
+    expect(result.message).toContain("Static analysis completed");
     expect(result.staticAnalysis).toBeDefined();
-    expect((result.warnings as string[]).length).toBeGreaterThan(0);
-    expect((result.warnings as string[])[0]).toContain("STATIC ANALYSIS ONLY");
   });
 
   it("should fall back to static analysis on API 500 errors", async () => {

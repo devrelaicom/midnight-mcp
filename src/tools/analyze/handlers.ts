@@ -361,23 +361,20 @@ export async function compileContract(
         checkSecurity: true,
       });
 
+      // Include security findings as warnings (without noisy prefix)
+      const securityWarnings = (staticResult.securityFindings || []).map(
+        (f: SecurityFinding) => `[${f.severity}] ${f.message}`,
+      );
+
       return {
         success: true, // Static analysis succeeded
-        message:
-          "⚠️ Compiler service unavailable - used static analysis fallback",
+        message: "Static analysis completed (compiler service unavailable)",
         validationType: "static-analysis-fallback",
         compilationMode: "none",
         serviceAvailable: false,
         serviceUrl: getCompilerUrl(),
         fallbackReason: result.message,
-        warnings: [
-          "⚠️ STATIC ANALYSIS ONLY: The hosted compiler is unavailable.",
-          "This validation catches syntax patterns but may miss semantic errors.",
-          "For full validation, try again when the compiler service is back online.",
-          ...(staticResult.securityFindings || []).map(
-            (f: SecurityFinding) => `[${f.severity}] ${f.message}`,
-          ),
-        ],
+        warnings: securityWarnings,
         staticAnalysis: {
           summary: staticResult.summary,
           structure: staticResult.structure,

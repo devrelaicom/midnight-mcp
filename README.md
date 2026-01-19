@@ -104,12 +104,12 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ## What's Included
 
-### 28 Tools
+### 29 Tools
 
 | Category          | Tools                                                                                                                             | Description                                      |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | **Search**        | `search-compact`, `search-typescript`, `search-docs`, `fetch-docs`                                                                | Semantic search + live docs fetching             |
-| **Analysis**      | `analyze-contract`, `explain-circuit`, `extract-contract-structure`                                                               | Static analysis with 15+ checks (P0-P2 severity) |
+| **Analysis**      | `analyze-contract`, `explain-circuit`, `extract-contract-structure`, `compile-contract`                                           | Static analysis + real compilation               |
 | **Repository**    | `get-file`, `list-examples`, `get-latest-updates`                                                                                 | Access files and examples                        |
 | **Versioning**    | `get-version-info`, `check-breaking-changes`, `get-migration-guide`, `get-file-at-version`, `compare-syntax`, `get-latest-syntax` | Version tracking and migration                   |
 | **AI Generation** | `generate-contract`, `review-contract`, `document-contract`                                                                       | AI-powered code generation _(requires sampling)_ |
@@ -118,6 +118,20 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | **Discovery**     | `list-tool-categories`, `list-category-tools`, `suggest-tool`                                                                     | Explore available tools and get recommendations  |
 
 All tools are prefixed with `midnight-` (e.g., `midnight-search-compact`).
+
+### Real Contract Compilation
+
+The `midnight-compile-contract` tool validates Compact code using a hosted compiler service:
+
+```
+✅ Compilation successful (Compiler v0.18.0) in 2841ms
+```
+
+- **Fast mode** (`skipZk=true`): Syntax validation in ~1-2 seconds
+- **Full mode** (`fullCompile=true`): Complete ZK circuit generation in ~10-30 seconds
+- **Automatic fallback**: Falls back to static analysis if the compiler service is unavailable
+
+This catches semantic errors that static analysis misses (sealed fields, disclose rules, type mismatches).
 
 ### MCP Capabilities
 
