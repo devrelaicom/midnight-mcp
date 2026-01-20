@@ -5,9 +5,15 @@
 
 import { parseCompactFile, CodeUnit } from "../../pipeline/index.js";
 import { logger } from "../../utils/index.js";
+import {
+  compileContract as compileWithService,
+  checkCompilerHealth,
+  getCompilerUrl,
+} from "../../services/compiler.js";
 import type {
   AnalyzeContractInput,
   ExplainCircuitInput,
+  CompileContractInput,
   SecurityFinding,
 } from "./schemas.js";
 
@@ -180,28 +186,28 @@ export async function explainCircuit(input: ExplainCircuitInput) {
   if (circuit.code.includes("disclose")) {
     operations.push("Reveals private data selectively (disclose)");
     zkImplications.push(
-      "Data revealed via disclose() will be visible on-chain while proving possession of private data"
+      "Data revealed via disclose() will be visible on-chain while proving possession of private data",
     );
   }
 
   if (circuit.code.includes("commit")) {
     operations.push("Creates cryptographic commitments (commit)");
     zkImplications.push(
-      "Commitments allow hiding data while proving properties about it"
+      "Commitments allow hiding data while proving properties about it",
     );
   }
 
   if (circuit.code.includes("hash")) {
     operations.push("Computes cryptographic hashes (hash)");
     zkImplications.push(
-      "Hashes are computed in-circuit and can be verified without revealing preimages"
+      "Hashes are computed in-circuit and can be verified without revealing preimages",
     );
   }
 
   if (circuit.code.includes("assert")) {
     operations.push("Validates constraints (assert)");
     zkImplications.push(
-      "Assertions create ZK constraints - the proof will fail if any assertion fails"
+      "Assertions create ZK constraints - the proof will fail if any assertion fails",
     );
   }
 
@@ -243,7 +249,7 @@ export async function explainCircuit(input: ExplainCircuitInput) {
 
 function buildCircuitExplanation(
   circuit: CodeUnit,
-  operations: string[]
+  operations: string[],
 ): string {
   let explanation = `The circuit '${circuit.name}' is a `;
 
@@ -280,27 +286,147 @@ function getPrivacyConsiderations(circuit: CodeUnit): string[] {
 
   if (circuit.code.includes("disclose")) {
     considerations.push(
-      "Uses disclose() - some private data will be revealed on-chain"
+      "Uses disclose() - some private data will be revealed on-chain",
     );
   }
 
   if (circuit.isPublic) {
     considerations.push(
-      "Public circuit - anyone can call this and generate proofs"
+      "Public circuit - anyone can call this and generate proofs",
     );
   }
 
   if (circuit.code.includes("@private") || circuit.code.includes("witness")) {
     considerations.push(
-      "Accesses private state or witnesses - ensure sensitive data is handled correctly"
+      "Accesses private state or witnesses - ensure sensitive data is handled correctly",
     );
   }
 
   if (considerations.length === 0) {
     considerations.push(
-      "No specific privacy concerns identified in this circuit"
+      "No specific privacy concerns identified in this circuit",
     );
   }
 
   return considerations;
+}
+/**
+ * Compile a Compact smart contract using the hosted compiler service
+ * Falls back to static analysis if the compiler service is unavailable
+ */
+export async function compileContract(
+  input: CompileContractInput,
+): Promise<object> {
+  logger.info("Compiling Compact contract via hosted service", {
+    codeLength: input.code.length,
+    skipZk: input.skipZk,
+    fullCompile: input.fullCompile,
+  });
+
+  // Determine compilation mode
+  const skipZk = input.fullCompile ? false : (input.skipZk ?? true);
+
+  // Call the hosted compiler service
+  const result = await compileWithService(input.code, {
+    wrapWithDefaults: true,
+    skipZk,
+  });
+
+  if (result.success) {
+    return {
+      success: true,
+      message: result.message,
+      compilerVersion: result.compilerVersion,
+      compilationMode: skipZk ? "syntax-only" : "full",
+      validationType: "compiler",
+      output: {
+        circuits: result.circuits || [],
+        ledgerFields: result.ledgerFields || [],
+        exports: result.exports || [],
+      },
+      warnings: result.warnings || [],
+      serviceUrl: getCompilerUrl(),
+    };
+  } else {
+    // Check if service is unavailable - fall back to static analysis
+    if (!result.serviceAvailable) {
+      logger.warn(
+        "Compiler service unavailable, falling back to static analysis",
+        { error: result.error },
+      );
+
+      // Run static analysis as fallback
+      const staticResult = await analyzeContract({
+        code: input.code,
+        checkSecurity: true,
+      });
+
+      // Include security findings as warnings (without noisy prefix)
+      const securityWarnings = (staticResult.securityFindings || []).map(
+        (f: SecurityFinding) => `[${f.severity}] ${f.message}`,
+      );
+
+      return {
+        success: true, // Static analysis succeeded
+        message: "Static analysis completed (compiler service unavailable)",
+        validationType: "static-analysis-fallback",
+        compilationMode: "none",
+        serviceAvailable: false,
+        serviceUrl: getCompilerUrl(),
+        fallbackReason: result.message,
+        warnings: securityWarnings,
+        staticAnalysis: {
+          summary: staticResult.summary,
+          structure: staticResult.structure,
+          securityFindings: staticResult.securityFindings,
+          recommendations: staticResult.recommendations,
+        },
+      };
+    }
+
+    // Compiler available but compilation failed - return error details
+    const errorInfo: Record<string, unknown> = {
+      success: false,
+      message: result.message,
+      error: result.error,
+      validationType: "compiler",
+      serviceAvailable: result.serviceAvailable,
+      serviceUrl: getCompilerUrl(),
+    };
+
+    if (result.errorDetails) {
+      errorInfo.location = {
+        line: result.errorDetails.line,
+        column: result.errorDetails.column,
+        errorType: result.errorDetails.errorType,
+      };
+    }
+
+    // Add helpful hints based on error type
+    if (result.error === "TIMEOUT") {
+      errorInfo.hint =
+        "The contract may be too complex. Try simplifying or breaking it into smaller pieces.";
+    } else if (result.errorDetails?.line) {
+      errorInfo.hint = `Check line ${result.errorDetails.line} for the issue.`;
+    }
+
+    return errorInfo;
+  }
+}
+
+/**
+ * Check compiler service health status
+ */
+export async function getCompilerStatus(): Promise<object> {
+  const health = await checkCompilerHealth();
+
+  return {
+    serviceUrl: getCompilerUrl(),
+    available: health.available,
+    compilerVersion: health.version,
+    error: health.error,
+    message: health.available
+      ? `✅ Compiler service online (v${health.version})`
+      : `❌ Compiler service unavailable: ${health.error}`,
+  };
 }

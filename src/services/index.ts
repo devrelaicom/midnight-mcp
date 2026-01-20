@@ -33,3 +33,14 @@ export {
   type SyntaxValidationResult,
   type StaticDataValidation,
 } from "./syntax-validator.js";
+
+// Hosted Compact compiler service
+export {
+  compileContract,
+  validateSyntax,
+  fullCompile,
+  checkCompilerHealth,
+  getCompilerUrl,
+  type CompileOptions,
+  type CompilationResult,
+} from "./compiler.js";

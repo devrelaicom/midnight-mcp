@@ -124,6 +124,64 @@ Explain circuit logic.
 }
 ```
 
+#### midnight-compile-contract
+
+Compile Compact code using the hosted compiler service. Returns real compiler errors with line/column locations.
+
+```typescript
+// Input
+{
+  code: string;              // Compact source code
+  skipZk?: boolean;          // Skip ZK generation for faster validation (default: true)
+  fullCompile?: boolean;     // Full compilation with ZK circuits (default: false)
+}
+
+// Output (success)
+{
+  success: true;
+  message: string;           // "✅ Compilation successful (Compiler v0.18.0) in 2841ms"
+  validationType: "compiler";
+  compilerVersion: string;
+  compilationMode: "syntax-only" | "full";
+  output: {
+    circuits: string[];
+    ledgerFields: string[];
+    exports: string[];
+  };
+  warnings: string[];
+  serviceUrl: string;
+}
+
+// Output (error)
+{
+  success: false;
+  message: string;           // "Line 3:26 - unbound identifier Void"
+  validationType: "compiler";
+  error: string;             // "COMPILE_ERROR"
+  location: {
+    line: number;
+    column: number;
+    errorType: string;
+  };
+  hint: string;
+  serviceUrl: string;
+}
+
+// Output (fallback - when compiler unavailable)
+{
+  success: true;
+  message: "Static analysis completed (compiler service unavailable)";
+  validationType: "static-analysis-fallback";
+  serviceAvailable: false;
+  staticAnalysis: {
+    summary: object;
+    structure: object;
+    securityFindings: array;
+    recommendations: array;
+  };
+}
+```
+
 ---
 
 ### AI-Powered Tools

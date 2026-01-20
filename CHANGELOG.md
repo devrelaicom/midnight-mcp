@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Hosted Compiler Integration** - New `midnight-compile-contract` tool for real contract validation
+  - Connects to hosted Compact compiler at `compact-playground.onrender.com`
+  - Fast mode (`skipZk=true`): Syntax validation in ~1-2 seconds
+  - Full mode (`fullCompile=true`): Complete ZK circuit generation in ~10-30 seconds
+  - Returns actual compiler errors with line/column locations
+  - Catches semantic errors that static analysis misses (sealed fields, disclose rules, type mismatches)
+  - Automatic fallback to static analysis when compiler service is unavailable
+  - Response includes `validationType: "compiler"` or `"static-analysis-fallback"` to indicate mode
+  - Configurable via `COMPACT_COMPILER_URL` environment variable
+
+### Changed
+
+- **Tool Count** - Now 29 tools (was 28)
+- **Analysis Category** - Added `compile-contract` alongside existing static analysis tools
+
 ## [0.2.13] - 2026-01-18
 
 ### Added
