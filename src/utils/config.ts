@@ -58,7 +58,7 @@ function loadConfig(): Config {
 
   // Remove undefined values
   const cleanConfig = Object.fromEntries(
-    Object.entries(rawConfig).filter(([_, v]) => v !== undefined)
+    Object.entries(rawConfig).filter(([_, v]) => v !== undefined),
   );
 
   return ConfigSchema.parse(cleanConfig);
