@@ -226,7 +226,6 @@ export const REPOSITORIES: RepoConfig[] = [
   { owner: "midnightntwrk", repo: "jolteon-initiative-client", branch: "main" },
 
   // QA & Testing
-  { owner: "midnightntwrk", repo: "midnight-qa-tools", branch: "main" },
   { owner: "midnightntwrk", repo: "midnight-qa-demo", branch: "main" },
 
   // Community & Governance

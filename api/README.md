@@ -94,7 +94,7 @@ Requires `MIDNIGHT_GITHUB_TOKEN` secret with org access for private repos.
 | Developer Tools      | 4     | `setup-compact-action`, `upload-sarif-github-action`, `midnight-dev-utils`  |
 | Infrastructure       | 6     | `midnight-monitoring`, `midnight-tracing`, `midnight-operations`            |
 | Solutions & Apps     | 7     | `midnight-solutions`, `midnight-website-next`, `nightcap`, `ocp`            |
-| QA & Testing         | 2     | `midnight-qa-tools`, `midnight-qa-demo`                                     |
+| QA & Testing         | 1     | `midnight-qa-demo`                                                          |
 | Community            | 3     | `contributor-hub`, `lfdt-project-proposals`, `UTxO-Scalability`             |
 | Glacier Drop         | 15    | `midnight-glacier-drop-tools`, `gd-claim-api`, `gd-claim-portal`            |
 | Partners             | 14    | OpenZeppelin, BrickTowers, MeshJS, PaimaStudios, hackathon winners          |
