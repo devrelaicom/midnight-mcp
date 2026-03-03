@@ -163,7 +163,8 @@ async function makeRequest<T>(
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(
-        `Request to ${endpoint} timed out after ${API_TIMEOUT / 1000}s.`
+        `Request to ${endpoint} timed out after ${API_TIMEOUT / 1000}s.`,
+        { cause: error }
       );
     }
     throw error;
@@ -353,7 +354,9 @@ export function trackToolCall(
   apiRequest("/v1/track/tool", {
     method: "POST",
     body: JSON.stringify({ tool, success, durationMs, version }),
-  }).catch(() => {
-    // Silently ignore tracking errors
+  }).catch((error: unknown) => {
+    logger.debug("Tracking call failed (non-blocking)", {
+      error: String(error),
+    });
   });
 }

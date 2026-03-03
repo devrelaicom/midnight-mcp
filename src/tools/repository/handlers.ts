@@ -271,7 +271,7 @@ export async function getFile(input: GetFileInput) {
   }
 
   let content = file.content;
-  let totalLines = content.split("\n").length;
+  const totalLines = content.split("\n").length;
   let lineRange: { start: number; end: number } | undefined;
 
   // Handle line-range extraction

@@ -3,7 +3,7 @@
  * Business logic for search-related MCP tools
  */
 
-import { vectorStore, SearchFilter } from "../../db/index.js";
+import { vectorStore, SearchFilter, SearchResult } from "../../db/index.js";
 import {
   logger,
   validateQuery,
@@ -215,6 +215,88 @@ function finalizeResponse<
 }
 
 // ============================================================================
+// Generic Search Pipeline
+// ============================================================================
+
+/**
+ * Configuration for the generic search pipeline.
+ * Each search type provides its own config to performSearch().
+ */
+interface SearchConfig {
+  searchType: string;
+  cacheKeyExtra: (string | number | boolean | undefined)[];
+  hostedSearchFn: (query: string, limit: number) => Promise<{ results: unknown[]; totalResults?: number }>;
+  buildFilter: () => SearchFilter;
+  transformResult: (r: SearchResult) => Record<string, unknown>;
+  postFilter?: (results: SearchResult[]) => SearchResult[];
+  extraFields?: Record<string, unknown>;
+  hostedResultExtra?: Record<string, unknown>;
+}
+
+/**
+ * Unified search pipeline: validate → cache → hosted → local → finalize.
+ * Eliminates duplication across searchCompact, searchTypeScript, and searchDocs.
+ */
+async function performSearch(
+  query: string,
+  limit: number | undefined,
+  config: SearchConfig
+) {
+  // 1. Validate
+  const validation = validateSearchInput(query, limit);
+  if (!validation.success) {
+    return validation.error;
+  }
+  const { sanitizedQuery, limit: validatedLimit, warnings } = validation.context;
+
+  // 2. Log
+  logger.debug(`Searching ${config.searchType}`, {
+    query: sanitizedQuery,
+    mode: isHostedMode() ? "hosted" : "local",
+  });
+
+  // 3. Cache check
+  const cacheKey = createCacheKey(
+    config.searchType,
+    sanitizedQuery,
+    validatedLimit,
+    ...config.cacheKeyExtra
+  );
+  const cached = checkSearchCache(cacheKey);
+  if (cached) return cached;
+
+  // 4. Try hosted API first
+  const hostedResult = await tryHostedSearch(
+    config.searchType,
+    () => config.hostedSearchFn(sanitizedQuery, validatedLimit),
+    cacheKey,
+    warnings
+  );
+  if (hostedResult) {
+    return { ...hostedResult.result, ...config.hostedResultExtra };
+  }
+
+  // 5. Local search (fallback or when in local mode)
+  const filter = config.buildFilter();
+  let results = await vectorStore.search(sanitizedQuery, validatedLimit, filter);
+
+  // 6. Optional post-filtering
+  if (config.postFilter) {
+    results = config.postFilter(results);
+  }
+
+  // 7. Transform and finalize
+  const response = {
+    results: results.map(config.transformResult),
+    totalResults: results.length,
+    query: sanitizedQuery,
+    ...config.extraFields,
+  };
+
+  return finalizeResponse(response, cacheKey, warnings);
+}
+
+// ============================================================================
 // Handler Functions
 // ============================================================================
 
@@ -222,47 +304,12 @@ function finalizeResponse<
  * Search Compact smart contract code and patterns
  */
 export async function searchCompact(input: SearchCompactInput) {
-  // Validate input using common helper
-  const validation = validateSearchInput(input.query, input.limit);
-  if (!validation.success) {
-    return validation.error;
-  }
-  const { sanitizedQuery, limit, warnings } = validation.context;
-
-  logger.debug("Searching Compact code", {
-    query: sanitizedQuery,
-    mode: isHostedMode() ? "hosted" : "local",
-  });
-
-  // Check cache first
-  const cacheKey = createCacheKey(
-    "compact",
-    sanitizedQuery,
-    limit,
-    input.filter?.repository
-  );
-  const cached = checkSearchCache(cacheKey);
-  if (cached) return cached;
-
-  // Try hosted API first
-  const hostedResult = await tryHostedSearch(
-    "compact",
-    () => searchCompactHosted(sanitizedQuery, limit),
-    cacheKey,
-    warnings
-  );
-  if (hostedResult) return hostedResult.result;
-
-  // Local search (fallback or when in local mode)
-  const filter: SearchFilter = {
-    language: "compact",
-    ...input.filter,
-  };
-
-  const results = await vectorStore.search(sanitizedQuery, limit, filter);
-
-  const response = {
-    results: results.map((r) => ({
+  return performSearch(input.query, input.limit, {
+    searchType: "compact",
+    cacheKeyExtra: [input.filter?.repository],
+    hostedSearchFn: (query, limit) => searchCompactHosted(query, limit),
+    buildFilter: () => ({ language: "compact", ...input.filter }),
+    transformResult: (r) => ({
       code: r.content,
       relevanceScore: r.score,
       source: {
@@ -272,67 +319,29 @@ export async function searchCompact(input: SearchCompactInput) {
       },
       codeType: r.metadata.codeType,
       name: r.metadata.codeName,
-    })),
-    totalResults: results.length,
-    query: sanitizedQuery,
-  };
-
-  return finalizeResponse(response, cacheKey, warnings);
+    }),
+  });
 }
 
 /**
  * Search TypeScript SDK code, types, and API implementations
  */
 export async function searchTypeScript(input: SearchTypeScriptInput) {
-  // Validate input using common helper
-  const validation = validateSearchInput(input.query, input.limit);
-  if (!validation.success) {
-    return validation.error;
-  }
-  const { sanitizedQuery, limit, warnings } = validation.context;
-
-  logger.debug("Searching TypeScript code", {
-    query: sanitizedQuery,
-    mode: isHostedMode() ? "hosted" : "local",
-  });
-
-  // Check cache (includeExamples not used in filtering, excluded from key)
-  const cacheKey = createCacheKey(
-    "typescript",
-    sanitizedQuery,
-    limit,
-    input.includeTypes
-  );
-  const cached = checkSearchCache(cacheKey);
-  if (cached) return cached;
-
-  // Try hosted API first
-  const hostedResult = await tryHostedSearch(
-    "typescript",
-    () => searchTypeScriptHosted(sanitizedQuery, limit, input.includeTypes),
-    cacheKey,
-    warnings
-  );
-  if (hostedResult) return hostedResult.result;
-
-  // Local search (fallback or when in local mode)
-  const filter: SearchFilter = {
-    language: "typescript",
-  };
-
-  const results = await vectorStore.search(sanitizedQuery, limit, filter);
-
-  // Filter based on type preferences
-  let filteredResults = results;
-  if (!input.includeTypes) {
-    filteredResults = results.filter(
-      (r) =>
-        r.metadata.codeType !== "type" && r.metadata.codeType !== "interface"
-    );
-  }
-
-  const response = {
-    results: filteredResults.map((r) => ({
+  return performSearch(input.query, input.limit, {
+    searchType: "typescript",
+    cacheKeyExtra: [input.includeTypes],
+    hostedSearchFn: (query, limit) =>
+      searchTypeScriptHosted(query, limit, input.includeTypes),
+    buildFilter: () => ({ language: "typescript" }),
+    postFilter: (results) =>
+      input.includeTypes
+        ? results
+        : results.filter(
+            (r) =>
+              r.metadata.codeType !== "type" &&
+              r.metadata.codeType !== "interface"
+          ),
+    transformResult: (r) => ({
       code: r.content,
       relevanceScore: r.score,
       source: {
@@ -343,69 +352,30 @@ export async function searchTypeScript(input: SearchTypeScriptInput) {
       codeType: r.metadata.codeType,
       name: r.metadata.codeName,
       isExported: r.metadata.isPublic,
-    })),
-    totalResults: filteredResults.length,
-    query: sanitizedQuery,
-  };
-
-  return finalizeResponse(response, cacheKey, warnings);
+    }),
+  });
 }
 
 /**
  * Full-text search across official Midnight documentation
  */
 export async function searchDocs(input: SearchDocsInput) {
-  // Validate input using common helper
-  const validation = validateSearchInput(input.query, input.limit);
-  if (!validation.success) {
-    return validation.error;
-  }
-  const { sanitizedQuery, limit, warnings } = validation.context;
-
-  logger.debug("Searching documentation", {
-    query: sanitizedQuery,
-    mode: isHostedMode() ? "hosted" : "local",
-  });
-
-  // Check cache
-  const cacheKey = createCacheKey(
-    "docs",
-    sanitizedQuery,
-    limit,
-    input.category
-  );
-  const cached = checkSearchCache(cacheKey);
-  if (cached) return cached;
-
   const freshnessHint =
     "For guaranteed freshness, use midnight-fetch-docs with the path from these results (e.g., /develop/faq)";
 
-  // Try hosted API first
-  const hostedResult = await tryHostedSearch(
-    "docs",
-    () => searchDocsHosted(sanitizedQuery, limit, input.category),
-    cacheKey,
-    warnings
-  );
-  if (hostedResult) {
-    return { ...hostedResult.result, hint: freshnessHint };
-  }
-
-  // Local search (fallback or when in local mode)
-  const filter: SearchFilter = {
-    language: "markdown",
-  };
-
-  // If category is specified, add repository filter
-  if (input.category !== "all") {
-    // Docs are typically in the midnight-docs repo
-    filter.repository = "midnightntwrk/midnight-docs";
-  }
-
-  const results = await vectorStore.search(sanitizedQuery, limit, filter);
-
-  const response = {
-    results: results.map((r) => ({
+  return performSearch(input.query, input.limit, {
+    searchType: "docs",
+    cacheKeyExtra: [input.category],
+    hostedSearchFn: (query, limit) =>
+      searchDocsHosted(query, limit, input.category),
+    buildFilter: () => {
+      const filter: SearchFilter = { language: "markdown" };
+      if (input.category !== "all") {
+        filter.repository = "midnightntwrk/midnight-docs";
+      }
+      return filter;
+    },
+    transformResult: (r) => ({
       content: r.content,
       relevanceScore: r.score,
       source: {
@@ -413,14 +383,13 @@ export async function searchDocs(input: SearchDocsInput) {
         filePath: r.metadata.filePath,
         section: r.metadata.codeName,
       },
-    })),
-    totalResults: results.length,
-    query: sanitizedQuery,
-    category: input.category,
-    hint: "For guaranteed freshness, use midnight-fetch-docs with the path from these results (e.g., /develop/faq)",
-  };
-
-  return finalizeResponse(response, cacheKey, warnings);
+    }),
+    extraFields: {
+      category: input.category,
+      hint: freshnessHint,
+    },
+    hostedResultExtra: { hint: freshnessHint },
+  });
 }
 
 // ============================================================================
@@ -488,7 +457,6 @@ function extractContentFromHtml(
     const text = headingMatch[3]
       .replace(/<[^>]+>/g, "")
       .replace(/\u200B/g, "")
-      .replace(/​/g, "")
       .trim();
     if (text) {
       headings.push({
@@ -622,7 +590,26 @@ export async function fetchDocs(input: {
     };
   }
 
-  const url = `${DOCS_BASE_URL}${normalizedPath}`;
+  // Safely construct URL using URL constructor to prevent injection/traversal
+  let url: string;
+  try {
+    const constructed = new URL(normalizedPath, DOCS_BASE_URL);
+    // Ensure we haven't escaped the docs domain
+    if (constructed.origin !== new URL(DOCS_BASE_URL).origin) {
+      return {
+        error: "Invalid path",
+        details: ["Path resulted in a URL outside the documentation domain"],
+        suggestion: `Use a clean path like '/develop/faq' or '/getting-started/installation'`,
+      };
+    }
+    url = constructed.href;
+  } catch {
+    return {
+      error: "Invalid path",
+      details: ["Could not construct a valid URL from the path"],
+      suggestion: `Use a clean path like '/develop/faq' or '/getting-started/installation'`,
+    };
+  }
 
   logger.debug("Fetching live documentation", { url, extractSection });
 

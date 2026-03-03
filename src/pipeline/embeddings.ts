@@ -41,9 +41,19 @@ export class EmbeddingGenerator {
         input: text,
       });
 
+      const embedding = response.data[0].embedding;
+      const EXPECTED_DIMENSIONS = 1536; // text-embedding-3-small default
+      if (!embedding || embedding.length !== EXPECTED_DIMENSIONS) {
+        logger.warn("Unexpected embedding dimensions", {
+          expected: EXPECTED_DIMENSIONS,
+          actual: embedding?.length ?? 0,
+          model: this.model,
+        });
+      }
+
       return {
         text,
-        embedding: response.data[0].embedding,
+        embedding,
         model: this.model,
         tokenCount: response.usage?.total_tokens,
       };

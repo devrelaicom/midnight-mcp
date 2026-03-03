@@ -97,7 +97,7 @@ export async function getDocumentation(uri: string): Promise<string | null> {
       if (file) {
         return file.content;
       }
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       logger.warn(`Could not fetch doc from GitHub: ${uri}`);
     }
   }

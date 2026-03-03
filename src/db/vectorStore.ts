@@ -82,9 +82,26 @@ class VectorStore {
     }
 
     try {
-      const ids = documents.map((d) => d.id);
-      const embeddings = documents.map((d) => d.embedding!);
-      const metadatas = documents.map((d) => ({
+      // Filter out documents without valid embeddings
+      const validDocuments = documents.filter((d) => {
+        if (!d.embedding || d.embedding.length === 0) {
+          logger.warn("Document missing embedding, skipping", {
+            id: d.id,
+            filePath: d.metadata.filePath,
+          });
+          return false;
+        }
+        return true;
+      });
+
+      if (validDocuments.length === 0) {
+        logger.warn("No documents with valid embeddings to store");
+        return;
+      }
+
+      const ids = validDocuments.map((d) => d.id);
+      const embeddings = validDocuments.map((d) => d.embedding!); // Safe after filter
+      const metadatas = validDocuments.map((d) => ({
         repository: d.metadata.repository,
         filePath: d.metadata.filePath,
         language: d.metadata.language,
@@ -94,7 +111,7 @@ class VectorStore {
         codeName: d.metadata.codeName,
         isPublic: d.metadata.isPublic,
       }));
-      const documentContents = documents.map((d) => d.content);
+      const documentContents = validDocuments.map((d) => d.content);
 
       await this.collection.add({
         ids,
@@ -103,7 +120,7 @@ class VectorStore {
         documents: documentContents,
       });
 
-      logger.debug(`Added ${documents.length} documents to vector store`);
+      logger.debug(`Added ${validDocuments.length} documents to vector store`);
     } catch (error: unknown) {
       logger.error("Failed to add documents to vector store", {
         error: String(error),

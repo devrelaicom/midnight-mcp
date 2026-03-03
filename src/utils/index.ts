@@ -6,6 +6,7 @@ export {
   MCPError,
   ErrorCodes,
   createUserError,
+  createErrorResponse,
   formatErrorResponse,
   withErrorHandling,
   SelfCorrectionHints,

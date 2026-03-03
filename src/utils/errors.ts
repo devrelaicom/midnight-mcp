@@ -196,6 +196,34 @@ export function createUserError(error: unknown, context?: string): MCPError {
 }
 
 /**
+ * Create a standardized error response object for tool handlers.
+ * Use this instead of inline error objects for consistency.
+ */
+export function createErrorResponse(
+  message: string,
+  code: string = "UNKNOWN_ERROR",
+  options?: {
+    suggestion?: string;
+    details?: string[];
+    hint?: string;
+  }
+): {
+  error: string;
+  code: string;
+  suggestion?: string;
+  details?: string[];
+  hint?: string;
+} {
+  return {
+    error: message,
+    code,
+    ...(options?.suggestion && { suggestion: options.suggestion }),
+    ...(options?.details && { details: options.details }),
+    ...(options?.hint && { hint: options.hint }),
+  };
+}
+
+/**
  * Format error for MCP response
  */
 export function formatErrorResponse(

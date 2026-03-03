@@ -71,6 +71,11 @@ export class Cache<T> {
       this.evictOldest();
     }
 
+    // Periodic lazy prune: every 100 writes, clean expired entries
+    if (this.cache.size > 0 && this.cache.size % 100 === 0) {
+      this.prune();
+    }
+
     const now = Date.now();
     this.cache.set(key, {
       value,
@@ -255,5 +260,5 @@ export function pruneAllCaches(): void {
   metadataCache.prune();
 }
 
-// Auto-prune every 5 minutes
-setInterval(pruneAllCaches, 5 * 60 * 1000);
+// Lazy pruning is handled in Cache.set() — no interval needed.
+// pruneAllCaches() is still available for explicit use (e.g., health checks).

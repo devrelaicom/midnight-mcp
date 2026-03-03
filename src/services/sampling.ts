@@ -111,7 +111,8 @@ export async function requestCompletion(
       );
       markSamplingFailed();
       throw new Error(
-        "Sampling not supported by this client - use Claude Desktop for this feature"
+        "Sampling not supported by this client - use Claude Desktop for this feature",
+        { cause: error }
       );
     }
 

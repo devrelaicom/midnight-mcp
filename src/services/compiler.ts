@@ -116,10 +116,11 @@ export async function checkCompilerHealth(): Promise<{
     });
 
     if (response.ok) {
-      const data = (await response.json()) as {
-        compilerVersion?: string;
-        version?: string;
-      };
+      const rawData: unknown = await response.json();
+      const data =
+        typeof rawData === "object" && rawData !== null
+          ? (rawData as { compilerVersion?: string; version?: string })
+          : {};
       return {
         available: true,
         version: data.compilerVersion || data.version,
@@ -213,7 +214,26 @@ export async function compileContract(
       };
     }
 
-    const result = (await response.json()) as CompileResponse;
+    const rawResult: unknown = await response.json();
+
+    // Runtime validation of compiler response
+    if (
+      typeof rawResult !== "object" ||
+      rawResult === null ||
+      !("success" in rawResult)
+    ) {
+      logger.error("Compiler API returned unexpected response format", {
+        response: JSON.stringify(rawResult).slice(0, 200),
+      });
+      return {
+        success: false,
+        message: "Compiler service returned an unexpected response format",
+        error: "INVALID_RESPONSE",
+        serviceAvailable: true,
+      };
+    }
+
+    const result = rawResult as CompileResponse;
 
     if (result.success) {
       // Handle both detailed output object and simple string output

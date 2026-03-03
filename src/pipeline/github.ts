@@ -360,19 +360,21 @@ export class GitHubClient {
     patterns: string[],
     exclude: string[]
   ): string[] {
-    const matchPattern = (file: string, pattern: string): boolean => {
-      // Convert glob pattern to regex
-      // Only processes **, *, and . - safe for internal config patterns
+    // Pre-compile glob patterns into RegExp objects
+    const compilePattern = (pattern: string): RegExp => {
       const regexPattern = pattern
         .replace(/\*\*/g, ".*")
         .replace(/\*/g, "[^/]*")
         .replace(/\./g, "\\.");
-      return new RegExp(`^${regexPattern}$`).test(file);
+      return new RegExp(`^${regexPattern}$`);
     };
 
+    const includeRegexes = patterns.map(compilePattern);
+    const excludeRegexes = exclude.map(compilePattern);
+
     return files.filter((file) => {
-      const matchesInclude = patterns.some((p) => matchPattern(file, p));
-      const matchesExclude = exclude.some((p) => matchPattern(file, p));
+      const matchesInclude = includeRegexes.some((re) => re.test(file));
+      const matchesExclude = excludeRegexes.some((re) => re.test(file));
       return matchesInclude && !matchesExclude;
     });
   }
@@ -397,11 +399,20 @@ export class GitHubClient {
       `Found ${filteredFiles.length} matching files in ${owner}/${repo}`
     );
 
+    const BATCH_SIZE = 5;
     const files: GitHubFile[] = [];
-    for (const filePath of filteredFiles) {
-      const file = await this.getFileContent(owner, repo, filePath, branch);
-      if (file) {
-        files.push(file);
+
+    for (let i = 0; i < filteredFiles.length; i += BATCH_SIZE) {
+      const batch = filteredFiles.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map((filePath) =>
+          this.getFileContent(owner, repo, filePath, branch)
+        )
+      );
+      for (const file of results) {
+        if (file) {
+          files.push(file);
+        }
       }
     }
 

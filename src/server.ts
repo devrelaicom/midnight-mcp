@@ -102,8 +102,10 @@ async function checkForUpdates(): Promise<void> {
         lastChecked: Date.now(),
       };
     }
-  } catch {
-    // Silently ignore version check failures (offline, timeout, etc.)
+  } catch (error: unknown) {
+    logger.debug("Version check failed (non-blocking)", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -117,7 +119,11 @@ function maybeCheckForUpdates(): void {
     // Only re-check if last check was > 5 minutes ago
     const fiveMinutes = 5 * 60 * 1000;
     if (Date.now() - versionCheckResult.lastChecked > fiveMinutes) {
-      checkForUpdates().catch(() => {});
+      checkForUpdates().catch((error: unknown) => {
+        logger.debug("Periodic version check failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }
   }
 }
@@ -231,8 +237,10 @@ export function sendLogToClient(
         data,
       },
     });
-  } catch {
-    // Ignore notification errors
+  } catch (error: unknown) {
+    logger.debug("Failed to send log notification to client", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -258,8 +266,10 @@ export function sendProgressNotification(
         ...(message && { message }),
       },
     });
-  } catch {
-    // Ignore notification errors
+  } catch (error: unknown) {
+    logger.debug("Failed to send progress notification", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -855,8 +865,10 @@ export async function initializeServer(): Promise<Server> {
   logger.info("Initializing Midnight MCP Server...");
 
   // Check for updates in background (non-blocking)
-  checkForUpdates().catch(() => {
-    // Ignore errors - version check is best-effort
+  checkForUpdates().catch((error: unknown) => {
+    logger.debug("Startup version check failed (non-blocking)", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   });
 
   // Initialize vector store
