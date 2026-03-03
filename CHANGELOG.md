@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.17] - 2026-03-03
+
+### Security
+
+- **Safe URL Construction** - Replaced template literal URL building with `new URL()` constructor in docs fetcher
+  - Adds origin validation to prevent path traversal escaping the documentation domain
+  - Malformed paths now return clear error messages instead of silently constructing bad URLs
+
+### Fixed
+
+- **Silent Error Swallowing** - Added `logger.debug()` to 6 silent `catch {}` blocks across `server.ts` and `hosted-api.ts`
+  - Version checks, log notifications, progress notifications, and tracking calls now log failures at debug level
+  - Preserves non-blocking behavior while making failures diagnosable
+
+- **Unsafe Type Assertions** - Replaced `as` casts with runtime validation in compiler service
+  - `compileContract`: Validates response shape before casting to `CompileResponse`
+  - `checkCompilerHealth`: Validates response object before casting to version info
+  - Returns structured error instead of crashing on unexpected API responses
+
+- **Non-null Assertion on Embeddings** - `vectorStore.ts` now filters out documents missing embeddings before indexing
+  - Logs warning for skipped documents instead of risking runtime crash
+
+- **Embedding Dimension Validation** - Warns when embeddings don't match expected 1536 dimensions (text-embedding-3-small)
+
+- **Unused Variables** - Fixed lint errors: unused catch variables renamed to `_error`, `let` → `const` for non-reassigned variables
+  - `resources/code.ts`, `resources/docs.ts`, `tools/repository/handlers.ts`
+
+- **Error Cause Preservation** - Added `{ cause: error }` to re-thrown errors in `sampling.ts` and `hosted-api.ts`
+
+### Improved
+
+- **Search Handler Deduplication** - Extracted generic `performSearch()` pipeline, reducing ~60% code duplication
+  - `searchCompact`, `searchTypeScript`, and `searchDocs` are now thin config wrappers
+  - Identical validation → cache → hosted → local → transform → response flow consolidated into one function
+  - New `SearchConfig` interface makes adding future search types trivial
+
+- **GitHub File Fetching Performance** - Batched parallel fetching with `Promise.all()` (batch size 5)
+  - ~5x throughput improvement for multi-file repository indexing
+  - Pre-compiled glob-to-regex patterns: O(patterns) compilation instead of O(files × patterns)
+
+- **Cache Pruning** - Replaced `setInterval` timer with lazy write-triggered pruning
+  - Prunes every 100 `set()` calls instead of running on a fixed 5-minute interval
+  - Eliminates background timer that could keep the event loop alive unnecessarily
+
+- **Standardized Error Responses** - New `createErrorResponse()` utility in `utils/errors.ts`
+  - Returns consistent `{ error, code, suggestion?, details?, hint? }` shape
+  - Exported from `utils/index.ts` for use across handlers
+
+### Added
+
+- **ESLint Configuration** - New `eslint.config.js` with flat config format (ESLint 9+)
+  - `typescript-eslint` integration with project-aware type checking
+  - Key rules: `no-explicit-any: warn`, `no-unused-vars` with `_` prefix exception, `no-non-null-assertion: warn`
+  - `no-control-regex: off` for intentional security validation patterns
+
+- **Prettier Configuration** - New `.prettierrc.json` codifying existing code style
+  - Double quotes, semicolons, 2-space indent, trailing commas (es5), 100 char print width
+
+- **Lint Scripts** - Added `lint` and `lint:fix` npm scripts; updated `ci` script to include linting
+
+- **CI Pipeline Improvements** - Added `typecheck` and `lint` steps to GitHub Actions workflow
+  - Order: typecheck → lint → build → test
+
+- **Coverage Thresholds** - `vitest.config.ts` now enforces minimum coverage
+  - 70% statements, 65% branches, 70% functions, 70% lines
+
 ## [0.2.15] - 2026-01-21
 
 ### Fixed

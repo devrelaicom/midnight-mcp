@@ -13,7 +13,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                      midnight-mcp                                │
 │  ┌────────────┐  ┌─────────────┐  ┌────────────┐                │
-│  │ 28 Tools   │  │ 9 Resources │  │ 5 Prompts  │                │
+│  │ 29 Tools   │  │ 9 Resources │  │ 5 Prompts  │                │
 │  └────────────┘  └─────────────┘  └────────────┘                │
 └──────────────────────────────────────────────────────────────────┘
                               │
@@ -215,8 +215,11 @@ src/
 │   └── vectorStore.ts # ChromaDB client
 └── utils/
     ├── config.ts      # Configuration
+    ├── cache.ts       # TTL cache with lazy pruning
+    ├── errors.ts      # MCPError, createErrorResponse()
     ├── hosted-api.ts  # Hosted API client
-    └── logger.ts      # Logging
+    ├── logger.ts      # Logging
+    └── index.ts       # Barrel exports
 ```
 
 ## Graceful Degradation
@@ -423,11 +426,13 @@ NPM package:
 }
 ```
 
-### Testing
+### Testing & Quality
 
-Vitest:
+Vitest with coverage thresholds (70% statements/functions/lines, 65% branches):
 
 ```bash
 npm test              # Run tests
-npm run test:coverage # With coverage
+npm run test:coverage # With coverage report
+npm run lint          # ESLint (typescript-eslint)
+npm run typecheck     # TypeScript strict mode
 ```

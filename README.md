@@ -137,7 +137,7 @@ This catches semantic errors that static analysis misses (sealed fields, disclos
 
 | Capability      | Feature                                         |
 | --------------- | ----------------------------------------------- |
-| **Tools**       | 28 tools with `listChanged` notifications       |
+| **Tools**       | 29 tools with `listChanged` notifications       |
 | **Resources**   | 9 embedded resources with subscription support  |
 | **Prompts**     | 5 workflow prompts                              |
 | **Logging**     | Client-controllable log level                   |
@@ -269,6 +269,11 @@ Add `"GITHUB_TOKEN": "ghp_..."` for higher GitHub API rate limits (60 → 5000 r
 ```bash
 git clone https://github.com/Olanetsoft/midnight-mcp.git && cd midnight-mcp
 npm install && npm run build && npm test
+
+# Lint & format
+npm run lint          # ESLint (typescript-eslint)
+npm run lint:fix      # Auto-fix lint issues
+npm run format        # Prettier
 ```
 
 The hosted API runs on Cloudflare Workers + Vectorize. See [api/README.md](./api/README.md) for backend details.
