@@ -8,6 +8,8 @@
 
 MCP server that gives AI assistants access to Midnight blockchain—search contracts, analyze code, and explore documentation.
 
+This project extends the Midnight Network with additional developer tooling.
+
 ## Requirements
 
 - **Node.js 20+** (LTS recommended)
