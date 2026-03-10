@@ -92,6 +92,7 @@ export interface SearchResponse {
   results: SearchResult[];
   query: string;
   totalResults: number;
+  warnings?: string[];
 }
 
 // ============== OpenAI Types ==============
