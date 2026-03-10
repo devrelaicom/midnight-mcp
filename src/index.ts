@@ -5,7 +5,7 @@
  */
 
 // Server exports
-export { startServer, startHttpServer, initializeServer } from "./server.js";
+export { startServer, startHttpServer } from "./server.js";
 
 // Tool exports
 export { allTools } from "./tools/index.js";

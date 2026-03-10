@@ -513,6 +513,8 @@ function registerToolHandlers(server: Server): void {
             isError: true,
           };
         }
+      } else {
+        logger.warn(`No validation schema registered for tool: ${name}`);
       }
 
       const result = await tool.handler(validatedArgs as never);
@@ -914,9 +916,10 @@ export async function initializeSharedResources(): Promise<void> {
 }
 
 /**
- * Initialize shared resources and create a server (for stdio mode)
+ * Initialize shared resources and create a server.
+ * Internal helper used only by startServer() for stdio mode.
  */
-export async function initializeServer(): Promise<Server> {
+async function initializeServer(): Promise<Server> {
   await initializeSharedResources();
   return createServer();
 }
@@ -938,7 +941,14 @@ export async function startServer(): Promise<void> {
 
 // Session management constants
 const MAX_SESSIONS = 100;
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const SESSION_TTL_MS = (() => {
+  const envVal = process.env.MIDNIGHT_MCP_SESSION_TTL;
+  if (envVal) {
+    const parsed = Number(envVal);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed * 1000; // seconds → ms
+  }
+  return 30 * 60 * 1000; // default: 30 minutes
+})();
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 interface SessionEntry<T> {
@@ -963,9 +973,10 @@ function totalSessionCount(): number {
 async function closeSessions<T extends StreamableHTTPServerTransport | SSEServerTransport>(
   sessionMap: Map<string, SessionEntry<T>>
 ): Promise<void> {
-  const closePromises = Array.from(sessionMap.values()).map((entry) =>
-    entry.transport.close?.().catch(() => {})
-  );
+  const closePromises = Array.from(sessionMap.values()).map(async (entry) => {
+    await entry.transport.close?.().catch(() => {});
+    await entry.server.close().catch(() => {});
+  });
   await Promise.all(closePromises);
   sessionMap.clear();
 }
@@ -1132,6 +1143,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     for (const [id, entry] of sessions.streamable) {
       if (now - entry.lastActivityAt > SESSION_TTL_MS) {
         entry.transport.close?.().catch(() => {});
+        entry.server.close().catch(() => {});
         sessions.streamable.delete(id);
         logger.debug(`Evicted expired streamable session: ${id}`);
       }
@@ -1139,11 +1151,13 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     for (const [id, entry] of sessions.sse) {
       if (now - entry.lastActivityAt > SESSION_TTL_MS) {
         entry.transport.close?.().catch(() => {});
+        entry.server.close().catch(() => {});
         sessions.sse.delete(id);
         logger.debug(`Evicted expired SSE session: ${id}`);
       }
     }
   }, CLEANUP_INTERVAL_MS);
+  cleanupInterval.unref();
 
   // Start server
   const httpServer = app.listen(port, "127.0.0.1", () => {

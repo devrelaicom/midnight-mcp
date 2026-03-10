@@ -5,6 +5,8 @@
  */
 
 import type { ZodSchema } from "zod";
+import { allTools } from "./index.js";
+import { logger } from "../utils/index.js";
 
 // Search schemas
 import {
@@ -103,3 +105,11 @@ export const toolValidationSchemas: Record<string, ZodSchema> = {
   "midnight-list-category-tools": ListCategoryToolsInputSchema,
   "midnight-suggest-tool": SuggestToolInputSchema,
 };
+
+// Verify all validation schema keys match actual tool names (runs once at import time)
+const toolNames = new Set(allTools.map((t) => t.name));
+for (const key of Object.keys(toolValidationSchemas)) {
+  if (!toolNames.has(key)) {
+    logger.warn(`Validation schema registered for unknown tool: ${key}`);
+  }
+}
