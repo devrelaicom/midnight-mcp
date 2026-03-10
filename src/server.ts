@@ -989,7 +989,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   const app = express();
 
   // Parse JSON for the Streamable HTTP endpoint
-  app.use("/mcp", express.json());
+  app.use("/mcp", express.json({ limit: "1mb" }));
 
   // Health check endpoint
   app.get("/health", (_req, res) => {
