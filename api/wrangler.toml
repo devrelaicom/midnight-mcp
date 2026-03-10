@@ -15,9 +15,21 @@ index_name = "midnight-code"
 binding = "METRICS"
 id = "adc06e61998c417684ee353791077992"
 
-# Rate limiting
-# [[unsafe.bindings]]
-# name = "RATE_LIMITER"
-# type = "ratelimit"
-# namespace_id = "1"
-# simple = { limit = 60, period = 60 }
+# KV namespace for embedding cache
+[[kv_namespaces]]
+binding = "EMBEDDING_CACHE"
+id = "REPLACE_WITH_ACTUAL_KV_NAMESPACE_ID"
+
+# Rate limiting — anonymous users
+[[unsafe.bindings]]
+name = "RATE_LIMIT_ANON"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+# Rate limiting — authenticated users
+[[unsafe.bindings]]
+name = "RATE_LIMIT_AUTH"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
