@@ -29,7 +29,7 @@ import { escapeHtml, escapeAttr } from "./components/html-utils";
 /**
  * Generate the complete dashboard HTML page
  */
-export function generateDashboardHtml(metrics: Metrics): string {
+export function generateDashboardHtml(metrics: Metrics, username?: string): string {
   const content =
     metrics.totalQueries === 0 && (metrics.totalToolCalls || 0) === 0
       ? generateEmptyState("No activity recorded yet", {
@@ -38,7 +38,11 @@ export function generateDashboardHtml(metrics: Metrics): string {
         })
       : generateDashboardContent(metrics);
 
-  return generatePageWrapper(content, {
+  const userHtml = username
+    ? `<div style="text-align: right; color: #aaa; padding: 8px 0; font-size: 13px;">Logged in as @${escapeHtml(username)} | <a href="/oauth/logout" style="color: #6cf;">Logout</a></div>`
+    : "";
+
+  return generatePageWrapper(userHtml + content, {
     title: "MCP Analytics",
     description: "Midnight MCP Server Analytics Dashboard",
     refreshable: true,
