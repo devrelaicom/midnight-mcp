@@ -493,7 +493,7 @@ function registerToolHandlers(server: Server): void {
       let validatedArgs = args;
       if (zodSchema) {
         try {
-          validatedArgs = zodSchema.parse(args);
+          validatedArgs = zodSchema.parse(args ?? {});
         } catch (validationError) {
           const durationMs = Date.now() - startTime;
           trackToolCall(name, false, durationMs, CURRENT_VERSION);
@@ -1041,7 +1041,13 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       });
       transport.onclose = () => {
         if (transport.sessionId) {
+          const entry = sessions.streamable.get(transport.sessionId);
           sessions.streamable.delete(transport.sessionId);
+          if (entry) {
+            entry.server.close().catch((err: unknown) => {
+              logger.error(`Error closing streamable server: ${err}`);
+            });
+          }
           logger.debug(`Streamable session closed: ${transport.sessionId}`);
         }
       };
@@ -1093,7 +1099,13 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     });
 
     res.on("close", () => {
+      const entry = sessions.sse.get(transport.sessionId);
       sessions.sse.delete(transport.sessionId);
+      if (entry) {
+        entry.server.close().catch((err: unknown) => {
+          logger.error(`Error closing SSE server: ${err}`);
+        });
+      }
       logger.debug(`SSE session closed: ${transport.sessionId}`);
     });
 
@@ -1109,7 +1121,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   });
 
   // SSE message endpoint
-  app.post("/messages", async (req: Request, res: Response) => {
+  app.post("/messages", express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
     const entry = sessions.sse.get(sessionId);
 

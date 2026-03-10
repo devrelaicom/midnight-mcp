@@ -113,3 +113,9 @@ for (const key of Object.keys(toolValidationSchemas)) {
     logger.warn(`Validation schema registered for unknown tool: ${key}`);
   }
 }
+// Verify every registered tool has a validation schema
+for (const name of toolNames) {
+  if (!toolValidationSchemas[name]) {
+    logger.warn(`Tool "${name}" has no registered validation schema`);
+  }
+}
