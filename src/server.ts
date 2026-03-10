@@ -20,6 +20,7 @@ import {
 import express, { type Request, type Response } from "express";
 import { randomUUID } from "crypto";
 
+import { z } from "zod";
 import {
   logger,
   formatErrorResponse,
@@ -27,6 +28,7 @@ import {
   trackToolCall,
   serialize,
 } from "./utils/index.js";
+import { toolValidationSchemas } from "./tools/validation.js";
 import { vectorStore } from "./db/index.js";
 import { allTools } from "./tools/index.js";
 import {
@@ -486,7 +488,36 @@ function registerToolHandlers(server: Server): void {
     }
 
     try {
-      const result = await tool.handler(args as never);
+      // Runtime Zod validation — applies defaults, enforces refinements
+      const zodSchema = toolValidationSchemas[name];
+      let validatedArgs = args;
+      if (zodSchema) {
+        try {
+          validatedArgs = zodSchema.parse(args ?? {});
+        } catch (validationError) {
+          const durationMs = Date.now() - startTime;
+          trackToolCall(name, false, durationMs, CURRENT_VERSION);
+          return {
+            content: [
+              {
+                type: "text",
+                text: serialize({
+                  error: "Invalid tool arguments",
+                  details:
+                    validationError instanceof z.ZodError
+                      ? validationError.errors
+                      : String(validationError),
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+      } else {
+        logger.warn(`No validation schema registered for tool: ${name}`);
+      }
+
+      const result = await tool.handler(validatedArgs as never);
       const durationMs = Date.now() - startTime;
 
       // Track successful tool call (fire-and-forget, won't block response)
@@ -545,9 +576,8 @@ function registerToolHandlers(server: Server): void {
             text: serialize(result),
           },
         ],
-        // Include structured content for machine-readable responses
-        // This allows clients to parse results without JSON.parse()
-        structuredContent: result,
+        // Include structured content only when tool defines outputSchema (per MCP spec)
+        ...(tool.outputSchema && { structuredContent: result }),
       };
     } catch (error: unknown) {
       const durationMs = Date.now() - startTime;
@@ -859,9 +889,10 @@ function setupSampling(server: Server): void {
 }
 
 /**
- * Initialize the server and vector store
+ * Initialize shared resources (vector store, version check)
+ * Called once at startup regardless of transport mode.
  */
-export async function initializeServer(): Promise<Server> {
+export async function initializeSharedResources(): Promise<void> {
   logger.info("Initializing Midnight MCP Server...");
 
   // Check for updates in background (non-blocking)
@@ -881,11 +912,16 @@ export async function initializeServer(): Promise<Server> {
     });
   }
 
-  // Create and return server
-  const server = createServer();
-  logger.info(`Server v${CURRENT_VERSION} created successfully`);
+  logger.info(`Server v${CURRENT_VERSION} resources initialized`);
+}
 
-  return server;
+/**
+ * Initialize shared resources and create a server.
+ * Internal helper used only by startServer() for stdio mode.
+ */
+async function initializeServer(): Promise<Server> {
+  await initializeSharedResources();
+  return createServer();
 }
 
 /**
@@ -903,36 +939,57 @@ export async function startServer(): Promise<void> {
   logger.info("Midnight MCP Server running on stdio");
 }
 
-// HTTP transport state
-const transports = {
-  streamable: {} as Record<string, StreamableHTTPServerTransport>,
-  sse: {} as Record<string, SSEServerTransport>,
+// Session management constants
+const MAX_SESSIONS = 100;
+const SESSION_TTL_MS = (() => {
+  const envVal = process.env.MIDNIGHT_MCP_SESSION_TTL;
+  if (envVal) {
+    const parsed = Number(envVal);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed * 1000; // seconds → ms
+  }
+  return 30 * 60 * 1000; // default: 30 minutes
+})();
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface SessionEntry<T> {
+  transport: T;
+  server: Server;
+  createdAt: number;
+  lastActivityAt: number;
+}
+
+const sessions = {
+  streamable: new Map<string, SessionEntry<StreamableHTTPServerTransport>>(),
+  sse: new Map<string, SessionEntry<SSEServerTransport>>(),
 };
 
+function totalSessionCount(): number {
+  return sessions.streamable.size + sessions.sse.size;
+}
+
 /**
- * Close all active transports
+ * Close all active sessions in a session map
  */
-async function closeTransports(
-  transportMap: Record<
-    string,
-    StreamableHTTPServerTransport | SSEServerTransport
-  >
+async function closeSessions<T extends StreamableHTTPServerTransport | SSEServerTransport>(
+  sessionMap: Map<string, SessionEntry<T>>
 ): Promise<void> {
-  const closePromises = Object.values(transportMap).map((transport) =>
-    transport.close?.().catch(() => {})
-  );
+  const closePromises = Array.from(sessionMap.values()).map(async (entry) => {
+    await entry.transport.close?.().catch(() => {});
+    await entry.server.close().catch(() => {});
+  });
   await Promise.all(closePromises);
+  sessionMap.clear();
 }
 
 /**
  * Start the server with HTTP transport (SSE + Streamable HTTP)
  */
 export async function startHttpServer(port: number = 3000): Promise<void> {
-  const mcpServer = await initializeServer();
+  await initializeSharedResources();
   const app = express();
 
   // Parse JSON for the Streamable HTTP endpoint
-  app.use("/mcp", express.json());
+  app.use("/mcp", express.json({ limit: "1mb" }));
 
   // Health check endpoint
   app.get("/health", (_req, res) => {
@@ -940,6 +997,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       status: "ok",
       version: CURRENT_VERSION,
       transport: "http",
+      activeSessions: totalSessionCount(),
     });
   });
 
@@ -948,26 +1006,53 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 
-    if (sessionId && transports.streamable[sessionId]) {
+    const existingEntry = sessionId ? sessions.streamable.get(sessionId) : undefined;
+    if (existingEntry) {
       // Reuse existing transport
-      transport = transports.streamable[sessionId];
+      existingEntry.lastActivityAt = Date.now();
+      transport = existingEntry.transport;
     } else if (!sessionId && isInitializeRequest(req.body)) {
-      // New session initialization
+      // Check session capacity
+      if (totalSessionCount() >= MAX_SESSIONS) {
+        res.status(503).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32000,
+            message: "Server at session capacity. Try again later.",
+          },
+          id: null,
+        });
+        return;
+      }
+
+      // New session initialization — create a dedicated server
+      const sessionServer = createServer();
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (newSessionId) => {
-          transports.streamable[newSessionId] = transport;
+          sessions.streamable.set(newSessionId, {
+            transport,
+            server: sessionServer,
+            createdAt: Date.now(),
+            lastActivityAt: Date.now(),
+          });
           logger.debug(`New streamable session: ${newSessionId}`);
         },
       });
       transport.onclose = () => {
         if (transport.sessionId) {
-          delete transports.streamable[transport.sessionId];
+          const entry = sessions.streamable.get(transport.sessionId);
+          sessions.streamable.delete(transport.sessionId);
+          if (entry) {
+            entry.server.close().catch((err: unknown) => {
+              logger.error(`Error closing streamable server: ${err}`);
+            });
+          }
           logger.debug(`Streamable session closed: ${transport.sessionId}`);
         }
       };
       try {
-        await mcpServer.connect(transport);
+        await sessionServer.connect(transport);
       } catch (error: unknown) {
         logger.error("Failed to connect streamable transport", {
           error: String(error),
@@ -997,19 +1082,37 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
 
   // SSE endpoint for server-to-client notifications
   app.get("/sse", async (_req: Request, res: Response) => {
+    // Check session capacity
+    if (totalSessionCount() >= MAX_SESSIONS) {
+      res.status(503).end("Server at session capacity. Try again later.");
+      return;
+    }
+
     logger.debug("New SSE connection");
+    const sessionServer = createServer();
     const transport = new SSEServerTransport("/messages", res);
-    transports.sse[transport.sessionId] = transport;
+    sessions.sse.set(transport.sessionId, {
+      transport,
+      server: sessionServer,
+      createdAt: Date.now(),
+      lastActivityAt: Date.now(),
+    });
 
     res.on("close", () => {
-      delete transports.sse[transport.sessionId];
+      const entry = sessions.sse.get(transport.sessionId);
+      sessions.sse.delete(transport.sessionId);
+      if (entry) {
+        entry.server.close().catch((err: unknown) => {
+          logger.error(`Error closing SSE server: ${err}`);
+        });
+      }
       logger.debug(`SSE session closed: ${transport.sessionId}`);
     });
 
     try {
-      await mcpServer.connect(transport);
+      await sessionServer.connect(transport);
     } catch (error: unknown) {
-      delete transports.sse[transport.sessionId];
+      sessions.sse.delete(transport.sessionId);
       logger.error(`SSE connection failed: ${transport.sessionId}`, {
         error: String(error),
       });
@@ -1018,12 +1121,13 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   });
 
   // SSE message endpoint
-  app.post("/messages", async (req: Request, res: Response) => {
+  app.post("/messages", express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
-    const transport = transports.sse[sessionId];
+    const entry = sessions.sse.get(sessionId);
 
-    if (transport) {
-      await transport.handlePostMessage(req, res);
+    if (entry) {
+      entry.lastActivityAt = Date.now();
+      await entry.transport.handlePostMessage(req, res);
     } else {
       res.status(400).send(`No transport found for sessionId ${sessionId}`);
     }
@@ -1032,17 +1136,40 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   // Handle GET/DELETE for session management
   const handleSessionRequest = async (req: Request, res: Response) => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    if (!sessionId || !transports.streamable[sessionId]) {
+    const entry = sessionId ? sessions.streamable.get(sessionId) : undefined;
+    if (!entry) {
       res.status(400).send("Invalid or missing session ID");
       return;
     }
 
-    const transport = transports.streamable[sessionId];
-    await transport.handleRequest(req, res);
+    entry.lastActivityAt = Date.now();
+    await entry.transport.handleRequest(req, res);
   };
 
   app.get("/mcp", handleSessionRequest);
   app.delete("/mcp", handleSessionRequest);
+
+  // Session cleanup interval — evict expired sessions
+  const cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, entry] of sessions.streamable) {
+      if (now - entry.lastActivityAt > SESSION_TTL_MS) {
+        entry.transport.close?.().catch(() => {});
+        entry.server.close().catch(() => {});
+        sessions.streamable.delete(id);
+        logger.debug(`Evicted expired streamable session: ${id}`);
+      }
+    }
+    for (const [id, entry] of sessions.sse) {
+      if (now - entry.lastActivityAt > SESSION_TTL_MS) {
+        entry.transport.close?.().catch(() => {});
+        entry.server.close().catch(() => {});
+        sessions.sse.delete(id);
+        logger.debug(`Evicted expired SSE session: ${id}`);
+      }
+    }
+  }, CLEANUP_INTERVAL_MS);
+  cleanupInterval.unref();
 
   // Start server
   const httpServer = app.listen(port, "127.0.0.1", () => {
@@ -1058,8 +1185,9 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   // Graceful shutdown
   const shutdown = async () => {
     logger.info("Shutting down HTTP server...");
-    await closeTransports(transports.sse);
-    await closeTransports(transports.streamable);
+    clearInterval(cleanupInterval);
+    await closeSessions(sessions.sse);
+    await closeSessions(sessions.streamable);
     httpServer.close(() => {
       logger.info("Server shutdown complete");
       process.exit(0);
