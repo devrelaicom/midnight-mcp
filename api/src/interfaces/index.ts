@@ -5,12 +5,34 @@
 // ============== Cloudflare Bindings ==============
 
 export type Bindings = {
+  // Existing
   VECTORIZE: VectorizeIndex;
   OPENAI_API_KEY: string;
   ENVIRONMENT: string;
   METRICS: KVNamespace;
-  DASHBOARD_PASSWORD?: string;
+  // Auth
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
+  DASHBOARD_ALLOWED_ORGS: string;
+  // Rate limiting
+  RATE_LIMIT_ANON: RateLimit;
+  RATE_LIMIT_AUTH: RateLimit;
+  // Caching
+  EMBEDDING_CACHE: KVNamespace;
 };
+
+export interface AuthUser {
+  githubId: number;
+  username: string;
+  email: string;
+  orgs: string[];
+  expiresAt: number;
+}
+
+export interface AuthState {
+  user: AuthUser | null;
+  tokenInvalid: boolean;
+}
 
 // ============== Metrics Types ==============
 
@@ -70,6 +92,7 @@ export interface SearchResponse {
   results: SearchResult[];
   query: string;
   totalResults: number;
+  warnings?: string[];
 }
 
 // ============== OpenAI Types ==============
