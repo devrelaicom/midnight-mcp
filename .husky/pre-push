@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+# Full lint (warnings = errors)
+npm run lint -- --max-warnings 0
+
+# Full format check
+npx prettier --check "src/**/*.ts"
+
+# Full typecheck
+npm run typecheck
+
+# Full test suite
+npm run test:run

@@ -19,9 +19,11 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts",
     "update-server-json": "tsx scripts/update-server-json.ts",
     "prepublishOnly": "npm run typecheck && npm run build",
-    "ci": "npm run typecheck && npm run lint && npm run build && npm test"
+    "ci": "npm run typecheck && npm run lint -- --max-warnings 0 && npm run format:check && npm run build && npm test",
+    "prepare": "husky"
   },
   "keywords": [
     "midnight",
@@ -48,6 +50,8 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
     "@types/js-yaml": "^4.0.9",
@@ -56,6 +60,7 @@
     "@types/tar": "^6.1.13",
     "@types/yargs": "^17.0.35",
     "eslint": "^10.0.2",
+    "husky": "^9.1.7",
     "prettier": "^3.1.0",
     "tar": "^7.5.2",
     "tsup": "^8.5.1",

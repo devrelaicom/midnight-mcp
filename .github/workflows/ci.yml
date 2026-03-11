@@ -29,8 +29,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint (warnings are errors)
+        run: npx eslint src/ --max-warnings 0
+
+      - name: Format check
+        run: npx prettier --check "src/**/*.ts"
 
       - name: Build
         run: npm run build
