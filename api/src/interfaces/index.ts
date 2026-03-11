@@ -19,6 +19,7 @@ export type Bindings = {
   RATE_LIMIT_AUTH: RateLimit;
   // Caching
   EMBEDDING_CACHE: KVNamespace;
+  COMPACT_PLAYGROUND_URL: string;
 };
 
 export interface AuthUser {

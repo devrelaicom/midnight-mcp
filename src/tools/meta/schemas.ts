@@ -85,8 +85,8 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
     startWith: "midnight-search-compact",
   },
   analyze: {
-    description: "Static analysis of Compact contracts - security, structure, patterns",
-    useCases: ["Security audit", "Code review", "Understand contract structure"],
+    description: "Analyze, format, diff, and compile Compact contracts via the playground API",
+    useCases: ["Security audit", "Code review", "Format contracts", "Compare contract versions"],
     intentKeywords: [
       // Analysis verbs
       "analyze",
@@ -112,6 +112,11 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
       "breakdown",
       "how does",
       "meaning of",
+      // Format & Diff
+      "format",
+      "diff",
+      "compare contract",
+      "compile",
     ],
     startWith: "midnight-analyze-contract",
   },
@@ -614,7 +619,7 @@ export const INTENT_TO_TOOL: Array<{
     reason: "Compare Compact syntax between two versions",
   },
 
-  // Contract Structure
+  // Contract Structure (now via analyze)
   {
     patterns: [
       "extract structure",
@@ -624,8 +629,38 @@ export const INTENT_TO_TOOL: Array<{
       "functions in contract",
       "contract anatomy",
     ],
-    tool: "midnight-extract-contract-structure",
-    reason: "Extract and analyze contract structure (functions, state, etc.)",
+    tool: "midnight-analyze-contract",
+    reason: "Analyze contract structure (circuits, ledger, imports) via the playground API",
+  },
+
+  // Format
+  {
+    patterns: [
+      "format contract",
+      "format code",
+      "format compact",
+      "reformat",
+      "prettify",
+      "beautify",
+      "indent",
+      "auto format",
+    ],
+    tool: "midnight-format-contract",
+    reason: "Format Compact contract code using the official formatter",
+  },
+
+  // Diff contracts
+  {
+    patterns: [
+      "diff contracts",
+      "compare contracts",
+      "contract diff",
+      "what changed in contract",
+      "before and after",
+      "contract comparison",
+    ],
+    tool: "midnight-diff-contracts",
+    reason: "Compare two versions of a contract to see structural changes",
   },
 
   // Meta/Discovery (fallback patterns)

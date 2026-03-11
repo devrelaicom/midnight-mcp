@@ -86,6 +86,22 @@ export {
 // Re-export types
 export type { ExtendedToolDefinition, ToolAnnotations, OutputSchema } from "../types/index.js";
 
+// Format tools
+export {
+  formatTools,
+  formatContract,
+  FormatContractInputSchema,
+  type FormatContractInput,
+} from "./format/index.js";
+
+// Diff tools
+export {
+  diffTools,
+  diffContracts,
+  DiffContractsInputSchema,
+  type DiffContractsInput,
+} from "./diff/index.js";
+
 // Combined tool list for MCP server
 import { searchTools } from "./search/index.js";
 import { analyzeTools } from "./analyze/index.js";
@@ -93,12 +109,16 @@ import { repositoryTools } from "./repository/index.js";
 import { healthTools } from "./health/index.js";
 import { generationTools } from "./generation/index.js";
 import { metaTools } from "./meta/index.js";
+import { formatTools } from "./format/index.js";
+import { diffTools } from "./diff/index.js";
 import type { ExtendedToolDefinition } from "../types/index.js";
 
 export const allTools: ExtendedToolDefinition[] = [
   ...metaTools, // Discovery tools first for visibility
   ...searchTools,
   ...analyzeTools,
+  ...formatTools,
+  ...diffTools,
   ...repositoryTools,
   ...healthTools,
   ...generationTools,

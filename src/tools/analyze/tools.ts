@@ -160,95 +160,37 @@ const compileContractOutputSchema: OutputSchema = {
   properties: {
     success: {
       type: "boolean",
-      description: "Whether compilation/validation succeeded",
+      description: "Whether compilation succeeded",
     },
-    message: {
+    output: {
       type: "string",
-      description: "Human-readable status message",
-    },
-    validationType: {
-      type: "string",
-      enum: ["compiler", "static-analysis-fallback"],
-      description:
-        "Type of validation performed - compiler (real) or static-analysis-fallback (when service unavailable)",
-    },
-    compilerVersion: {
-      type: "string",
-      description: "Version of the Compact compiler used (if available)",
+      description: "Compiler output message",
     },
     compilationMode: {
       type: "string",
-      enum: ["syntax-only", "full", "none"],
+      enum: ["syntax-only", "full"],
       description: "Type of compilation performed",
     },
-    output: {
-      type: "object",
-      properties: {
-        circuits: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of compiled circuits",
-        },
-        ledgerFields: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of ledger fields",
-        },
-        exports: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of exported symbols",
-        },
-      },
-    },
-    warnings: {
+    errors: {
       type: "array",
-      items: { type: "string" },
-      description: "Compiler warnings or fallback warnings",
-    },
-    error: {
-      type: "string",
-      description: "Error code if compilation failed",
-    },
-    location: {
-      type: "object",
-      properties: {
-        line: { type: "number" },
-        column: { type: "number" },
-        errorType: { type: "string" },
+      items: {
+        type: "object",
+        properties: {
+          message: { type: "string" },
+          line: { type: "number" },
+          column: { type: "number" },
+          severity: { type: "string" },
+        },
       },
-      description: "Location of error if applicable",
+      description: "Compiler errors (if any)",
     },
-    hint: {
-      type: "string",
-      description: "Helpful hint for resolving the issue",
-    },
-    serviceUrl: {
-      type: "string",
-      description: "URL of the compiler service used",
-    },
-    serviceAvailable: {
-      type: "boolean",
-      description: "Whether the compiler service is available",
-    },
-    fallbackReason: {
-      type: "string",
-      description: "Reason for falling back to static analysis (if applicable)",
-    },
-    staticAnalysis: {
-      type: "object",
-      description: "Static analysis results (only present when using fallback)",
-      properties: {
-        summary: { type: "object" },
-        structure: { type: "object" },
-        securityFindings: { type: "array" },
-        recommendations: { type: "array" },
-      },
+    executionTime: {
+      type: "number",
+      description: "Compilation time in milliseconds",
     },
   },
-  required: ["success", "message", "validationType"],
-  description:
-    "Compilation result with detailed output, or static analysis fallback if service unavailable",
+  required: ["success"],
+  description: "Compilation result from the hosted compiler service",
 };
 
 // ============================================================================
@@ -258,17 +200,18 @@ const compileContractOutputSchema: OutputSchema = {
 export const analyzeTools: ExtendedToolDefinition[] = [
   {
     name: "midnight-analyze-contract",
-    description: `⚠️ STATIC ANALYSIS ONLY - Analyze contract structure and patterns.
-🚫 THIS DOES NOT COMPILE THE CONTRACT. Cannot catch: sealed field rules, disclose() requirements, semantic errors.
-👉 Use 'midnight-extract-contract-structure' for pre-compilation checks.
+    description: `Analyze Compact contract structure via the playground API.
 
-Use this for: understanding structure, security pattern analysis, recommendations.
-NEVER claim a contract 'works' or 'compiles' based on this tool alone.
+Options:
+• mode='fast' (default): Regex-based structure extraction — instant, returns pragma, imports, circuits, ledger fields
+• mode='deep': Compile-backed analysis — includes compilation results alongside structure
+
+Use this for: understanding structure, pre-compilation checks, circuit discovery.
 
 USAGE GUIDANCE:
 • Call once per contract - results are deterministic
-• For security review, also use midnight-review-contract (requires sampling)
-• Run before making changes, not repeatedly during iteration`,
+• Use mode='deep' to also get compilation results
+• For security review, also use midnight-review-contract (requires sampling)`,
     inputSchema: zodInputSchema(AnalyzeContractInputSchema),
     outputSchema: analyzeContractOutputSchema,
     annotations: {
@@ -299,28 +242,21 @@ USAGE GUIDANCE:
   },
   {
     name: "midnight-compile-contract",
-    description: `🔧 REAL COMPILATION - Compile Compact code using the hosted compiler service.
+    description: `Compile Compact code using the hosted compiler service.
 
-Unlike static analysis tools, this ACTUALLY COMPILES the contract and returns real compiler errors.
-
-Use this to:
-• Validate that generated code compiles before showing to users
-• Get actual compiler error messages with line numbers
-• Check if a contract is syntactically and semantically correct
+Returns real compiler errors with line numbers. No local fallback — if the service is down, you get a clear error.
 
 Options:
 • skipZk=true (default): Fast syntax validation only (~1-2s)
 • fullCompile=true: Full compilation with ZK circuit generation (~10-30s)
-
-FALLBACK BEHAVIOR:
-• If the compiler service is unavailable, automatically falls back to static analysis
-• Check 'validationType' in response: 'compiler' = real compilation, 'static-analysis-fallback' = fallback mode
-• Fallback provides structure/security analysis but may miss semantic errors
+• version: Specific compiler version (e.g. '0.29.0') or 'detect' for pragma-based resolution
+• versions: Test against multiple compiler versions in parallel (e.g. ['latest', '0.26.0', 'detect'])
 
 USAGE GUIDANCE:
 • Call after generating or modifying Compact code
 • Use skipZk=true for quick validation during development
-• Use fullCompile=true for final validation before deployment`,
+• Use fullCompile=true for final validation before deployment
+• Use versions to test compatibility across compiler releases`,
     inputSchema: zodInputSchema(CompileContractInputSchema),
     outputSchema: compileContractOutputSchema,
     annotations: {
