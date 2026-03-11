@@ -1215,7 +1215,7 @@ Where:
 
   "midnight://docs/wallet-integration": `# Midnight Wallet Integration Guide
 
-A guide for integrating Midnight Lace wallet into your DApp.
+A guide for integrating Midnight Lace wallet into your DApp (v4 API).
 
 ## Browser Detection
 
@@ -1223,7 +1223,7 @@ A guide for integrating Midnight Lace wallet into your DApp.
 declare global {
   interface Window {
     midnight?: {
-      mnLace?: MidnightProvider;
+      mnLace?: InitialAPI;
     };
   }
 }
@@ -1237,30 +1237,34 @@ function isWalletAvailable(): boolean {
 ## DApp Connector API
 
 \`\`\`typescript
-interface DAppConnectorAPI {
-  enable(): Promise<MidnightAPI>;
-  isEnabled(): Promise<boolean>;
-  apiVersion(): string;
-  name(): string;
-  icon(): string;
+interface InitialAPI {
+  connect(networkId: string): Promise<WalletConnectedAPI>;
+  getConnectionStatus(): Promise<ConnectionStatus>;
+  apiVersion: string;
+  name: string;
+  icon: string;
+  rdns: string;
 }
 
-async function connectWallet(): Promise<MidnightAPI> {
+async function connectWallet(): Promise<WalletConnectedAPI> {
   if (!window.midnight?.mnLace) {
     throw new Error('Midnight Lace wallet not found');
   }
-  return await window.midnight.mnLace.enable();
+  // Connect to the desired network (e.g., 'preview' or 'testnet')
+  return await window.midnight.mnLace.connect('preview');
 }
 \`\`\`
 
-## MidnightAPI Interface
+## ConnectedAPI Interface
 
 \`\`\`typescript
-interface MidnightAPI {
-  getUsedAddresses(): Promise<string[]>;
-  getBalance(): Promise<Balance>;
-  signTx(tx: Transaction): Promise<SignedTransaction>;
-  submitTx(signedTx: SignedTransaction): Promise<TxHash>;
+interface WalletConnectedAPI {
+  getShieldedAddresses(): Promise<{ shieldedAddress: string, shieldedCoinPublicKey: string }>;
+  getUnshieldedAddress(): Promise<string>;
+  getShieldedBalances(): Promise<Balance[]>;
+  getUnshieldedBalances(): Promise<Balance[]>;
+  balanceUnsealedTransaction(tx: string): Promise<{ tx: string }>;
+  submitTransaction(tx: string): Promise<string>;
   signData(address: string, payload: string): Promise<Signature>;
 }
 \`\`\`
@@ -1282,11 +1286,11 @@ export function useWallet() {
       if (!window.midnight?.mnLace) {
         throw new Error('Please install Midnight Lace wallet');
       }
-      const api = await window.midnight.mnLace.enable();
-      const addresses = await api.getUsedAddresses();
+      const api = await window.midnight.mnLace.connect('preview');
+      const { shieldedAddress } = await api.getShieldedAddresses();
       setState({
         isConnected: true,
-        address: addresses[0] || null,
+        address: shieldedAddress || null,
         isLoading: false,
         error: null,
       });
@@ -1309,16 +1313,16 @@ export function useWallet() {
 
 \`\`\`
 1. User clicks "Connect Wallet"
-2. DApp calls window.midnight.mnLace.enable()
-3. Wallet popup asks user to approve
-4. User approves → DApp receives MidnightAPI
-5. DApp can now interact with wallet
+2. DApp calls window.midnight.mnLace.connect('preview')
+3. Wallet popup asks user to approve network connection
+4. User approves → DApp receives WalletConnectedAPI
+5. DApp can now interact with wallet using granular methods
 \`\`\`
 
 ## Best Practices
 
 1. Always check wallet availability first
-2. Handle user rejection gracefully
+2. Handle user rejection gracefully (e.g., \`error.type === 'DAppConnectorAPIError'\`)
 3. Store connection state in context
 4. Provide clear loading/error feedback
 5. Test with Midnight Lace extension
@@ -1424,20 +1428,19 @@ Internal function for type errors with parameters: who, what, where, type, value
 
 ## DApp Connector Errors
 
-**Source:** @midnight-ntwrk/dapp-connector-api ErrorCodes
+**Source:** @midnight-ntwrk/dapp-connector-api
 
 \`\`\`typescript
-import { ErrorCodes } from '@midnight-ntwrk/dapp-connector-api';
+import { DAppConnectorAPIError } from '@midnight-ntwrk/dapp-connector-api';
 
-// ErrorCodes.Rejected - User rejected the request
-// ErrorCodes.InvalidRequest - Malformed transaction or request
-// ErrorCodes.InternalError - DApp connector couldn't process request
-
+// Error handling in v4 uses error.type instead of instanceof
 try {
-  const api = await window.midnight.mnLace.enable();
-} catch (error) {
-  if (error.code === ErrorCodes.Rejected) {
-    console.log('User rejected wallet connection');
+  const api = await window.midnight.mnLace.connect('preview');
+} catch (error: any) {
+  if (error.type === 'DAppConnectorAPIError') {
+    if (error.code === 'PermissionRejected') {
+      console.log('User rejected wallet connection');
+    }
   }
 }
 \`\`\`

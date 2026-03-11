@@ -186,7 +186,7 @@ Based on syntax reference, generate the contract using:
 - Output structure: \`managed/<name>/contract/index.cjs\` for TypeScript bindings
 
 ### Step 3: Validate Before Returning
-Call \`midnight-extract-contract-structure\` with your generated code to check for:
+Call \`midnight-analyze-contract\` with your generated code to check for:
 - deprecated_ledger_block
 - invalid_void_type
 - invalid_pragma_format
@@ -255,7 +255,7 @@ ${contractCode}
 ## ⚠️ MANDATORY WORKFLOW:
 
 ### Step 1: Validate Syntax
-Call \`midnight-extract-contract-structure\` with the contract code to check for:
+Call \`midnight-analyze-contract\` with the contract code to check for:
 - deprecated_ledger_block (should use \`export ledger field: Type;\`)
 - invalid_void_type (should use \`[]\` not \`Void\`)
 - invalid_pragma_format (malformed pragma syntax; prefer \`pragma language_version 0.21;\` in MCP output)
@@ -273,7 +273,7 @@ If syntax errors are found, call \`midnight-get-latest-syntax\` to get:
 
 Please analyze:
 
-1. **Static Analysis Results** (from midnight-extract-contract-structure)
+1. **Static Analysis Results** (from midnight-analyze-contract)
    - Syntax errors found
    - Deprecated patterns detected
    - Required fixes
@@ -433,7 +433,7 @@ ${contractCode}
 ## ⚠️ MANDATORY WORKFLOW:
 
 ### Step 1: Run Static Analysis
-Call \`midnight-extract-contract-structure\` FIRST to check for common syntax errors:
+Call \`midnight-analyze-contract\` FIRST to check for common syntax errors:
 - deprecated_ledger_block → should use \`export ledger field: Type;\`
 - invalid_void_type → should use \`[]\` not \`Void\`
 - invalid_pragma_format → malformed pragma syntax; prefer \`pragma language_version 0.21;\`
@@ -456,7 +456,7 @@ Match error message against known fixes:
 Please help me debug by:
 
 1. **Static Analysis Results**
-   - Run midnight-extract-contract-structure
+   - Run midnight-analyze-contract
    - List all P0 syntax errors found
    - Show the correct syntax for each error
 
