@@ -264,6 +264,61 @@ Requires ChromaDB (`docker run -d -p 8000:8000 chromadb/chroma`) and OpenAI API 
 
 Add `"GITHUB_TOKEN": "ghp_..."` for higher GitHub API rate limits (60 → 5000 requests/hour).
 
+### Environment Variables
+
+| Variable             | Required | Default                 | Description                                          |
+| -------------------- | -------- | ----------------------- | ---------------------------------------------------- |
+| `GITHUB_TOKEN`       | No       | -                       | GitHub PAT for higher rate limits                    |
+| `OPENAI_API_KEY`     | No       | -                       | Required for local mode                              |
+| `CHROMA_URL`         | No       | `http://localhost:8000` | ChromaDB endpoint (local mode)                       |
+| `MIDNIGHT_LOCAL`     | No       | `false`                 | Enable local mode                                    |
+| `MIDNIGHT_API_URL`   | No       | _(production URL)_      | Override the hosted API endpoint                     |
+| `LOG_LEVEL`          | No       | `info`                  | Logging verbosity (`debug`, `info`, `warn`, `error`) |
+| `MIDNIGHT_TELEMETRY` | No       | _(enabled)_             | Set to `false` or `0` to disable telemetry           |
+| `DO_NOT_TRACK`       | No       | -                       | Set to `1` to disable telemetry (standard)           |
+
+---
+
+## Troubleshooting
+
+### Graceful Degradation
+
+The server is designed to keep working when backend services are unavailable:
+
+| Service unavailable | Behavior                                              |
+| ------------------- | ----------------------------------------------------- |
+| Hosted API down     | Falls back to local mode if configured                |
+| Compiler service    | Falls back to static analysis                         |
+| OpenAI API key      | Search tools disabled                                 |
+| ChromaDB            | Search returns empty results                          |
+| GitHub token        | Works with 60 req/hr anonymous limit (vs 5000 with token) |
+
+### Stale npx Cache
+
+If you're not seeing the latest version after upgrading:
+
+```bash
+rm -rf ~/.npm/_npx
+```
+
+Then restart your editor. Using `midnight-mcp@latest` in your config prevents this for future updates.
+
+### Server Won't Start
+
+- Check your Node.js version: `node --version` (requires 24.14.0+)
+- If using nvm, see the [nvm setup](#requirements) in Requirements
+
+### Search Returns Empty Results
+
+- Run `midnight-health-check` to check service status
+- If `hostedApi: false`: the hosted API may be temporarily unavailable, or a firewall/proxy is blocking outbound requests
+- If using local mode: ensure ChromaDB is running and `OPENAI_API_KEY` is set
+
+### Repository Tools Failing
+
+- Usually caused by GitHub API rate limiting (60 requests/hour without a token)
+- Add a `GITHUB_TOKEN` to your MCP config to increase to 5000 requests/hour
+
 ---
 
 ## Developer Setup
