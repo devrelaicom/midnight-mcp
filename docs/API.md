@@ -58,6 +58,24 @@ Search documentation.
 // Output: same as search-compact
 ```
 
+#### midnight-fetch-docs
+
+Live fetch from docs.midnight.network (SSG pages).
+
+```typescript
+// Input
+{
+  url: string;        // URL or path on docs.midnight.network
+}
+
+// Output
+{
+  content: string;
+  url: string;
+  title: string;
+}
+```
+
 ---
 
 ### Analysis Tools
@@ -167,7 +185,7 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
   serviceUrl: string;
 }
 
-// Output (fallback - when compiler unavailable)
+// Output (fallback — when compiler unavailable)
 {
   success: true;
   message: "Static analysis completed (compiler service unavailable)";
@@ -452,44 +470,33 @@ Get syntax reference.
 }
 ```
 
-#### midnight-health-check
+#### midnight-extract-contract-structure
 
-Server health status.
+Extract contract structure via static analysis.
 
 ```typescript
-// Input: none
-
-// Output
+// Input
 {
-  status: "healthy" | "degraded" | "unhealthy";
-  mode: "hosted" | "local";
-  services: {
-    github: boolean;
-    vectorStore: boolean;
-    hostedApi: boolean;
-  }
+  code: string;          // Compact source code
 }
-```
-
-#### midnight-get-status
-
-Rate limits and stats.
-
-```typescript
-// Input: none
 
 // Output
 {
-  githubRateLimit: {
-    remaining: number;
-    limit: number;
-    reset: string;
-  }
-  cacheStats: {
-    hits: number;
-    misses: number;
-  }
-  mode: "hosted" | "local";
+  structure: {
+    hasLedger: boolean;
+    hasCircuits: boolean;
+    hasWitnesses: boolean;
+    ledgerFields: Array<{ name: string; type: string }>;
+    circuits: Array<{ name: string; parameters: string[]; returnType: string }>;
+    witnesses: Array<{ name: string; parameters: string[]; returnType: string }>;
+  };
+  potentialIssues: Array<{
+    type: string;
+    line: number;
+    message: string;
+    suggestion: string;
+    severity: "error" | "warning" | "info";
+  }>;
 }
 ```
 
@@ -497,7 +504,7 @@ Rate limits and stats.
 
 ### Compound Tools
 
-> ⚡ Compound tools combine multiple operations into a single call, reducing token usage by 50-70%.
+> Compound tools combine multiple operations into a single call, reducing token usage by 50-70%.
 
 #### midnight-upgrade-check
 
@@ -563,9 +570,92 @@ Everything needed to start working with a repository (combines version-info + sy
 
 ---
 
+### Health Tools
+
+#### midnight-health-check
+
+Server health status with optional detailed checks.
+
+```typescript
+// Input
+{
+  detailed?: boolean;    // Run external service checks (default: false)
+}
+
+// Output
+{
+  status: "healthy" | "degraded" | "unhealthy";
+  mode: "hosted" | "local";
+  services: {
+    github: boolean;
+    vectorStore: boolean;
+    hostedApi: boolean;
+  }
+}
+```
+
+#### midnight-get-status
+
+Rate limits and stats (no external calls).
+
+```typescript
+// Input: none
+
+// Output
+{
+  githubRateLimit: {
+    remaining: number;
+    limit: number;
+    reset: string;
+  }
+  cacheStats: {
+    hits: number;
+    misses: number;
+  }
+  mode: "hosted" | "local";
+}
+```
+
+#### midnight-check-version
+
+Check if running the latest version.
+
+```typescript
+// Input: none
+
+// Output
+{
+  currentVersion: string;
+  latestVersion: string;
+  isLatest: boolean;
+  updateAvailable: boolean;
+}
+```
+
+#### midnight-get-update-instructions
+
+Platform-specific update instructions.
+
+```typescript
+// Input
+{
+  platform?: "mac" | "windows" | "linux";
+  editor?: "claude-desktop" | "cursor" | "vscode" | "windsurf";
+}
+
+// Output
+{
+  instructions: string;
+  platform: string;
+  editor: string;
+}
+```
+
+---
+
 ### Discovery Tools
 
-> 📋 Discovery tools help AI agents explore available capabilities progressively.
+> Discovery tools help AI agents explore available capabilities progressively.
 
 #### midnight-list-tool-categories
 
@@ -616,36 +706,75 @@ List tools within a specific category.
 }
 ```
 
+#### midnight-suggest-tool
+
+Smart tool discovery via natural language.
+
+```typescript
+// Input
+{
+  intent: string;       // What the user wants to do
+}
+
+// Output
+{
+  suggested: Array<{
+    name: string;
+    description: string;
+    relevance: string;
+  }>;
+}
+```
+
 ---
 
 ## Resources
 
 Access via `resources/read` with URI.
 
-| URI                                           | Content                    |
-| --------------------------------------------- | -------------------------- |
-| `midnight://docs/compact-reference`           | Compact language reference |
-| `midnight://docs/sdk-api`                     | TypeScript SDK API         |
-| `midnight://docs/concepts/zero-knowledge`     | ZK proofs in Midnight      |
-| `midnight://docs/concepts/shielded-state`     | Shielded vs unshielded     |
-| `midnight://docs/concepts/witnesses`          | Witness functions          |
-| `midnight://docs/concepts/kachina`            | Kachina protocol           |
-| `midnight://code/examples/counter`            | Counter contract           |
-| `midnight://code/examples/bboard`             | Bulletin board DApp        |
-| `midnight://code/patterns/state-management`   | State patterns             |
-| `midnight://code/patterns/access-control`     | Access control patterns    |
-| `midnight://code/patterns/privacy-preserving` | Privacy patterns           |
-| `midnight://code/templates/token`             | Token template             |
-| `midnight://code/templates/voting`            | Voting template            |
-| `midnight://schema/compact-ast`               | Compact AST schema         |
-| `midnight://schema/transaction`               | Transaction schema         |
-| `midnight://schema/proof`                     | Proof schema               |
+### Documentation (9)
+
+| URI                                       | Content                             |
+| ----------------------------------------- | ----------------------------------- |
+| `midnight://docs/compact-reference`       | Compact language reference          |
+| `midnight://docs/sdk-api`                 | TypeScript SDK API                  |
+| `midnight://docs/openzeppelin`            | OpenZeppelin main library           |
+| `midnight://docs/openzeppelin/token`      | OpenZeppelin FungibleToken          |
+| `midnight://docs/openzeppelin/access`     | OpenZeppelin access control         |
+| `midnight://docs/openzeppelin/security`   | OpenZeppelin security patterns      |
+| `midnight://docs/tokenomics`              | Tokenomics (NIGHT, DUST, rewards)   |
+| `midnight://docs/wallet-integration`      | Lace wallet DApp Connector API      |
+| `midnight://docs/common-errors`           | Troubleshooting guide               |
+
+### Code (11)
+
+| URI                                             | Content                      |
+| ----------------------------------------------- | ---------------------------- |
+| `midnight://code/examples/counter`              | Counter contract             |
+| `midnight://code/examples/bboard`               | Bulletin board DApp          |
+| `midnight://code/examples/hash`                 | Hash functions               |
+| `midnight://code/examples/nullifier`            | Nullifier pattern            |
+| `midnight://code/examples/simple-counter`       | Minimal counter (beginners)  |
+| `midnight://code/patterns/state-management`     | State management patterns    |
+| `midnight://code/patterns/access-control`       | Access control patterns      |
+| `midnight://code/patterns/privacy-preserving`   | Privacy patterns             |
+| `midnight://code/templates/basic`               | Basic contract template      |
+| `midnight://code/templates/token`               | Token template               |
+| `midnight://code/templates/voting`              | Voting template              |
+
+### Schemas (4)
+
+| URI                              | Content             |
+| -------------------------------- | ------------------- |
+| `midnight://schema/compact-ast`  | Compact AST schema  |
+| `midnight://schema/transaction`  | Transaction schema  |
+| `midnight://schema/proof`        | Proof schema        |
 
 ---
 
 ## Prompts
 
-### midnight-create-contract
+### midnight:create-contract
 
 ```typescript
 {
@@ -656,7 +785,7 @@ Access via `resources/read` with URI.
 }
 ```
 
-### midnight-review-contract
+### midnight:review-contract
 
 ```typescript
 {
@@ -665,7 +794,7 @@ Access via `resources/read` with URI.
 }
 ```
 
-### midnight-explain-concept
+### midnight:explain-concept
 
 ```typescript
 {
@@ -674,7 +803,7 @@ Access via `resources/read` with URI.
 }
 ```
 
-### midnight-compare-approaches
+### midnight:compare-approaches
 
 ```typescript
 {
@@ -683,7 +812,7 @@ Access via `resources/read` with URI.
 }
 ```
 
-### midnight-debug-contract
+### midnight:debug-contract
 
 ```typescript
 {
