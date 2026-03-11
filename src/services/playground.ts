@@ -15,7 +15,9 @@ function apiUrl(path: string): string {
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => { controller.abort(); }, TIMEOUT);
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, TIMEOUT);
 
   try {
     const response = await fetch(apiUrl(path), {
@@ -34,10 +36,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
     if (!response.ok) {
       const text = await response.text().catch(() => "Unknown error");
-      throw new MCPError(
-        `API error (${response.status}): ${text}`,
-        ErrorCodes.INTERNAL_ERROR,
-      );
+      throw new MCPError(`API error (${response.status}): ${text}`, ErrorCodes.INTERNAL_ERROR);
     }
 
     return (await response.json()) as T;
@@ -188,10 +187,7 @@ export interface DiffResult {
   imports: { added: string[]; removed: string[] };
 }
 
-export async function diff(
-  before: string,
-  after: string,
-): Promise<DiffResult> {
+export async function diff(before: string, after: string): Promise<DiffResult> {
   return post("/diff", { before, after });
 }
 
@@ -202,7 +198,9 @@ export async function healthCheck(): Promise<{
   compactCli?: { installed: boolean; version?: string };
 }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => { controller.abort(); }, 5000);
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 5000);
   try {
     const response = await fetch(apiUrl("/health"), {
       signal: controller.signal,

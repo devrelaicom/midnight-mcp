@@ -5,11 +5,7 @@
 
 import { logger, MCPError, ErrorCodes } from "../../utils/index.js";
 import { compile, analyze } from "../../services/playground.js";
-import type {
-  AnalyzeContractInput,
-  ExplainCircuitInput,
-  CompileContractInput,
-} from "./schemas.js";
+import type { AnalyzeContractInput, ExplainCircuitInput, CompileContractInput } from "./schemas.js";
 
 /**
  * Analyze a Compact smart contract via the playground API

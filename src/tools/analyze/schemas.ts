@@ -55,4 +55,3 @@ export const CompileContractInputSchema = z.object({
 export type AnalyzeContractInput = z.infer<typeof AnalyzeContractInputSchema>;
 export type ExplainCircuitInput = z.infer<typeof ExplainCircuitInputSchema>;
 export type CompileContractInput = z.infer<typeof CompileContractInputSchema>;
-

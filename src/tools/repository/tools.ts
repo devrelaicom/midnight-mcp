@@ -250,5 +250,4 @@ ALWAYS check this reference before writing Compact contracts.`,
     },
     handler: getFullRepoContext,
   },
-
 ];
