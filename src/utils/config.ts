@@ -1,7 +1,4 @@
 import { z } from "zod";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const ConfigSchema = z.object({
   // Mode: 'hosted' (default) or 'local'

@@ -9,6 +9,8 @@ import {
   logger,
   DEFAULT_REPOSITORIES,
   SelfCorrectionHints,
+  MCPError,
+  ErrorCodes,
 } from "../../utils/index.js";
 import { sendProgressNotification } from "../../server.js";
 import { REPO_ALIASES, EXAMPLES } from "./constants.js";
@@ -440,8 +442,10 @@ export async function getVersionInfo(input: GetVersionInfoInput) {
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -484,8 +488,10 @@ export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -531,8 +537,10 @@ export async function getMigrationGuide(input: GetMigrationGuideInput) {
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -579,8 +587,10 @@ export async function getFileAtVersion(input: GetFileAtVersionInput) {
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -592,8 +602,10 @@ export async function getFileAtVersion(input: GetFileAtVersionInput) {
   );
 
   if (!result) {
-    throw new Error(
-      `File not found: ${input.path} at version ${input.version} in ${repoName}`
+    throw new MCPError(
+      `File not found: ${input.path} at version ${input.version} in ${repoName}`,
+      ErrorCodes.NOT_FOUND,
+      "Check the file path and version. Use midnight-get-file to list directory contents first."
     );
   }
 
@@ -642,8 +654,10 @@ export async function compareSyntax(input: CompareSyntaxInput) {
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -1074,8 +1088,10 @@ Version: ${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (updated: ${COMPACT_VERSI
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -1152,8 +1168,10 @@ export async function upgradeCheck(
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 
@@ -1270,8 +1288,10 @@ export async function getFullRepoContext(
 
   const resolved = resolveRepo(repoName);
   if (!resolved) {
-    throw new Error(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+    throw new MCPError(
+      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
+      ErrorCodes.UNKNOWN_REPO,
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
     );
   }
 

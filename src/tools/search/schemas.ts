@@ -29,11 +29,6 @@ export const SearchTypeScriptInputSchema = z.object({
     .optional()
     .default(true)
     .describe("Include type definitions"),
-  includeExamples: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe("Include usage examples"),
   limit: z.number().optional().default(10),
 });
 

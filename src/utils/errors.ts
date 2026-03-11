@@ -1,5 +1,12 @@
 /**
  * User-friendly error messages and error handling utilities
+ *
+ * Error handling convention for MCP tool handlers:
+ * - THROW MCPError for invalid input or failures
+ * - The server's CallToolRequest catch block converts these to { isError: true }
+ * - NEVER return error-shaped objects as "successful" results
+ * - Fallback/degraded results (e.g., static analysis when compiler unavailable)
+ *   are valid successful responses, not errors
  */
 
 export class MCPError extends Error {

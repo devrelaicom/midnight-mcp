@@ -29,6 +29,7 @@ export interface CacheStats {
  */
 export class Cache<T> {
   private cache: Map<string, CacheEntry<T>> = new Map();
+  private inFlight: Map<string, Promise<T>> = new Map();
   private options: Required<CacheOptions>;
   private stats = { hits: 0, misses: 0 };
 
@@ -180,9 +181,26 @@ export class Cache<T> {
       return cached;
     }
 
-    const value = await factory();
-    this.set(key, value, ttl);
-    return value;
+    // Prevent cache stampede: if a fetch is already in-flight, reuse it
+    const existing = this.inFlight.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const promise = factory().then(
+      (value) => {
+        this.set(key, value, ttl);
+        this.inFlight.delete(key);
+        return value;
+      },
+      (error) => {
+        this.inFlight.delete(key);
+        throw error;
+      }
+    );
+
+    this.inFlight.set(key, promise);
+    return promise;
   }
 }
 

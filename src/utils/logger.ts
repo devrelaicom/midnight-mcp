@@ -14,6 +14,14 @@ type MCPLogCallback = (
 let mcpLogCallback: MCPLogCallback | null = null;
 
 /**
+ * Reset all module-level mutable state to initial values.
+ * Used for test isolation.
+ */
+export function resetLoggerState(): void {
+  mcpLogCallback = null;
+}
+
+/**
  * Set the MCP log callback to send logs to the client
  */
 export function setMCPLogCallback(callback: MCPLogCallback | null): void {

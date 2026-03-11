@@ -132,9 +132,11 @@ interface CacheEntry<T> {
 class SimpleCache<T> {
   private cache = new Map<string, CacheEntry<T>>();
   private ttlMs: number;
+  private maxSize: number;
 
-  constructor(ttlMinutes: number = 10) {
+  constructor(ttlMinutes: number = 10, maxSize: number = 1000) {
     this.ttlMs = ttlMinutes * 60 * 1000;
+    this.maxSize = maxSize;
   }
 
   get(key: string): T | null {
@@ -148,6 +150,13 @@ class SimpleCache<T> {
   }
 
   set(key: string, data: T): void {
+    if (this.cache.size >= this.maxSize) {
+      // Delete oldest entry (first key in insertion-order Map)
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 

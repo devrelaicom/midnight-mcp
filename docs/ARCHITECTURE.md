@@ -13,7 +13,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                      midnight-mcp                                │
 │  ┌────────────┐  ┌─────────────┐  ┌────────────┐                │
-│  │ 29 Tools   │  │ 9 Resources │  │ 5 Prompts  │                │
+│  │ 30 Tools   │  │ 9 Resources │  │ 5 Prompts  │                │
 │  └────────────┘  └─────────────┘  └────────────┘                │
 └──────────────────────────────────────────────────────────────────┘
                               │
@@ -38,36 +38,30 @@
 
 ## Repositories
 
-### Indexed for Semantic Search (24)
+### Indexed for Semantic Search (102)
 
-All public Midnight repositories are indexed (~26,000 documents):
+All non-archived Midnight repositories are indexed (~26,000 documents) via the hosted API. See `api/README.md` for the full list.
 
-| Category            | Repositories                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| Core Language & SDK | compact, midnight-js, midnight-wallet, midnight-dapp-connector-api                  |
-| Infrastructure      | midnight-node, midnight-indexer, midnight-ledger, midnight-zk                       |
-| Documentation       | midnight-docs (incl. blog, /compact, API ref), midnight-improvement-proposals       |
-| Examples            | example-counter, example-bboard, example-dex, midnight-awesome-dapps, create-mn-app |
-| ZK & Cryptography   | halo2, midnight-trusted-setup                                                       |
-| Developer Tools     | compact-tree-sitter, compact-zed, setup-compact-action, midnight-node-docker        |
-| Community           | contributor-hub, night-token-distribution                                           |
-| Third-Party         | OpenZeppelin/compact-contracts                                                      |
+| Category             | Count | Key Repositories                                                            |
+| -------------------- | ----- | --------------------------------------------------------------------------- |
+| Compact Language     | 6     | `compact`, `compact-lsp`, `compact-tree-sitter`, `compact-zed`              |
+| SDKs & APIs          | 5     | `midnight-js`, `midnight-sdk`, `midnight-wallet`, `midnight-dapp-connector` |
+| Core Infrastructure  | 9     | `midnight-node`, `midnight-indexer`, `midnight-ledger`, `midnight-zk`       |
+| ZK & Cryptography    | 6     | `midnight-trusted-setup`, `fri`, `galois_recursion`, `pluto_eris`           |
+| Documentation        | 5     | `midnight-docs`, `midnight-improvement-proposals`, `midnight-architecture`  |
+| Examples & Templates | 8     | `example-counter`, `example-bboard`, `example-dex`, `example-DAO`           |
+| Identity             | 5     | `midnight-did`, `midnight-did-resolver`, `midnight-verifiable-credentials`  |
+| Contracts & Bridges  | 3     | `midnight-contracts`, `midnight-committee-bridge-contracts`                 |
+| Developer Tools      | 4     | `setup-compact-action`, `upload-sarif-github-action`, `midnight-dev-utils`  |
+| Infrastructure       | 6     | `midnight-monitoring`, `midnight-tracing`, `midnight-operations`            |
+| Solutions & Apps     | 7     | `midnight-solutions`, `midnight-website-next`, `nightcap`, `ocp`            |
+| Community            | 3     | `contributor-hub`, `lfdt-project-proposals`                                 |
+| Glacier Drop         | 15    | `midnight-glacier-drop-tools`, `gd-claim-api`, `gd-claim-portal`            |
+| Partners             | 14    | OpenZeppelin, BrickTowers, MeshJS, PaimaStudios, hackathon winners          |
 
-### Available via GitHub Tools (16)
+### Available via GitHub Tools
 
-Additional repositories accessible via `midnight-get-file` and other GitHub tools:
-
-| Repository                    | Contents              |
-| ----------------------------- | --------------------- |
-| `example-dex`                 | DEX example           |
-| `create-mn-app`               | CLI scaffolding       |
-| `midnight-wallet`             | Wallet implementation |
-| `midnight-indexer`            | Blockchain indexer    |
-| `midnight-node-docker`        | Node Docker configs   |
-| `midnight-dapp-connector-api` | DApp connector API    |
-| `compact-tree-sitter`         | Tree-sitter grammar   |
-| `midnight-awesome-dapps`      | Community DApp list   |
-| `contributor-hub`             | Contributor resources |
+All indexed repositories plus any public GitHub repository accessible via `midnight-get-file` and other GitHub tools.
 
 ## Components
 
@@ -195,29 +189,40 @@ URI → Map to provider → Fetch from GitHub (cached) → Content
 
 ```
 src/
-├── index.ts           # Entry point
+├── bin.ts             # CLI entry point (→ ./dist/bin.js)
+├── index.ts           # Library entry point
 ├── server.ts          # MCP server, request handlers
 ├── tools/
-│   ├── search.ts      # Search tools (3)
-│   ├── analyze.ts     # Analysis tools (2)
-│   └── repository.ts  # GitHub tools (11)
+│   ├── index.ts       # Barrel export of allTools
+│   ├── search/        # Search tools (4): compact, typescript, docs, fetch-docs
+│   ├── analyze/       # Analysis tools (3): analyze, explain-circuit, compile
+│   ├── repository/    # GitHub tools (11): get-file, versions, migrations, etc.
+│   ├── generation/    # AI generation tools (3): generate, review, document
+│   ├── health/        # Health tools (5): health-check, status, version, update
+│   └── meta/          # Discovery tools (3): list-categories, list-tools, suggest
 ├── resources/
 │   ├── docs.ts        # Documentation URIs
 │   ├── code.ts        # Code examples URIs
 │   └── schemas.ts     # Schema URIs
 ├── prompts/
 │   └── templates.ts   # Prompt definitions
+├── services/
+│   └── sampling.ts    # LLM sampling service
 ├── pipeline/
 │   ├── github.ts      # GitHub API client
 │   ├── parser.ts      # Compact/TS parsing
 │   └── indexer.ts     # Indexing orchestration
 ├── db/
 │   └── vectorStore.ts # ChromaDB client
+├── types/
+│   └── mcp.ts         # Extended MCP types
 └── utils/
     ├── config.ts      # Configuration
     ├── cache.ts       # TTL cache with lazy pruning
     ├── errors.ts      # MCPError, createErrorResponse()
     ├── hosted-api.ts  # Hosted API client
+    ├── health.ts      # Health check utilities
+    ├── version.ts     # Shared version constant
     ├── logger.ts      # Logging
     └── index.ts       # Barrel exports
 ```
@@ -391,14 +396,16 @@ Set via `LOG_LEVEL` env var.
 
 ### Environment Variables
 
-| Variable         | Required | Default                 | Description         |
-| ---------------- | -------- | ----------------------- | ------------------- |
-| `GITHUB_TOKEN`   | No       | -                       | GitHub PAT          |
-| `OPENAI_API_KEY` | No       | -                       | For local mode      |
-| `CHROMA_URL`     | No       | `http://localhost:8000` | ChromaDB endpoint   |
-| `MIDNIGHT_LOCAL` | No       | `false`                 | Enable local mode   |
-| `HOSTED_API_URL` | No       | (production URL)        | Override hosted API |
-| `LOG_LEVEL`      | No       | `info`                  | Logging verbosity   |
+| Variable              | Required | Default                 | Description                              |
+| --------------------- | -------- | ----------------------- | ---------------------------------------- |
+| `GITHUB_TOKEN`        | No       | -                       | GitHub PAT                               |
+| `OPENAI_API_KEY`      | No       | -                       | For local mode                           |
+| `CHROMA_URL`          | No       | `http://localhost:8000` | ChromaDB endpoint                        |
+| `MIDNIGHT_LOCAL`      | No       | `false`                 | Enable local mode                        |
+| `HOSTED_API_URL`      | No       | (production URL)        | Override hosted API                      |
+| `LOG_LEVEL`           | No       | `info`                  | Logging verbosity                        |
+| `MIDNIGHT_TELEMETRY`  | No       | (enabled)               | Set to `false` or `0` to disable telemetry |
+| `DO_NOT_TRACK`        | No       | -                       | Set to `1` to disable telemetry (standard) |
 
 ### Build
 
@@ -421,7 +428,7 @@ NPM package:
 ```json
 {
   "name": "midnight-mcp",
-  "bin": { "midnight-mcp": "./dist/index.js" },
+  "bin": { "midnight-mcp": "./dist/bin.js" },
   "type": "module"
 }
 ```

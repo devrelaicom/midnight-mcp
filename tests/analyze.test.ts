@@ -179,7 +179,7 @@ export circuit increment(): Void {
     expect(result.compilerVersion).toBe("0.18.0");
   });
 
-  it("should return error details for invalid contract", async () => {
+  it("should throw MCPError for invalid contract", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -197,18 +197,9 @@ export circuit increment(): Void {
       }),
     });
 
-    const result = (await compileContract({
-      code: `invalid code`,
-    })) as Record<string, unknown>;
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain("Line 3:26");
-    expect(result.message).toContain("unbound identifier Void");
-    expect(result.location).toEqual({
-      line: 3,
-      column: 26,
-      errorType: "error",
-    });
+    await expect(compileContract({ code: `invalid code` })).rejects.toThrow(
+      /unbound identifier Void/
+    );
   });
 
   it("should return validationType compiler on success", async () => {
@@ -298,22 +289,14 @@ export circuit getValue(): Field {
     expect(result.staticAnalysis).toBeDefined();
   });
 
-  it("should validate input - reject empty code", async () => {
-    const result = (await compileContract({
-      code: "",
-    })) as Record<string, unknown>;
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("INVALID_INPUT");
+  it("should throw MCPError for empty code", async () => {
+    await expect(compileContract({ code: "" })).rejects.toThrow(/No code provided/);
   });
 
-  it("should validate input - reject oversized code", async () => {
-    const result = (await compileContract({
-      code: "x".repeat(200 * 1024), // 200KB
-    })) as Record<string, unknown>;
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("CODE_TOO_LARGE");
+  it("should throw MCPError for oversized code", async () => {
+    await expect(
+      compileContract({ code: "x".repeat(200 * 1024) }) // 200KB
+    ).rejects.toThrow(/exceeds maximum size/);
   });
 });
 

@@ -3,6 +3,7 @@
  */
 
 import { githubClient } from "../pipeline/index.js";
+import { CURRENT_VERSION } from "./version.js";
 
 export interface HealthStatus {
   status: "healthy" | "degraded" | "unhealthy";
@@ -20,9 +21,7 @@ export interface HealthStatus {
 // Track server start time
 const startTime = Date.now();
 
-// Get package version - injected at build time via tsup define
-// Falls back to env var or hardcoded version
-const VERSION = process.env.NPM_PACKAGE_VERSION || "0.2.12";
+const VERSION = CURRENT_VERSION;
 
 /**
  * Check if GitHub API is accessible
