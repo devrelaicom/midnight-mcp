@@ -138,10 +138,6 @@ USAGE GUIDANCE:
           type: "boolean",
           description: "Include type definitions (default: true)",
         },
-        includeExamples: {
-          type: "boolean",
-          description: "Include usage examples (default: true)",
-        },
         limit: {
           type: "number",
           description: "Maximum results to return (default: 10)",

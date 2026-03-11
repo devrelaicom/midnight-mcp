@@ -25,6 +25,15 @@ let samplingCallback: SamplingCallback | null = null;
 let samplingFailedPermanently = false;
 
 /**
+ * Reset all module-level mutable state to initial values.
+ * Used for test isolation.
+ */
+export function resetSamplingState(): void {
+  samplingCallback = null;
+  samplingFailedPermanently = false;
+}
+
+/**
  * Check if sampling is available
  * Returns false if client doesn't support sampling (detected on first failed call)
  */

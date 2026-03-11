@@ -4,7 +4,7 @@
  */
 
 import { parseCompactFile, CodeUnit } from "../../pipeline/index.js";
-import { logger } from "../../utils/index.js";
+import { logger, MCPError, ErrorCodes } from "../../utils/index.js";
 import {
   compileContract as compileWithService,
   checkCompilerHealth,
@@ -160,22 +160,12 @@ export async function explainCircuit(input: ExplainCircuitInput) {
   const circuit = parsed.codeUnits.find((u) => u.type === "circuit");
 
   if (!circuit) {
-    // Return a valid response matching the output schema even for errors
-    return {
-      circuitName: "unknown",
-      isPublic: false,
-      parameters: [],
-      returnType: "unknown",
-      explanation:
-        "No circuit definition found in the provided code. Make sure to provide a complete circuit definition including the 'circuit' keyword.",
-      operations: [],
-      zkImplications: [
-        "Unable to analyze - no valid circuit found in the provided code",
-      ],
-      privacyConsiderations: [
-        "Provide a complete circuit definition for privacy analysis",
-      ],
-    };
+    throw new MCPError(
+      "No circuit definition found in the provided code",
+      ErrorCodes.INVALID_INPUT,
+      "Provide a complete circuit definition including the 'circuit' keyword. " +
+      "Example: export circuit myFunction(param: Field): [] { ... }"
+    );
   }
 
   // Analyze the circuit
@@ -384,33 +374,32 @@ export async function compileContract(
       };
     }
 
-    // Compiler available but compilation failed - return error details
-    const errorInfo: Record<string, unknown> = {
-      success: false,
-      message: result.message,
-      error: result.error,
-      validationType: "compiler",
-      serviceAvailable: result.serviceAvailable,
-      serviceUrl: getCompilerUrl(),
-    };
+    // Compiler available but compilation failed — throw so the server's
+    // catch block returns { isError: true } per our error handling convention.
+    const hint = result.error === "TIMEOUT"
+      ? "The contract may be too complex. Try simplifying or breaking it into smaller pieces."
+      : result.errorDetails?.line
+        ? `Check line ${result.errorDetails.line} for the issue.`
+        : undefined;
 
-    if (result.errorDetails) {
-      errorInfo.location = {
-        line: result.errorDetails.line,
-        column: result.errorDetails.column,
-        errorType: result.errorDetails.errorType,
-      };
-    }
-
-    // Add helpful hints based on error type
-    if (result.error === "TIMEOUT") {
-      errorInfo.hint =
-        "The contract may be too complex. Try simplifying or breaking it into smaller pieces.";
-    } else if (result.errorDetails?.line) {
-      errorInfo.hint = `Check line ${result.errorDetails.line} for the issue.`;
-    }
-
-    return errorInfo;
+    throw new MCPError(
+      result.message || "Compilation failed",
+      ErrorCodes.PARSE_ERROR,
+      hint,
+      {
+        compilerError: result.error,
+        validationType: "compiler",
+        serviceAvailable: result.serviceAvailable,
+        serviceUrl: getCompilerUrl(),
+        ...(result.errorDetails && {
+          location: {
+            line: result.errorDetails.line,
+            column: result.errorDetails.column,
+            errorType: result.errorDetails.errorType,
+          },
+        }),
+      },
+    );
   }
 }
 

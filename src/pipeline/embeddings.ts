@@ -22,6 +22,13 @@ export class EmbeddingGenerator {
   }
 
   /**
+   * Returns true if no OpenAI API key is configured and dummy embeddings will be used.
+   */
+  get isDummyMode(): boolean {
+    return this.openai === null;
+  }
+
+  /**
    * Generate embeddings for a single text
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {

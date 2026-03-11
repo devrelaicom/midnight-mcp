@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -16,9 +17,12 @@ import {
   SetLevelRequestSchema,
   LoggingLevel,
   CompleteRequestSchema,
+  ErrorCode,
+  McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type Response } from "express";
 import { randomUUID } from "crypto";
+import semver from "semver";
 
 import { z } from "zod";
 import {
@@ -88,7 +92,7 @@ async function checkForUpdates(): Promise<void> {
     const data = (await response.json()) as { version: string };
     const latestVersion = data.version;
 
-    if (latestVersion !== CURRENT_VERSION) {
+    if (semver.valid(latestVersion) && semver.valid(CURRENT_VERSION) && semver.gt(latestVersion, CURRENT_VERSION)) {
       versionCheckResult = {
         isOutdated: true,
         latestVersion,
@@ -137,15 +141,19 @@ export function getUpdateWarning(): string | null {
   return versionCheckResult.updateMessage;
 }
 
-// Resource subscriptions tracking
-const resourceSubscriptions = new Set<string>();
-
 /**
- * Clear all subscriptions (useful for server restart/testing)
+ * Clear subscriptions for a specific server (or the active server).
+ * Useful for server restart/testing.
  */
-export function clearSubscriptions(): void {
-  resourceSubscriptions.clear();
-  logger.debug("Subscriptions cleared");
+export function clearSubscriptions(server?: Server): void {
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (target) {
+    const ctx = serverContexts.get(target);
+    if (ctx) {
+      ctx.subscriptions.clear();
+      logger.debug("Subscriptions cleared");
+    }
+  }
 }
 
 // Resource templates for parameterized resources (RFC 6570 URI Templates)
@@ -187,51 +195,97 @@ const resourceTemplates: ResourceTemplate[] = [
 /**
  * Create and configure the MCP server
  */
-// Current MCP logging level (controlled by client)
-let mcpLogLevel: LoggingLevel = "info";
 
-// Server instance for sending notifications
-let serverInstance: Server | null = null;
+// Per-server context — enables session isolation in HTTP mode.
+// Each createServer() call registers its own context here.
+// In stdio mode there is only one; in HTTP mode there may be many.
+interface ServerContext {
+  logLevel: LoggingLevel;
+  connected: boolean;
+  subscriptions: Set<string>;
+}
+const serverContexts = new WeakMap<Server, ServerContext>();
 
-// Track if server is connected (can send notifications)
-let isConnected = false;
+// AsyncLocalStorage threads the current server through async handler
+// call chains so that helpers like sendProgressNotification resolve
+// the correct session without requiring an explicit server parameter.
+const serverStorage = new AsyncLocalStorage<Server>();
+
+// "Active" server — the most recently created one. Used as a last-resort
+// fallback by exported notification helpers when AsyncLocalStorage has
+// no value (e.g. startup, background tasks). In stdio mode this is
+// the only server; in HTTP mode it is best-effort (last created session).
+let activeServer: Server | null = null;
 
 /**
- * Mark server as connected (safe to send notifications)
+ * Mark a server as connected (safe to send notifications)
  */
-export function setServerConnected(connected: boolean): void {
-  isConnected = connected;
+export function setServerConnected(connected: boolean, server?: Server): void {
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (target) {
+    const ctx = serverContexts.get(target);
+    if (ctx) ctx.connected = connected;
+  }
 }
 
 /**
- * Send a log message to the MCP client
- * This allows clients to see server logs for debugging
+ * Reset all module-level mutable state to initial values.
+ * Used for test isolation.
+ */
+export function resetServerState(): void {
+  versionCheckResult = {
+    isOutdated: false,
+    latestVersion: CURRENT_VERSION,
+    updateMessage: null,
+    lastChecked: 0,
+  };
+  toolCallCount = 0;
+  // WeakMap entries for closed servers are GC'd automatically.
+  // Just clear the active reference so nothing lingers.
+  activeServer = null;
+}
+
+// Map log levels to numeric values for threshold comparison
+const LOG_LEVEL_VALUES: Record<LoggingLevel, number> = {
+  debug: 0,
+  info: 1,
+  notice: 2,
+  warning: 3,
+  error: 4,
+  critical: 5,
+  alert: 6,
+  emergency: 7,
+};
+
+// Reentrancy guard — prevents infinite recursion when notification
+// failure logging triggers the MCP callback back into sendLogToClient.
+let sendingNotification = false;
+
+/**
+ * Send a log message to the MCP client.
+ * If a specific server is provided it targets that session;
+ * otherwise it falls back to the active (most recent) server.
  */
 export function sendLogToClient(
   level: LoggingLevel,
   loggerName: string,
-  data: unknown
+  data: unknown,
+  server?: Server
 ): void {
-  // Only send if server exists AND is connected
-  if (!serverInstance || !isConnected) return;
+  if (sendingNotification) return;
 
-  // Map levels to numeric values for comparison
-  const levelValues: Record<LoggingLevel, number> = {
-    debug: 0,
-    info: 1,
-    notice: 2,
-    warning: 3,
-    error: 4,
-    critical: 5,
-    alert: 6,
-    emergency: 7,
-  };
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (!target) return;
+
+  const ctx = serverContexts.get(target);
+  if (!ctx?.connected) return;
 
   // Only send if level meets threshold
-  if (levelValues[level] < levelValues[mcpLogLevel]) return;
+  if (LOG_LEVEL_VALUES[level] < LOG_LEVEL_VALUES[ctx.logLevel]) return;
 
+  sendingNotification = true;
   try {
-    serverInstance.notification({
+    target.notification({
       method: "notifications/message",
       params: {
         level,
@@ -240,15 +294,18 @@ export function sendLogToClient(
       },
     });
   } catch (error: unknown) {
-    logger.debug("Failed to send log notification to client", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Use console.error to avoid re-entering the MCP log callback
+    console.error(
+      `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`
+    );
+  } finally {
+    sendingNotification = false;
   }
 }
 
 /**
- * Send a progress notification to the MCP client
- * Used for long-running operations like compound tools
+ * Send a progress notification to the MCP client.
+ * Used for long-running operations like compound tools.
  */
 export function sendProgressNotification(
   progressToken: string | number,
@@ -256,10 +313,11 @@ export function sendProgressNotification(
   total?: number,
   message?: string
 ): void {
-  if (!serverInstance) return;
+  const target = serverStorage.getStore() ?? activeServer;
+  if (!target) return;
 
   try {
-    serverInstance.notification({
+    target.notification({
       method: "notifications/progress",
       params: {
         progressToken,
@@ -269,9 +327,10 @@ export function sendProgressNotification(
       },
     });
   } catch (error: unknown) {
-    logger.debug("Failed to send progress notification", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Use console.error to avoid re-entering the MCP log callback
+    console.error(
+      `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -293,13 +352,9 @@ export function createServer(): Server {
     },
   });
 
-  // Store server instance for logging notifications
-  serverInstance = server;
-
-  // Wire up MCP logging - send logger output to client
-  setMCPLogCallback((level, loggerName, data) => {
-    sendLogToClient(level as LoggingLevel, loggerName, data);
-  });
+  // Register per-server context and set as active
+  serverContexts.set(server, { logLevel: "info", connected: false, subscriptions: new Set() });
+  activeServer = server;
 
   // Register tool handlers
   registerToolHandlers(server);
@@ -331,11 +386,12 @@ export function createServer(): Server {
 function registerLoggingHandler(server: Server): void {
   server.setRequestHandler(SetLevelRequestSchema, async (request) => {
     const { level } = request.params;
-    mcpLogLevel = level;
+    const ctx = serverContexts.get(server);
+    if (ctx) ctx.logLevel = level;
     logger.info(`MCP log level set to: ${level}`);
     sendLogToClient("info", "midnight-mcp", {
       message: `Log level changed to ${level}`,
-    });
+    }, server);
     return {};
   });
 }
@@ -488,6 +544,10 @@ function registerToolHandlers(server: Server): void {
     }
 
     try {
+      // Error handling convention: tool handlers THROW MCPError (or Error) for
+      // failures. The catch block below converts them to { isError: true } responses.
+      // Handlers must NOT return error-shaped objects as "successful" results.
+
       // Runtime Zod validation — applies defaults, enforces refinements
       const zodSchema = toolValidationSchemas[name];
       let validatedArgs = args;
@@ -517,7 +577,7 @@ function registerToolHandlers(server: Server): void {
         logger.warn(`No validation schema registered for tool: ${name}`);
       }
 
-      const result = await tool.handler(validatedArgs as never);
+      const result = await serverStorage.run(server, () => tool.handler(validatedArgs as never));
       const durationMs = Date.now() - startTime;
 
       // Track successful tool call (fire-and-forget, won't block response)
@@ -750,10 +810,7 @@ function registerPromptHandlers(server: Server): void {
 
     const prompt = promptDefinitions.find((p) => p.name === name);
     if (!prompt) {
-      return {
-        description: `Unknown prompt: ${name}`,
-        messages: [],
-      };
+      throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${name}`);
     }
 
     const messages = generatePrompt(name, args || {});
@@ -792,8 +849,11 @@ function registerSubscriptionHandlers(server: Server): void {
       );
     }
 
-    resourceSubscriptions.add(uri);
-    logger.debug(`Active subscriptions: ${resourceSubscriptions.size}`);
+    const ctx = serverContexts.get(server);
+    if (ctx) {
+      ctx.subscriptions.add(uri);
+      logger.debug(`Active subscriptions: ${ctx.subscriptions.size}`);
+    }
 
     return {};
   });
@@ -803,8 +863,11 @@ function registerSubscriptionHandlers(server: Server): void {
     const { uri } = request.params;
     logger.info(`Unsubscribing from resource: ${uri}`);
 
-    resourceSubscriptions.delete(uri);
-    logger.debug(`Active subscriptions: ${resourceSubscriptions.size}`);
+    const ctx = serverContexts.get(server);
+    if (ctx) {
+      ctx.subscriptions.delete(uri);
+      logger.debug(`Active subscriptions: ${ctx.subscriptions.size}`);
+    }
 
     return {};
   });
@@ -815,9 +878,9 @@ function registerSubscriptionHandlers(server: Server): void {
  * Call this when re-indexing or when docs are updated
  */
 export function notifyResourceUpdate(server: Server, uri: string): void {
-  if (resourceSubscriptions.has(uri)) {
+  const ctx = serverContexts.get(server);
+  if (ctx?.subscriptions.has(uri)) {
     logger.info(`Notifying subscribers of update: ${uri}`);
-    // Send notification via the server
     server.notification({
       method: "notifications/resources/updated",
       params: { uri },
@@ -828,8 +891,11 @@ export function notifyResourceUpdate(server: Server, uri: string): void {
 /**
  * Get the list of active subscriptions
  */
-export function getActiveSubscriptions(): string[] {
-  return Array.from(resourceSubscriptions);
+export function getActiveSubscriptions(server?: Server): string[] {
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (!target) return [];
+  const ctx = serverContexts.get(target);
+  return ctx ? Array.from(ctx.subscriptions) : [];
 }
 
 /**
@@ -895,6 +961,13 @@ function setupSampling(server: Server): void {
 export async function initializeSharedResources(): Promise<void> {
   logger.info("Initializing Midnight MCP Server...");
 
+  // Wire up MCP logging once — sendLogToClient resolves the correct
+  // server via AsyncLocalStorage (inside handler chains) or activeServer
+  // (background/startup), so we don't need a per-server callback.
+  setMCPLogCallback((level, loggerName, data) => {
+    sendLogToClient(level as LoggingLevel, loggerName, data);
+  });
+
   // Check for updates in background (non-blocking)
   checkForUpdates().catch((error: unknown) => {
     logger.debug("Startup version check failed (non-blocking)", {
@@ -934,7 +1007,7 @@ export async function startServer(): Promise<void> {
   await server.connect(transport);
 
   // Now safe to send notifications
-  setServerConnected(true);
+  setServerConnected(true, server);
 
   logger.info("Midnight MCP Server running on stdio");
 }
@@ -1053,6 +1126,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       };
       try {
         await sessionServer.connect(transport);
+        setServerConnected(true, sessionServer);
       } catch (error: unknown) {
         logger.error("Failed to connect streamable transport", {
           error: String(error),
@@ -1111,6 +1185,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
 
     try {
       await sessionServer.connect(transport);
+      setServerConnected(true, sessionServer);
     } catch (error: unknown) {
       sessions.sse.delete(transport.sessionId);
       logger.error(`SSE connection failed: ${transport.sessionId}`, {

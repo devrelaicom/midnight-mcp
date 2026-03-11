@@ -341,8 +341,25 @@ export async function getHostedApiStats(): Promise<{
 }
 
 /**
+ * Check if telemetry is disabled via environment variables.
+ * Respects MIDNIGHT_TELEMETRY=false/0 and the standard DO_NOT_TRACK=1 convention.
+ */
+function isTelemetryDisabled(): boolean {
+  const midnightTelemetry = process.env.MIDNIGHT_TELEMETRY;
+  if (midnightTelemetry === "false" || midnightTelemetry === "0") {
+    return true;
+  }
+  if (process.env.DO_NOT_TRACK === "1") {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Track a tool call to the hosted API
  * Fire-and-forget - doesn't block on response
+ *
+ * Opt out by setting MIDNIGHT_TELEMETRY=false or DO_NOT_TRACK=1
  */
 export function trackToolCall(
   tool: string,
@@ -350,6 +367,10 @@ export function trackToolCall(
   durationMs?: number,
   version?: string
 ): void {
+  if (isTelemetryDisabled()) {
+    return;
+  }
+
   // Fire and forget - don't await, don't block
   apiRequest("/v1/track/tool", {
     method: "POST",

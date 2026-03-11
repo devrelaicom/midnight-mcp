@@ -24,6 +24,7 @@ export const ListCategoryToolsInputSchema = z.object({
       "versioning",
       "generation",
       "health",
+      "meta",
       "compound",
     ])
     .describe("Category to list tools for"),
@@ -260,6 +261,27 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
       "broken",
     ],
     startWith: "midnight-health-check",
+  },
+  meta: {
+    description:
+      "Tool discovery and navigation - find the right tool for your task",
+    useCases: [
+      "Browse available tools",
+      "Find the right tool for a task",
+      "Understand tool capabilities",
+    ],
+    intentKeywords: [
+      "what tools",
+      "available tools",
+      "list tools",
+      "show tools",
+      "tool list",
+      "which tool",
+      "help me find",
+      "capabilities",
+      "what can",
+    ],
+    startWith: "midnight-list-tool-categories",
   },
   compound: {
     description:

@@ -6,7 +6,6 @@
 import type {
   ExtendedToolDefinition,
   OutputSchema,
-  ToolCategory,
 } from "../../types/index.js";
 import {
   listToolCategories,
@@ -136,7 +135,7 @@ export const metaTools: ExtendedToolDefinition[] = [
       readOnlyHint: true,
       idempotentHint: true,
       title: "📋 List Tool Categories",
-      category: "health" as ToolCategory,
+      category: "meta",
     },
     handler: listToolCategories,
   },
@@ -156,6 +155,7 @@ export const metaTools: ExtendedToolDefinition[] = [
             "versioning",
             "generation",
             "health",
+            "meta",
             "compound",
           ],
           description: "Category to list tools for",
@@ -172,7 +172,7 @@ export const metaTools: ExtendedToolDefinition[] = [
       readOnlyHint: true,
       idempotentHint: true,
       title: "📋 List Category Tools",
-      category: "health" as ToolCategory,
+      category: "meta",
     },
     handler: listCategoryTools,
   },
@@ -208,7 +208,7 @@ USAGE GUIDANCE:
       readOnlyHint: true,
       idempotentHint: true,
       title: "🎯 Suggest Tool",
-      category: "health" as ToolCategory,
+      category: "meta",
     },
     handler: suggestTool,
   },

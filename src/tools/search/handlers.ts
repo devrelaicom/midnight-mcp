@@ -4,8 +4,11 @@
  */
 
 import { vectorStore, SearchFilter, SearchResult } from "../../db/index.js";
+import { embeddingGenerator } from "../../pipeline/embeddings.js";
 import {
   logger,
+  MCPError,
+  ErrorCodes,
   validateQuery,
   validateNumber,
   searchCache,
@@ -242,10 +245,15 @@ async function performSearch(
   limit: number | undefined,
   config: SearchConfig
 ) {
-  // 1. Validate
+  // 1. Validate — throw on invalid input so the server returns isError: true
   const validation = validateSearchInput(query, limit);
   if (!validation.success) {
-    return validation.error;
+    throw new MCPError(
+      validation.error.error,
+      ErrorCodes.INVALID_INPUT,
+      validation.error.suggestion,
+      { details: validation.error.details }
+    );
   }
   const { sanitizedQuery, limit: validatedLimit, warnings } = validation.context;
 
@@ -277,6 +285,13 @@ async function performSearch(
   }
 
   // 5. Local search (fallback or when in local mode)
+  if (embeddingGenerator.isDummyMode) {
+    warnings.push(
+      "No OpenAI API key configured — using random dummy embeddings. " +
+      "Search results will not be semantically relevant. " +
+      "Set OPENAI_API_KEY for accurate search."
+    );
+  }
   const filter = config.buildFilter();
   let results = await vectorStore.search(sanitizedQuery, validatedLimit, filter);
 

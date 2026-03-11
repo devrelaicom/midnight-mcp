@@ -71,6 +71,7 @@ export type ToolCategory =
   | "versioning" // Version and migration tools
   | "generation" // AI-powered generation (requires sampling)
   | "health" // Health and status checks
+  | "meta" // Discovery and navigation tools
   | "compound"; // Multi-step compound operations
 
 // ============================================================================
