@@ -11,85 +11,142 @@ import {
   analyzeContract,
   explainCircuit,
   compileContract,
-  getCompilerStatus,
 } from "../src/tools/analyze/index.js";
 
+// Mock config and logger
+vi.mock("../src/utils/config.js", () => ({
+  config: { hostedApiUrl: "https://api.test" },
+}));
+
+vi.mock("../src/utils/index.js", () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  MCPError: class MCPError extends Error {
+    code: string;
+    constructor(message: string, code: string, suggestion?: string) {
+      super(message);
+      this.code = code;
+      if (suggestion) (this as Record<string, unknown>).suggestion = suggestion;
+    }
+  },
+  ErrorCodes: {
+    INVALID_INPUT: "INVALID_INPUT",
+    INTERNAL_ERROR: "INTERNAL_ERROR",
+  },
+}));
+
 describe("Contract Analyzer", () => {
-  it("should analyze a simple counter contract", async () => {
-    const code = `
-pragma language_version >= 0.18.0;
+  const mockFetch = vi.fn();
+  const originalFetch = globalThis.fetch;
 
-import CompactStandardLibrary;
-
-ledger {
-  counter: Counter;
-}
-
-export circuit increment(amount: Field): Field {
-  assert(amount > 0);
-  ledger.counter.increment(amount);
-  return ledger.counter.read();
-}
-    `;
-
-    const result = await analyzeContract({ code, checkSecurity: true });
-
-    expect(result.summary.hasLedger).toBe(true);
-    expect(result.summary.hasCircuits).toBe(true);
-    expect(result.summary.publicCircuits).toBe(1);
-    expect(result.structure.circuits.length).toBe(1);
-    expect(result.structure.circuits[0].name).toBe("increment");
+  beforeAll(() => {
+    globalThis.fetch = mockFetch;
   });
 
-  it("should detect security issues", async () => {
-    const code = `
-ledger {
-  @private
-  secretBalance: Field;
-}
-
-export circuit revealSecret(): Field {
-  return ledger.secretBalance;
-}
-    `;
-
-    const result = await analyzeContract({ code, checkSecurity: true });
-
-    // Should warn about private data usage without protection
-    expect(result.securityFindings.length).toBeGreaterThan(0);
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
   });
 
-  it("should identify unused witnesses", async () => {
-    const code = `
-ledger {
-  counter: Counter;
-}
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
 
-witness unusedWitness(): Field {
-  return 42;
-}
+  it("should analyze a contract via the playground API", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        mode: "fast",
+        pragma: "0.18.0",
+        imports: ["CompactStandardLibrary"],
+        circuits: [
+          {
+            name: "increment",
+            exported: true,
+            pure: false,
+            params: [{ name: "amount", type: "Field" }],
+            returnType: "Field",
+            line: 7,
+          },
+        ],
+        ledger: [{ name: "counter", type: "Counter", exported: true }],
+      }),
+    });
 
-export circuit increment(amount: Field): Void {
-  ledger.counter.increment(amount);
-}
-    `;
+    const result = await analyzeContract({
+      code: "pragma language_version >= 0.18.0;",
+      mode: "fast",
+    });
 
-    const result = await analyzeContract({ code, checkSecurity: true });
+    expect(result.success).toBe(true);
+    expect(result.mode).toBe("fast");
+    expect(result.circuits.length).toBe(1);
+    expect(result.circuits[0].name).toBe("increment");
+  });
 
-    const unusedWitnessFindings = result.securityFindings.filter((f) =>
-      f.message.includes("not used"),
-    );
-    expect(unusedWitnessFindings.length).toBeGreaterThan(0);
+  it("should pass mode to the API", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        mode: "deep",
+        pragma: null,
+        imports: [],
+        circuits: [],
+        ledger: [],
+        compilation: { success: true },
+      }),
+    });
+
+    const result = await analyzeContract({ code: "test", mode: "deep" });
+
+    expect(result.mode).toBe("deep");
+    expect(result.compilation).toBeDefined();
   });
 });
 
 describe("Circuit Explainer", () => {
+  const mockFetch = vi.fn();
+  const originalFetch = globalThis.fetch;
+
+  beforeAll(() => {
+    globalThis.fetch = mockFetch;
+  });
+
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
   it("should explain a circuit with disclose", async () => {
     const code = `
 export circuit revealData(data: Field): Field {
   return disclose(data);
 }
     `;
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        mode: "fast",
+        pragma: null,
+        imports: [],
+        circuits: [
+          {
+            name: "revealData",
+            exported: true,
+            pure: false,
+            params: [{ name: "data", type: "Field" }],
+            returnType: "Field",
+            line: 2,
+          },
+        ],
+        ledger: [],
+      }),
+    });
 
     const result = await explainCircuit({ circuitCode: code });
 
@@ -110,6 +167,27 @@ export circuit validateAmount(amount: Field): Boolean {
 }
     `;
 
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        mode: "fast",
+        pragma: null,
+        imports: [],
+        circuits: [
+          {
+            name: "validateAmount",
+            exported: true,
+            pure: false,
+            params: [{ name: "amount", type: "Field" }],
+            returnType: "Boolean",
+            line: 2,
+          },
+        ],
+        ledger: [],
+      }),
+    });
+
     const result = await explainCircuit({ circuitCode: code });
 
     expect(result.circuitName).toBe("validateAmount");
@@ -124,15 +202,53 @@ export circuit deposit(amount: Field): Void {
 }
     `;
 
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        mode: "fast",
+        pragma: null,
+        imports: [],
+        circuits: [
+          {
+            name: "deposit",
+            exported: true,
+            pure: false,
+            params: [{ name: "amount", type: "Field" }],
+            returnType: "Void",
+            line: 2,
+          },
+        ],
+        ledger: [],
+      }),
+    });
+
     const result = await explainCircuit({ circuitCode: code });
 
     expect(result.operations).toContain("Increments a counter value");
     expect(result.operations).toContain("Inserts data into ledger storage");
   });
+
+  it("should throw for code with no circuit", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        mode: "fast",
+        pragma: null,
+        imports: [],
+        circuits: [],
+        ledger: [],
+      }),
+    });
+
+    await expect(
+      explainCircuit({ circuitCode: "no circuit here" }),
+    ).rejects.toThrow(/No circuit definition found/);
+  });
 });
 
 describe("Compile Contract", () => {
-  // Mock fetch for compiler tests
   const mockFetch = vi.fn();
   const originalFetch = globalThis.fetch;
 
@@ -161,184 +277,50 @@ describe("Compile Contract", () => {
     });
 
     const result = (await compileContract({
-      code: `
-pragma language_version >= 0.18.0;
-
-ledger {
-  counter: Counter;
-}
-
-export circuit increment(): Void {
-  ledger.counter.increment(1);
-}
-      `,
+      code: `pragma language_version >= 0.18.0;`,
+      skipZk: true,
     })) as Record<string, unknown>;
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain("Compilation successful");
-    expect(result.compilerVersion).toBe("0.18.0");
+    expect(result.compilationMode).toBe("syntax-only");
   });
 
-  it("should throw MCPError for invalid contract", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: false,
-        errors: [
-          {
-            file: "contract.compact",
-            line: 3,
-            column: 26,
-            severity: "error",
-            message: "unbound identifier Void",
-          },
-        ],
-        output: "Compilation failed with 1 error(s)",
-      }),
-    });
-
-    await expect(compileContract({ code: `invalid code` })).rejects.toThrow(
-      /unbound identifier Void/
-    );
-  });
-
-  it("should return validationType compiler on success", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: true,
-        output: "Compilation successful",
-        compilerVersion: "0.18.0",
-        compiledAt: "2026-01-19T19:17:56.064Z",
-        executionTime: 2841,
-      }),
-    });
-
-    const result = (await compileContract({
-      code: `
-pragma language_version >= 0.18.0;
-
-ledger {
-  counter: Counter;
-}
-
-export circuit increment(): Void {
-  ledger.counter.increment(1);
-}
-      `,
-    })) as Record<string, unknown>;
-
-    expect(result.success).toBe(true);
-    expect(result.validationType).toBe("compiler");
-    expect(result.message).toContain("Compilation successful");
-    expect(result.compilerVersion).toBe("0.18.0");
-  });
-
-  it("should fall back to static analysis on network failures", async () => {
-    mockFetch.mockRejectedValueOnce(new Error("Network error"));
-
-    const validCode = `
-pragma language_version >= 0.18.0;
-
-ledger {
-  counter: Counter;
-}
-
-export circuit increment(): Void {
-  ledger.counter.increment(1);
-}
-    `;
-
-    const result = (await compileContract({
-      code: validCode,
-    })) as Record<string, unknown>;
-
-    // Should succeed with fallback, not fail
-    expect(result.success).toBe(true);
-    expect(result.validationType).toBe("static-analysis-fallback");
-    expect(result.serviceAvailable).toBe(false);
-    expect(result.message).toContain("Static analysis completed");
-    expect(result.staticAnalysis).toBeDefined();
-  });
-
-  it("should fall back to static analysis on API 500 errors", async () => {
+  it("should throw for 503 service unavailable", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      status: 500,
-      text: async () => "Internal Server Error",
+      status: 503,
     });
 
-    const validCode = `
-ledger {
-  value: Field;
-}
-
-export circuit getValue(): Field {
-  return ledger.value;
-}
-    `;
-
-    const result = (await compileContract({
-      code: validCode,
-    })) as Record<string, unknown>;
-
-    // Should succeed with fallback
-    expect(result.success).toBe(true);
-    expect(result.validationType).toBe("static-analysis-fallback");
-    expect(result.serviceAvailable).toBe(false);
-    expect(result.staticAnalysis).toBeDefined();
-  });
-
-  it("should throw MCPError for empty code", async () => {
-    await expect(compileContract({ code: "" })).rejects.toThrow(/No code provided/);
+    await expect(
+      compileContract({ code: "pragma language_version >= 0.18.0;" }),
+    ).rejects.toThrow(/unavailable/);
   });
 
   it("should throw MCPError for oversized code", async () => {
     await expect(
-      compileContract({ code: "x".repeat(200 * 1024) }) // 200KB
+      compileContract({ code: "x".repeat(200 * 1024) }),
     ).rejects.toThrow(/exceeds maximum size/);
   });
-});
 
-describe("Compiler Status", () => {
-  const mockFetch = vi.fn();
-  const originalFetch = globalThis.fetch;
-
-  beforeAll(() => {
-    globalThis.fetch = mockFetch;
-  });
-
-  afterAll(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  beforeEach(() => {
-    mockFetch.mockReset();
-  });
-
-  it("should report healthy service", async () => {
+  it("should set fullCompile mode correctly", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        status: "ok",
-        compilerVersion: "0.18.0",
+        success: true,
+        output: "Full compilation successful",
       }),
     });
 
-    const result = (await getCompilerStatus()) as Record<string, unknown>;
+    const result = (await compileContract({
+      code: "test code",
+      fullCompile: true,
+    })) as Record<string, unknown>;
 
-    expect(result.available).toBe(true);
-    expect(result.compilerVersion).toBe("0.18.0");
-    expect(result.message).toContain("✅");
-  });
+    expect(result.compilationMode).toBe("full");
 
-  it("should report unavailable service", async () => {
-    mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
-
-    const result = (await getCompilerStatus()) as Record<string, unknown>;
-
-    expect(result.available).toBe(false);
-    expect(result.error).toBeTruthy();
-    expect(result.message).toContain("❌");
+    // Verify that fetch was called with skipZk: false
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body as string) as Record<string, unknown>;
+    const options = fetchBody.options as Record<string, unknown>;
+    expect(options.skipZk).toBe(false);
   });
 });

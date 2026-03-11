@@ -17,7 +17,6 @@ import {
   GetLatestSyntaxInputSchema,
   UpgradeCheckInputSchema,
   FullRepoContextInputSchema,
-  ExtractContractStructureInputSchema,
 } from "./schemas.js";
 import {
   getFile,
@@ -31,7 +30,6 @@ import {
   getLatestSyntax,
   upgradeCheck,
   getFullRepoContext,
-  extractContractStructure,
 } from "./handlers.js";
 
 // Tool definitions for MCP
@@ -251,114 +249,5 @@ ALWAYS check this reference before writing Compact contracts.`,
       category: "compound",
     },
     handler: getFullRepoContext,
-  },
-
-  // ============================================================================
-  // ANALYSIS TOOLS - Contract structure extraction
-  // ============================================================================
-  {
-    name: "midnight-extract-contract-structure",
-    description:
-      "Extract and analyze Compact contract structure (circuits, witnesses, ledger). " +
-      "CRITICAL CHECKS: deprecated 'ledger { }' block syntax, 'Void' return type (should be []), " +
-      "old pragma format, unexported enums, deprecated Cell<T> wrapper. " +
-      "Also detects: module-level const, stdlib name collisions, division operator, " +
-      "Counter.value access, missing disclose() calls, potential overflow. " +
-      "Use BEFORE generating contracts to catch syntax errors. " +
-      "Note: Static analysis only - catches common patterns but not semantic errors.",
-    inputSchema: zodInputSchema(ExtractContractStructureInputSchema),
-    outputSchema: {
-      type: "object" as const,
-      properties: {
-        success: { type: "boolean" },
-        filename: { type: "string" },
-        languageVersion: { type: "string" },
-        imports: { type: "array", items: { type: "string" } },
-        structure: {
-          type: "object",
-          properties: {
-            circuits: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  params: { type: "array", items: { type: "string" } },
-                  returnType: { type: "string" },
-                  isExport: { type: "boolean" },
-                  line: { type: "number" },
-                },
-              },
-            },
-            witnesses: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  type: { type: "string" },
-                  isExport: { type: "boolean" },
-                  line: { type: "number" },
-                },
-              },
-            },
-            ledgerItems: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  type: { type: "string" },
-                  isExport: { type: "boolean" },
-                  line: { type: "number" },
-                },
-              },
-            },
-            types: { type: "array" },
-            structs: { type: "array" },
-            enums: { type: "array" },
-          },
-        },
-        exports: {
-          type: "object",
-          description: "Names of all exported items",
-        },
-        stats: {
-          type: "object",
-          description: "Counts of each type of definition",
-        },
-        potentialIssues: {
-          type: "array",
-          description: "Common issues detected by static analysis",
-          items: {
-            type: "object",
-            properties: {
-              type: {
-                type: "string",
-                description:
-                  "Issue type: module_level_const, stdlib_name_collision, sealed_export_conflict, missing_constructor, stdlib_type_mismatch",
-              },
-              line: { type: "number" },
-              message: { type: "string" },
-              suggestion: { type: "string" },
-              severity: {
-                type: "string",
-                enum: ["error", "warning"],
-              },
-            },
-          },
-        },
-        summary: { type: "string" },
-        message: { type: "string" },
-      },
-    },
-    annotations: {
-      readOnlyHint: true,
-      idempotentHint: true,
-      openWorldHint: false,
-      title: "📋 Extract Contract Structure",
-      category: "analyze",
-    },
-    handler: extractContractStructure,
   },
 ];

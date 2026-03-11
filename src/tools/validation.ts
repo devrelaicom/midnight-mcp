@@ -36,7 +36,6 @@ import {
   GetLatestSyntaxInputSchema,
   UpgradeCheckInputSchema,
   FullRepoContextInputSchema,
-  ExtractContractStructureInputSchema,
 } from "./repository/schemas.js";
 
 // Health schemas
@@ -53,6 +52,12 @@ import {
   ReviewContractInputSchema,
   DocumentContractInputSchema,
 } from "./generation/schemas.js";
+
+// Format schemas
+import { FormatContractInputSchema } from "./format/schemas.js";
+
+// Diff schemas
+import { DiffContractsInputSchema } from "./diff/schemas.js";
 
 // Meta schemas
 import {
@@ -73,6 +78,12 @@ export const toolValidationSchemas: Record<string, ZodType> = {
   "midnight-explain-circuit": ExplainCircuitInputSchema,
   "midnight-compile-contract": CompileContractInputSchema,
 
+  // Format tools
+  "midnight-format-contract": FormatContractInputSchema,
+
+  // Diff tools
+  "midnight-diff-contracts": DiffContractsInputSchema,
+
   // Repository tools
   "midnight-get-file": GetFileInputSchema,
   "midnight-list-examples": ListExamplesInputSchema,
@@ -85,7 +96,6 @@ export const toolValidationSchemas: Record<string, ZodType> = {
   "midnight-get-latest-syntax": GetLatestSyntaxInputSchema,
   "midnight-upgrade-check": UpgradeCheckInputSchema,
   "midnight-get-repo-context": FullRepoContextInputSchema,
-  "midnight-extract-contract-structure": ExtractContractStructureInputSchema,
 
   // Health tools
   "midnight-health-check": HealthCheckInputSchema,

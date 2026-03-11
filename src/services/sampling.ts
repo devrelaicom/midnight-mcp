@@ -9,6 +9,7 @@
  */
 
 import { logger } from "../utils/index.js";
+import { analyze } from "./playground.js";
 import type { SamplingRequest, SamplingResponse, ModelPreferences } from "../types/index.js";
 
 // Type for the sampling callback
@@ -306,11 +307,20 @@ Respond in JSON format:
 }`;
 
   try {
+    // Get analysis from playground to enrich the review
+    let analysisContext = "";
+    try {
+      const analysis = await analyze(code, "deep");
+      analysisContext = `\n\nStatic analysis results:\n${JSON.stringify(analysis, null, 2)}`;
+    } catch {
+      // Analysis unavailable, continue without it
+    }
+
     const response = await requestCompletion(
       [
         {
           role: "user",
-          content: `Review this Compact contract:\n\`\`\`compact\n${code}\n\`\`\``,
+          content: `Review this Compact contract:\n\`\`\`compact\n${code}\n\`\`\`${analysisContext}`,
         },
       ],
       {
@@ -397,11 +407,20 @@ Add documentation comments above each:
 - Type definition`;
 
   try {
+    // Get structure analysis to improve documentation quality
+    let analysisContext = "";
+    try {
+      const analysis = await analyze(code, "fast");
+      analysisContext = `\n\nContract structure:\n${JSON.stringify(analysis, null, 2)}`;
+    } catch {
+      // Analysis unavailable, continue without it
+    }
+
     return await requestCompletion(
       [
         {
           role: "user",
-          content: `Generate ${format} documentation for:\n\`\`\`compact\n${code}\n\`\`\``,
+          content: `Generate ${format} documentation for:\n\`\`\`compact\n${code}\n\`\`\`${analysisContext}`,
         },
       ],
       {

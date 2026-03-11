@@ -381,7 +381,7 @@ describe("suggestTool", () => {
 
       expect(
         result.suggestions.some(
-          (s) => s.tool === "midnight-extract-contract-structure"
+          (s) => s.tool === "midnight-analyze-contract"
         )
       ).toBe(true);
     });

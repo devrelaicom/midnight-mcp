@@ -15,6 +15,7 @@ import {
   dashboardRoute,
   trackRoutes,
   oauthRoutes,
+  pgRoutes,
 } from "./routes";
 import { bodyLimit, auth, rateLimit } from "./middleware";
 
@@ -40,6 +41,7 @@ app.use("*", auth);
 // Rate limiting — applied only to search and track routes
 app.use("/v1/search/*", rateLimit);
 app.use("/v1/track/*", rateLimit);
+app.use("/pg/*", rateLimit);
 
 // Mount routes
 app.route("/", healthRoutes);
@@ -48,5 +50,6 @@ app.route("/v1/search", searchRoutes);
 app.route("/v1/stats", statsRoutes);
 app.route("/v1/track", trackRoutes);
 app.route("/dashboard", dashboardRoute);
+app.route("/pg", pgRoutes);
 
 export default app;

@@ -86,24 +86,6 @@ export const FullRepoContextInputSchema = z.object({
   includeSyntax: z.boolean().default(true).describe("Include syntax reference"),
 });
 
-export const ExtractContractStructureInputSchema = z
-  .object({
-    code: z
-      .string()
-      .optional()
-      .describe("The Compact contract source code to analyze (provide this OR filePath)"),
-    filePath: z
-      .string()
-      .optional()
-      .describe("Path to a .compact file to analyze (alternative to providing code directly)"),
-  })
-  .refine(
-    (data) => (data.code !== undefined && data.code.trim() !== "") || data.filePath !== undefined,
-    {
-      message: "Either 'code' or 'filePath' must be provided",
-    },
-  );
-
 // Inferred types from schemas
 export type GetFileInput = z.infer<typeof GetFileInputSchema>;
 export type ListExamplesInput = z.infer<typeof ListExamplesInputSchema>;
@@ -116,4 +98,3 @@ export type CompareSyntaxInput = z.infer<typeof CompareSyntaxInputSchema>;
 export type GetLatestSyntaxInput = z.infer<typeof GetLatestSyntaxInputSchema>;
 export type UpgradeCheckInput = z.infer<typeof UpgradeCheckInputSchema>;
 export type FullRepoContextInput = z.infer<typeof FullRepoContextInputSchema>;
-export type ExtractContractStructureInput = z.infer<typeof ExtractContractStructureInputSchema>;
