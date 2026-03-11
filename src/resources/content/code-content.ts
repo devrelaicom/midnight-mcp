@@ -7,7 +7,7 @@ export const EMBEDDED_CODE: Record<string, string> = {
   "midnight://code/examples/counter": `// Counter Example Contract
 // A simple contract demonstrating basic Compact concepts
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -15,16 +15,17 @@ import CompactStandardLibrary;
 export ledger counter: Counter;
 
 // Track last modifier (public)
-export ledger lastModifier: Opaque<"address">;
+export ledger lastModifier: Bytes<32>;
 
 // Increment the counter
 export circuit increment(amount: Uint<16>): Uint<64> {
+  const delta = disclose(amount);
   // Validate input
-  assert(amount > 0 as Uint<16>, "Amount must be positive");
-  assert(amount <= 100 as Uint<16>, "Amount too large");
+  assert(delta > 0 as Uint<16>, "Amount must be positive");
+  assert(delta <= 100 as Uint<16>, "Amount too large");
   
   // Update counter
-  counter.increment(amount);
+  counter.increment(delta);
   
   // Return new value
   return counter.read();
@@ -32,12 +33,13 @@ export circuit increment(amount: Uint<16>): Uint<64> {
 
 // Decrement the counter
 export circuit decrement(amount: Uint<16>): Uint<64> {
+  const delta = disclose(amount);
   // Validate input
-  assert(amount > 0 as Uint<16>, "Amount must be positive");
-  assert(counter.read() >= (amount as Uint<64>), "Counter would go negative");
+  assert(delta > 0 as Uint<16>, "Amount must be positive");
+  assert(counter.read() >= (delta as Uint<64>), "Counter would go negative");
   
   // Update counter
-  counter.decrement(amount);
+  counter.decrement(delta);
   
   // Return new value
   return counter.read();
@@ -50,14 +52,14 @@ export circuit getValue(): Uint<64> {
 
 // Check if counter is below threshold
 export circuit isLessThan(threshold: Uint<64>): Boolean {
-  return counter.lessThan(threshold);
+  return counter.lessThan(disclose(threshold));
 }
 `,
 
   "midnight://code/examples/bboard": `// Bulletin Board Example Contract
-// Demonstrates private messaging with selective disclosure
+// Demonstrates commitment-backed messaging with selective disclosure
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -65,23 +67,29 @@ import CompactStandardLibrary;
 export ledger messageCount: Counter;
 export ledger messageIds: Set<Field>;
 
-// Private: actual message contents (no export = private)
-ledger messages: Map<Field, Opaque<"string">>;
+// Commitment to each message body. The body itself stays off-chain until revealed.
+ledger messageCommitments: Map<Field, Bytes<32>>;
 
-// Private: message authors (stored as Bytes<32> addresses)
+// Author identifiers are kept on ledger for indexing.
 ledger authors: Map<Field, Bytes<32>>;
 
-// Witness to fetch message content
+// Witnesses for off-chain message storage
+witness storeMessageContent(id: Field, content: Opaque<"string">): [];
 witness getMessageContent(id: Field): Opaque<"string">;
+witness getMessageSalt(id: Field): Bytes<32>;
 
-// Post a new message (content is private)
+// Post a new message (content stays off-chain until revealed)
 export circuit postMessage(content: Opaque<"string">, author: Bytes<32>): Uint<64> {
   // Generate unique message ID using counter read
   const messageId = messageCount.read();
+  const storedAuthor = disclose(author);
+  const salt = getMessageSalt(messageId as Field);
+  const commitment = persistentCommit<Opaque<"string">>(content, salt);
   
-  // Store message privately
-  messages.insert(messageId as Field, content);
-  authors.insert(messageId as Field, author);
+  // Store message off-chain and persist only its commitment on-chain
+  storeMessageContent(messageId as Field, content);
+  messageCommitments.insert(messageId as Field, commitment);
+  authors.insert(messageId as Field, storedAuthor);
   
   // Update public counters
   messageCount.increment(1);
@@ -92,9 +100,16 @@ export circuit postMessage(content: Opaque<"string">, author: Bytes<32>): Uint<6
 
 // Reveal a message publicly (owner's choice)
 export circuit revealMessage(id: Field): Opaque<"string"> {
-  assert(messageIds.member(id), "Message not found");
+  const messageId = disclose(id);
+  assert(messageIds.member(messageId), "Message not found");
   
-  const content = getMessageContent(id);
+  const content = getMessageContent(messageId);
+  const salt = getMessageSalt(messageId);
+  const expectedCommitment = persistentCommit<Opaque<"string">>(content, salt);
+  assert(
+    disclose(messageCommitments.lookup(messageId) == expectedCommitment),
+    "Stored message commitment mismatch"
+  );
   return disclose(content);
 }
 
@@ -105,9 +120,9 @@ export circuit getMessageCount(): Uint<64> {
 `,
 
   "midnight://code/patterns/state-management": `// State Management Pattern
-// Best practices for managing public and private state
+// Best practices for managing public state, internal ledger fields, and witness-backed private data
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -119,37 +134,38 @@ import CompactStandardLibrary;
 export ledger totalSupply: Uint<64>;
 export ledger publicConfig: Field;
 
-// PRIVATE STATE
-// - Use 'ledger' without export for sensitive user data
-// - Only owner can read
-// - Requires witnesses to access in circuits
+// INTERNAL LEDGER STATE
+// - 'ledger' without export keeps fields out of the generated public API
+// - Ledger writes are still observable on-chain
+// - Use witnesses or commitments for truly private data
 
-ledger userSecrets: Map<Opaque<"address">, Bytes<32>>;
-ledger privateBalances: Map<Opaque<"address">, Field>;
+ledger userSecrets: Map<Bytes<32>, Bytes<32>>;
+ledger balanceCommitments: Map<Bytes<32>, Field>;
 
-// Witnesses for private data access
-witness getUserSecret(user: Opaque<"address">): Bytes<32>;
-witness getPrivateBalance(user: Opaque<"address">): Field;
+// Witnesses for witness-backed private data access
+witness getUserSecret(user: Bytes<32>): Bytes<32>;
+witness getPrivateBalance(user: Bytes<32>): Field;
 
 // Reading public state is straightforward
 export circuit getTotalSupply(): Uint<64> {
-  return ledger.totalSupply;
+  return totalSupply;
 }
 
-// Using private state in a circuit
+// Using witness-backed private data in a circuit
 export circuit proveSecretKnowledge(
-  user: Opaque<"address">,
+  user: Bytes<32>,
   secretHash: Bytes<32>
 ): Boolean {
   const secret = getUserSecret(user);
+  const expectedHash = disclose(secretHash);
   
   // Prove knowledge without revealing secret
-  assert(persistentHash(secret) == secretHash, "Invalid secret");
+  assert(disclose(persistentHash<Bytes<32>>(secret) == expectedHash), "Invalid secret");
   return true;
 }
 
 // Selective disclosure pattern
-export circuit revealBalance(user: Opaque<"address">): Field {
+export circuit revealBalance(user: Bytes<32>): Field {
   const balance = getPrivateBalance(user);
   // Explicitly reveal - user's choice
   return disclose(balance);
@@ -159,54 +175,55 @@ export circuit revealBalance(user: Opaque<"address">): Field {
   "midnight://code/patterns/access-control": `// Access Control Pattern
 // Implementing permissions and authorization
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
 // Role definitions
-export ledger owner: Opaque<"address">;
-export ledger admins: Set<Opaque<"address">>;
+export ledger owner: Bytes<32>;
+export ledger admins: Set<Bytes<32>>;
 
 // Access-controlled state
 export ledger sensitiveData: Field;
 
-// Private admin keys
-ledger adminKeys: Map<Opaque<"address">, Bytes<32>>;
+// Internal ledger copy of admin key material
+ledger adminKeys: Map<Bytes<32>, Bytes<32>>;
 
 // Witness to get caller identity
-witness getCaller(): Opaque<"address">;
+witness getCaller(): Bytes<32>;
 
 // Only owner can call
 export circuit onlyOwnerAction(newValue: Field): [] {
-  const caller = getCaller();
+  const caller = disclose(getCaller());
+  const updatedValue = disclose(newValue);
   assert(caller == owner, "Not owner");
-  
-  sensitiveData = newValue;
+  sensitiveData = updatedValue;
 }
 
 // Only admins can call
 export circuit onlyAdminAction(data: Field): [] {
-  const caller = getCaller();
+  const caller = disclose(getCaller());
+  const payload = disclose(data);
   assert(admins.member(caller), "Not admin");
   
-  // Admin action here
+  sensitiveData = payload;
 }
 
 // Multi-sig pattern (require multiple approvals)
-witness getApprovalCount(action: Bytes<32>): Field;
+witness getApprovalCount(action: Bytes<32>): Uint<64>;
 
-export circuit requireMultisig(action: Bytes<32>, threshold: Field): Boolean {
+export circuit requireMultisig(action: Bytes<32>, threshold: Uint<64>): Boolean {
   const approvals = getApprovalCount(action);
-  assert(approvals >= threshold, "Insufficient approvals");
+  assert(disclose(approvals >= disclose(threshold)), "Insufficient approvals");
   return true;
 }
 
 // Time-locked action
-witness getCurrentTime(): Field;
+witness getCurrentTime(): Uint<64>;
 
-export circuit timeLockedAction(unlockTime: Field): [] {
+export circuit timeLockedAction(unlockTime: Uint<64>): [] {
   const currentTime = getCurrentTime();
-  assert(currentTime >= unlockTime, "Action is timelocked");
+  assert(disclose(currentTime >= disclose(unlockTime)), "Action is timelocked");
   
   // Perform action
 }
@@ -215,70 +232,77 @@ export circuit timeLockedAction(unlockTime: Field): [] {
   "midnight://code/patterns/privacy-preserving": `// Privacy-Preserving Patterns
 // Techniques for maintaining privacy in smart contracts
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
-// Commitment-based private balance
-export ledger balanceCommitments: Map<Opaque<"address">, Field>;
+struct CommitmentInput {
+  amount: Uint<64>,
+  nonce: Field,
+}
+
+// Commitment-backed shielded balance
+export ledger balanceCommitments: Map<Bytes<32>, Bytes<32>>;
 
 // Nullifier set (prevents double-spending)
-export ledger nullifiers: Set<Field>;
+export ledger nullifiers: Set<Bytes<32>>;
 
-// Private state
-ledger secretBalances: Map<Opaque<"address">, Field>;
-ledger secretNonces: Map<Opaque<"address">, Field>;
+// Internal ledger state used to verify witness-backed balance data
+ledger secretBalances: Map<Bytes<32>, Uint<64>>;
+ledger secretNonces: Map<Bytes<32>, Field>;
 
-// Witnesses for private state
-witness getSecretBalance(user: Opaque<"address">): Field;
-witness getSecretNonce(user: Opaque<"address">): Field;
+// Witnesses for witness-backed private data
+witness getSecretBalance(user: Bytes<32>): Uint<64>;
+witness getSecretNonce(user: Bytes<32>): Field;
 
 // PATTERN 1: Commitment Scheme
 // Store commitments instead of values
 
 export circuit deposit(
-  user: Opaque<"address">,
-  amount: Field,
+  user: Bytes<32>,
+  amount: Uint<64>,
   nonce: Field
-): Field {
+): Bytes<32> {
   // Create commitment: hash(amount || nonce)
-  // Use a struct to combine values into a single hashable input
-  struct CommitmentInput { amount: Field, nonce: Field }
+  const account = disclose(user);
   const input = CommitmentInput { amount: amount, nonce: nonce };
-  const commitment = persistentHash<Field>(input);
+  const commitment = disclose(persistentHash<CommitmentInput>(input));
   
   // Store commitment (hides amount)
-  balanceCommitments.insert(user, commitment);
+  balanceCommitments.insert(account, commitment);
   
   return commitment;
 }
 
 export circuit proveBalance(
-  user: Opaque<"address">,
-  amount: Field,
+  user: Bytes<32>,
+  amount: Uint<64>,
   nonce: Field,
-  minBalance: Field
+  minBalance: Uint<64>
 ): Boolean {
   // Verify commitment
-  struct CommitmentInput { amount: Field, nonce: Field }
+  const account = disclose(user);
   const input = CommitmentInput { amount: amount, nonce: nonce };
-  const expectedCommitment = persistentHash<Field>(input);
-  assert(balanceCommitments.lookup(user) == expectedCommitment, "Invalid commitment");
+  const expectedCommitment = persistentHash<CommitmentInput>(input);
+  assert(
+    disclose(balanceCommitments.lookup(account) == expectedCommitment),
+    "Invalid commitment"
+  );
   
   // Prove property without revealing value
-  assert(amount >= minBalance, "Insufficient balance");
+  assert(disclose(amount >= disclose(minBalance)), "Insufficient balance");
   return true;
 }
 
 // PATTERN 2: Nullifiers (Prevent Double-Spending)
 
-witness generateNullifier(secret: Bytes<32>, action: Field): Field;
+witness generateNullifier(secret: Bytes<32>, action: Field): Bytes<32>;
 
 export circuit spendOnce(
   secret: Bytes<32>,
   action: Field
 ): [] {
-  const nullifier = generateNullifier(secret, action);
+  const nullifier = disclose(generateNullifier(secret, action));
   
   // Check nullifier hasn't been used
   assert(!nullifiers.member(nullifier), "Already spent");
@@ -292,13 +316,13 @@ export circuit spendOnce(
 // PATTERN 3: Range Proofs
 
 export circuit proveInRange(
-  value: Field,
-  min: Field,
-  max: Field
+  value: Uint<64>,
+  min: Uint<64>,
+  max: Uint<64>
 ): Boolean {
   // Prove value is in range without revealing it
-  assert(value >= min, "Below minimum");
-  assert(value <= max, "Above maximum");
+  assert(disclose(value >= min), "Below minimum");
+  assert(disclose(value <= max), "Above maximum");
   return true;
 }
 
@@ -313,15 +337,15 @@ export circuit proveMembership(
 ): Boolean {
   // Prove element is in set without revealing which element
   const computedRoot = computeMerkleRoot(element, proof);
-  assert(computedRoot == setRoot, "Invalid membership proof");
+  assert(disclose(computedRoot == setRoot), "Invalid membership proof");
   return true;
 }
 `,
 
-  "midnight://code/templates/token": `// Privacy-Preserving Token Template
-// Starter template for token contracts with privacy features
+  "midnight://code/templates/token": `// Commitment-Backed Token Template
+// Starter template for commitment-backed balances with witness-managed state
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -331,57 +355,100 @@ export ledger symbol: Bytes<8>;
 export ledger decimals: Uint<8>;
 export ledger totalSupply: Uint<64>;
 
-// Private balances
-ledger balances: Map<Opaque<"address">, Uint<64>>;
+// Public token metadata
+// Balance values stay hidden behind commitments.
+ledger balanceCommitments: Map<Bytes<32>, Bytes<32>>;
 
-// Witnesses for private state access
-witness getBalance(account: Opaque<"address">): Uint<64>;
-witness getCaller(): Opaque<"address">;
+// Witnesses for witness-backed balance state
+witness getBalance(account: Bytes<32>): Uint<64>;
+witness getBalanceSalt(account: Bytes<32>): Bytes<32>;
+witness getFreshBalanceSalt(account: Bytes<32>): Bytes<32>;
+witness storeBalance(account: Bytes<32>, balance: Uint<64>): [];
+witness getCaller(): Bytes<32>;
 
-// Transfer tokens privately
+// Transfer tokens using commitment-backed balances
 export circuit transfer(
-  to: Opaque<"address">,
+  to: Bytes<32>,
   amount: Uint<64>
 ): Boolean {
-  const from = getCaller();
-  const fromBalance = getBalance(from);
+  const sender = disclose(getCaller());
+  const recipient = disclose(to);
+  const transferAmount = disclose(amount);
+  const senderBalance = getBalance(sender);
+  const recipientBalance = getBalance(recipient);
+  const senderSalt = getBalanceSalt(sender);
+  const recipientSalt = getBalanceSalt(recipient);
   
   // Validate
-  assert(amount > 0, "Invalid amount");
-  assert(fromBalance >= amount, "Insufficient balance");
+  assert(transferAmount > 0, "Invalid amount");
+  assert(
+    disclose(balanceCommitments.lookup(sender) == persistentCommit<Uint<64>>(senderBalance, senderSalt)),
+    "Sender balance commitment mismatch"
+  );
+  assert(
+    disclose(
+      balanceCommitments.lookup(recipient) ==
+      persistentCommit<Uint<64>>(recipientBalance, recipientSalt)
+    ),
+    "Recipient balance commitment mismatch"
+  );
+  assert(disclose(senderBalance >= transferAmount), "Insufficient balance");
   
-  // Update balances privately
-  balances.insert(from, fromBalance - amount);
-  balances.insert(to, getBalance(to) + amount);
+  // Update hidden balances via fresh commitments
+  const newSenderBalance = (senderBalance - transferAmount) as Uint<64>;
+  const newRecipientBalance = (recipientBalance + transferAmount) as Uint<64>;
+  storeBalance(sender, newSenderBalance);
+  storeBalance(recipient, newRecipientBalance);
+  balanceCommitments.insert(
+    sender,
+    persistentCommit<Uint<64>>(newSenderBalance, getFreshBalanceSalt(sender))
+  );
+  balanceCommitments.insert(
+    recipient,
+    persistentCommit<Uint<64>>(newRecipientBalance, getFreshBalanceSalt(recipient))
+  );
   
   return true;
 }
 
 // Reveal balance (user's choice)
 export circuit revealMyBalance(): Uint<64> {
-  const caller = getCaller();
+  const caller = disclose(getCaller());
   const balance = getBalance(caller);
+  const salt = getBalanceSalt(caller);
+  assert(
+    disclose(balanceCommitments.lookup(caller) == persistentCommit<Uint<64>>(balance, salt)),
+    "Balance commitment mismatch"
+  );
   return disclose(balance);
 }
 
-// Get total supply
-witness getTotalSupply(): Uint<64> {
-  return ledger.totalSupply;
-}
-
 // Mint new tokens (admin only)
-export circuit mint(to: Opaque<"address">, amount: Uint<64>): Boolean {
+export circuit mint(to: Bytes<32>, amount: Uint<64>): Boolean {
+  const recipient = disclose(to);
+  const mintedAmount = disclose(amount);
+  const currentBalance = getBalance(recipient);
+  const currentSalt = getBalanceSalt(recipient);
   // Add access control in production
-  balances.insert(to, getBalance(to) + amount);
-  ledger.totalSupply = getTotalSupply() + amount;
+  assert(
+    disclose(balanceCommitments.lookup(recipient) == persistentCommit<Uint<64>>(currentBalance, currentSalt)),
+    "Recipient balance commitment mismatch"
+  );
+  const updatedBalance = (currentBalance + mintedAmount) as Uint<64>;
+  storeBalance(recipient, updatedBalance);
+  balanceCommitments.insert(
+    recipient,
+    persistentCommit<Uint<64>>(updatedBalance, getFreshBalanceSalt(recipient))
+  );
+  totalSupply = disclose((totalSupply + mintedAmount) as Uint<64>);
   return true;
 }
 `,
 
-  "midnight://code/templates/voting": `// Private Voting Template
-// Starter template for privacy-preserving voting contracts
+  "midnight://code/templates/voting": `// Commitment-Backed Voting Template
+// Starter template for hidden vote values with public proposal metadata
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -390,20 +457,21 @@ export ledger proposalCount: Counter;
 export ledger proposals: Map<Uint<64>, Bytes<256>>;
 export ledger votingDeadlines: Map<Uint<64>, Uint<64>>;
 
-// Private: individual votes
-ledger votes: Map<Uint<64>, Map<Opaque<"address">, Uint<8>>>;
+// Hidden vote commitments. Voter identity checks are still public in this scaffold.
+ledger voteCommitments: Set<Bytes<32>>;
 
 // Nullifiers to prevent double voting
 export ledger voteNullifiers: Set<Bytes<32>>;
 
 // Eligible voters
-export ledger eligibleVoters: Set<Opaque<"address">>;
+export ledger eligibleVoters: Set<Bytes<32>>;
 
 // Witnesses
-witness getCaller(): Opaque<"address">;
+witness getCaller(): Bytes<32>;
 witness getCurrentTime(): Uint<64>;
-witness getVote(proposalId: Uint<64>, voter: Opaque<"address">): Uint<8>;
-witness computeNullifier(voter: Opaque<"address">, proposalId: Uint<64>): Bytes<32>;
+witness getVote(proposalId: Uint<64>, voter: Bytes<32>): Uint<8>;
+witness computeNullifier(voter: Bytes<32>, proposalId: Uint<64>): Bytes<32>;
+witness computeVoteCommitment(voter: Bytes<32>, proposalId: Uint<64>, option: Uint<8>): Bytes<32>;
 
 // Create a new proposal
 export circuit createProposal(
@@ -411,34 +479,40 @@ export circuit createProposal(
   deadline: Uint<64>
 ): Uint<64> {
   const proposalId = proposalCount.read();
+  const proposalText = disclose(description);
+  const closingTime = disclose(deadline);
   
   // Store proposal - proposalId is Uint<64> from Counter.read()
-  proposals.insert(proposalId, description);
-  votingDeadlines.insert(proposalId, deadline);
+  proposals.insert(proposalId, proposalText);
+  votingDeadlines.insert(proposalId, closingTime);
   
   proposalCount.increment(1);
   return proposalId;
 }
 
-// Cast a private vote
+// Cast a commitment-backed vote
 export circuit vote(
   proposalId: Uint<64>,
   option: Uint<8>
 ): Boolean {
-  const voter = getCaller();
+  const voter = disclose(getCaller());
   const currentTime = getCurrentTime();
+  const proposal = disclose(proposalId);
+  const selectedOption = disclose(option);
   
   // Check eligibility
   assert(eligibleVoters.member(voter), "Not eligible to vote");
   
   // Check deadline
-  const deadline = votingDeadlines.lookup(proposalId);
-  assert(currentTime < deadline, "Voting ended");
+  const deadline = votingDeadlines.lookup(proposal);
+  assert(disclose(currentTime < deadline), "Voting ended");
   
   // Check for double voting using nullifier
-  const nullifier = computeNullifier(voter, proposalId);
+  const nullifier = disclose(computeNullifier(voter, proposal));
   assert(!voteNullifiers.member(nullifier), "Already voted");
-  
+  const voteCommitment = disclose(computeVoteCommitment(voter, proposal, selectedOption));
+  voteCommitments.insert(voteCommitment);
+
   // Add nullifier to prevent double voting
   voteNullifiers.insert(nullifier);
   
@@ -446,23 +520,25 @@ export circuit vote(
 }
 
 // Reveal individual vote (voter's choice)
-export circuit revealMyVote(proposalId: Uint<32>): Uint<8> {
-  const voter = getCaller();
+export circuit revealMyVote(proposalId: Uint<64>): Uint<8> {
+  const voter = disclose(getCaller());
   const myVote = getVote(proposalId, voter);
+  const voteCommitment = disclose(computeVoteCommitment(voter, disclose(proposalId), myVote));
+  assert(voteCommitments.member(voteCommitment), "No committed vote found");
   return disclose(myVote);
 }
 
 // Add eligible voter (admin only)
-export circuit addVoter(voter: Opaque<"address">): [] {
+export circuit addVoter(voter: Bytes<32>): [] {
   // Add access control in real implementation
-  eligibleVoters.insert(voter);
+  eligibleVoters.insert(disclose(voter));
 }
 `,
 
   "midnight://code/examples/nullifier": `// Nullifier Pattern Example
 // Demonstrates how to create and use nullifiers to prevent double-spending/actions
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -487,7 +563,8 @@ export circuit claimReward(
   rewardAmount: Uint<16>
 ): Boolean {
   // Compute the nullifier
-  const nullifier = computeNullifier(secret, commitment);
+  const nullifier = disclose(computeNullifier(secret, commitment));
+  const reward = disclose(rewardAmount);
   
   // Check nullifier hasn't been used (prevents double-claim)
   assert(
@@ -499,7 +576,7 @@ export circuit claimReward(
   usedNullifiers.insert(nullifier);
   
   // Process reward (Counter.increment takes Uint<16>)
-  claimedRewards.increment(rewardAmount);
+  claimedRewards.increment(reward);
   
   return true;
 }
@@ -511,7 +588,7 @@ export circuit voteWithNullifier(
   vote: Field
 ): Boolean {
   // Create unique nullifier for this voter + proposal
-  const nullifier = computeActionNullifier(voterSecret, proposalId);
+  const nullifier = disclose(computeActionNullifier(voterSecret, proposalId));
   
   // Ensure hasn't voted on this proposal
   assert(
@@ -530,18 +607,20 @@ export circuit voteWithNullifier(
   "midnight://code/examples/hash": `// Hash Functions in Compact
 // Examples of using hash functions for various purposes
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
 export ledger commitments: Set<Bytes<32>>;
 export ledger hashedData: Map<Field, Bytes<32>>;
 
-// Basic hash function usage
-witness simpleHash(data: Field): Bytes<32>;
+circuit hashValue(data: Field): Bytes<32> {
+  return persistentHash<Field>(data);
+}
 
-// Create a commitment (hash of value + randomness)
-witness createCommitment(value: Field, randomness: Field): Bytes<32>;
+circuit commitmentOf(value: Field, randomness: Field): Bytes<32> {
+  return persistentHash<Vector<2, Field>>([value, randomness]);
+}
 
 // Verify a commitment matches
 export circuit verifyCommitment(
@@ -549,27 +628,29 @@ export circuit verifyCommitment(
   randomness: Field,
   expectedCommitment: Bytes<32>
 ): Boolean {
-  const computed = createCommitment(value, randomness);
-  assert(computed == expectedCommitment, "Commitment mismatch");
+  const computed = commitmentOf(value, randomness);
+  assert(disclose(computed == expectedCommitment), "Commitment mismatch");
   return true;
 }
 
 // Store a hashed value
 export circuit storeHashed(id: Field, data: Field): Bytes<32> {
-  const hashed = simpleHash(data);
-  hashedData.insert(id, hashed);
+  const key = disclose(id);
+  const hashed = disclose(hashValue(data));
+  hashedData.insert(key, hashed);
   return hashed;
 }
 
 // Commit-reveal pattern
 export circuit commit(commitment: Bytes<32>): Boolean {
-  assert(!commitments.member(commitment), "Already committed");
-  commitments.insert(commitment);
+  const committed = disclose(commitment);
+  assert(!commitments.member(committed), "Already committed");
+  commitments.insert(committed);
   return true;
 }
 
 export circuit reveal(value: Field, randomness: Field): Field {
-  const commitment = createCommitment(value, randomness);
+  const commitment = disclose(commitmentOf(value, randomness));
   assert(commitments.member(commitment), "No matching commitment");
   return disclose(value);
 }
@@ -578,7 +659,7 @@ export circuit reveal(value: Field, randomness: Field): Field {
   "midnight://code/examples/simple-counter": `// Simple Counter Contract
 // Minimal example for learning Compact basics
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -593,7 +674,7 @@ export circuit increment(): Uint<64> {
 
 // Decrement the counter by 1  
 export circuit decrement(): Uint<64> {
-  assert(counter.read() > 0, "Cannot go below zero");
+  assert(counter.read() > 0 as Uint<64>, "Cannot go below zero");
   counter.decrement(1);
   return counter.read();
 }
@@ -605,7 +686,7 @@ export circuit get(): Uint<64> {
 
 // Check if below threshold
 export circuit isBelowLimit(limit: Uint<64>): Boolean {
-  return counter.lessThan(limit);
+  return counter.lessThan(disclose(limit));
 }
 
 // Reset to zero
@@ -617,7 +698,7 @@ export circuit reset(): [] {
   "midnight://code/templates/basic": `// Basic Compact Contract Template
 // Starting point for new contracts
 
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -627,26 +708,27 @@ import CompactStandardLibrary;
 
 // Public state (visible on-chain)
 export ledger initialized: Boolean;
-export ledger owner: Opaque<"address">;
+export ledger owner: Bytes<32>;
 
-// Private state (only owner can see)
-ledger secretData: Field;
+// Internal state. For real privacy, store a commitment rather than the raw value.
+ledger secretCommitment: Bytes<32>;
 
 // ============================================
 // WITNESSES
 // ============================================
 
-witness getCaller(): Opaque<"address">;
+witness getCaller(): Bytes<32>;
 witness getSecret(): Field;
+witness getSecretSalt(): Bytes<32>;
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
-export circuit initialize(ownerAddress: Opaque<"address">): Boolean {
+export circuit initialize(ownerAddress: Bytes<32>): Boolean {
   assert(!initialized, "Already initialized");
   
-  owner = ownerAddress;
+  owner = disclose(ownerAddress);
   initialized = true;
   
   return true;
@@ -660,7 +742,7 @@ export circuit publicFunction(input: Field): Field {
   assert(initialized, "Not initialized");
   
   // Your logic here
-  return input * 2;
+  return disclose(input * 2);
 }
 
 // ============================================
@@ -668,9 +750,9 @@ export circuit publicFunction(input: Field): Field {
 // ============================================
 
 export circuit setSecret(newSecret: Field): [] {
-  const caller = getCaller();
+  const caller = disclose(getCaller());
   assert(caller == owner, "Only owner can set secret");
-  secretData = newSecret;
+  secretCommitment = persistentCommit<Field>(newSecret, getSecretSalt());
 }
 
 // ============================================
@@ -678,9 +760,15 @@ export circuit setSecret(newSecret: Field): [] {
 // ============================================
 
 export circuit revealSecret(): Field {
-  const caller = getCaller();
+  const caller = disclose(getCaller());
+  const secret = getSecret();
+  const salt = getSecretSalt();
   assert(caller == owner, "Only owner can reveal");
-  return disclose(getSecret());
+  assert(
+    disclose(secretCommitment == persistentCommit<Field>(secret, salt)),
+    "Secret commitment mismatch"
+  );
+  return disclose(secret);
 }
 `,
 };

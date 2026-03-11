@@ -155,7 +155,7 @@ function generateCreateContractPrompt(args: Record<string, string>): PromptMessa
 Call \`midnight-get-latest-syntax\` FIRST to get:
 - The \`quickStartTemplate\` (use as your base)
 - The \`commonMistakes\` array (avoid these errors)
-- Current pragma format: \`pragma language_version >= 0.16 && <= 0.18;\`
+- Default pragma recommendation: \`pragma language_version 0.21;\`
 
 ### Step 2: Generate Contract
 Based on syntax reference, generate the contract using:
@@ -202,7 +202,7 @@ If ANY errors are found, fix them before returning the code to the user.
 Please help me design and implement this contract. Consider:
 
 1. **State Design**
-   - What should be public vs private (shielded)?
+   - What should be public, internal ledger state, or witness-backed private data?
    - What data structures are needed?
    - How should state transitions work?
 
@@ -213,7 +213,7 @@ Please help me design and implement this contract. Consider:
 
 3. **Witness Functions**
    - What off-chain data is needed?
-   - How should private state be accessed?
+   - How should witness-backed private data be accessed?
 
 4. **Privacy Considerations**
    - How to protect user privacy?
@@ -258,7 +258,7 @@ ${contractCode}
 Call \`midnight-extract-contract-structure\` with the contract code to check for:
 - deprecated_ledger_block (should use \`export ledger field: Type;\`)
 - invalid_void_type (should use \`[]\` not \`Void\`)
-- invalid_pragma_format (should use \`>= 0.16 && <= 0.18\`)
+- invalid_pragma_format (malformed pragma syntax; prefer \`pragma language_version 0.21;\` in MCP output)
 - unexported_enum (enums need \`export\`)
 - deprecated_cell_wrapper
 
@@ -285,7 +285,7 @@ Please analyze:
    - Assertion coverage
 
 3. **Privacy Assessment**
-   - Proper use of @private state
+   - Proper use of internal ledger fields, commitments, and witnesses
    - Information leakage risks
    - Correct use of disclose() and commit()
    - Privacy guarantees provided
@@ -436,7 +436,7 @@ ${contractCode}
 Call \`midnight-extract-contract-structure\` FIRST to check for common syntax errors:
 - deprecated_ledger_block → should use \`export ledger field: Type;\`
 - invalid_void_type → should use \`[]\` not \`Void\`
-- invalid_pragma_format → should use \`>= 0.16 && <= 0.18\`
+- invalid_pragma_format → malformed pragma syntax; prefer \`pragma language_version 0.21;\`
 - unexported_enum → enums need \`export\` keyword
 
 ### Step 2: Get Correct Syntax

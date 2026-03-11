@@ -19,13 +19,13 @@ export const codeResources: ResourceDefinition[] = [
   {
     uri: "midnight://code/examples/bboard",
     name: "Bulletin Board Example",
-    description: "Full DApp example with private messaging",
+    description: "Commitment-backed bulletin board with selective message disclosure",
     mimeType: "text/x-compact",
   },
   {
     uri: "midnight://code/patterns/state-management",
     name: "State Management Pattern",
-    description: "Best practices for managing public and private state",
+    description: "Best practices for public ledger state, internal ledger fields, and witness-backed private data",
     mimeType: "text/x-compact",
   },
   {
@@ -37,19 +37,19 @@ export const codeResources: ResourceDefinition[] = [
   {
     uri: "midnight://code/patterns/privacy-preserving",
     name: "Privacy-Preserving Pattern",
-    description: "Patterns for maintaining privacy in smart contracts",
+    description: "Patterns for commitment-backed state and witness-backed privacy in smart contracts",
     mimeType: "text/x-compact",
   },
   {
     uri: "midnight://code/templates/token",
     name: "Token Template",
-    description: "Starter template for privacy-preserving token contracts",
+    description: "Starter template for commitment-backed token balances with witness-backed state management",
     mimeType: "text/x-compact",
   },
   {
     uri: "midnight://code/templates/voting",
     name: "Voting Template",
-    description: "Starter template for private voting contracts",
+    description: "Starter template for hidden vote commitments with public proposal metadata",
     mimeType: "text/x-compact",
   },
   {

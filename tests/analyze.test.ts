@@ -56,7 +56,7 @@ describe("Contract Analyzer", () => {
       json: async () => ({
         success: true,
         mode: "fast",
-        pragma: "0.18.0",
+        pragma: "0.21.0",
         imports: ["CompactStandardLibrary"],
         circuits: [
           {
@@ -73,7 +73,7 @@ describe("Contract Analyzer", () => {
     });
 
     const result = await analyzeContract({
-      code: "pragma language_version >= 0.18.0;",
+      code: "pragma language_version 0.21;",
       mode: "fast",
     });
 
@@ -196,9 +196,17 @@ export circuit validateAmount(amount: Field): Boolean {
 
   it("should identify state modifications", async () => {
     const code = `
-export circuit deposit(amount: Field): Void {
-  ledger.balance.increment(amount);
-  ledger.transactions.insert(nextId(), amount);
+pragma language_version 0.21;
+
+import CompactStandardLibrary;
+
+export ledger balance: Counter;
+export ledger transactions: Map<Field, Field>;
+
+export circuit deposit(amount: Uint<16>): [] {
+  const value = disclose(amount);
+  balance.increment(value);
+  transactions.insert(0 as Field, value as Field);
 }
     `;
 
@@ -214,9 +222,9 @@ export circuit deposit(amount: Field): Void {
             name: "deposit",
             exported: true,
             pure: false,
-            params: [{ name: "amount", type: "Field" }],
-            returnType: "Void",
-            line: 2,
+            params: [{ name: "amount", type: "Uint<16>" }],
+            returnType: "[]",
+            line: 7,
           },
         ],
         ledger: [],
@@ -270,14 +278,14 @@ describe("Compile Contract", () => {
       json: async () => ({
         success: true,
         output: "Compilation successful",
-        compilerVersion: "0.18.0",
+        compilerVersion: "0.21.0",
         compiledAt: "2026-01-19T19:17:56.064Z",
         executionTime: 2841,
       }),
     });
 
     const result = (await compileContract({
-      code: `pragma language_version >= 0.18.0;`,
+      code: "pragma language_version 0.21;",
       skipZk: true,
     })) as Record<string, unknown>;
 
@@ -292,7 +300,7 @@ describe("Compile Contract", () => {
     });
 
     await expect(
-      compileContract({ code: "pragma language_version >= 0.18.0;" }),
+      compileContract({ code: "pragma language_version 0.21;" }),
     ).rejects.toThrow(/unavailable/);
   });
 

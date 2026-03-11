@@ -109,7 +109,7 @@ describe("Generation Tools", () => {
 
     it("review-contract returns samplingAvailable: false when no sampling", async () => {
       const result = await generationHandlers["midnight-review-contract"]({
-        code: "ledger { counter: Counter }",
+        code: "export ledger counter: Counter;",
       });
 
       expect(result.samplingAvailable).toBe(false);
@@ -118,7 +118,7 @@ describe("Generation Tools", () => {
 
     it("document-contract returns samplingAvailable: false when no sampling", async () => {
       const result = await generationHandlers["midnight-document-contract"]({
-        code: "ledger { counter: Counter }",
+        code: "export ledger counter: Counter;",
       });
 
       expect(result.samplingAvailable).toBe(false);
@@ -127,7 +127,7 @@ describe("Generation Tools", () => {
 
     it("document-contract defaults format to markdown", async () => {
       const result = await generationHandlers["midnight-document-contract"]({
-        code: "ledger { counter: Counter }",
+        code: "export ledger counter: Counter;",
       });
 
       expect(result.format).toBe("markdown");

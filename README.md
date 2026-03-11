@@ -126,7 +126,7 @@ All tools are prefixed with `midnight-` (e.g., `midnight-search-compact`).
 The `midnight-compile-contract` tool validates Compact code using a hosted compiler service:
 
 ```
-✅ Compilation successful (Compiler v0.18.0) in 2841ms
+✅ Compilation successful (Compiler v0.21.0) in 2841ms
 ```
 
 - **Fast mode** (`skipZk=true`): Syntax validation in ~1-2 seconds
@@ -151,7 +151,7 @@ This catches semantic errors that static analysis misses (sealed fields, disclos
 
 Quick references available offline:
 
-- Compact syntax guide (v0.16-0.18)
+- Compact syntax guide (v0.21)
 - SDK API reference
 - OpenZeppelin contracts
 - Tokenomics overview
@@ -166,7 +166,7 @@ Quick references available offline:
 | ------------------------- | -------- | ------------------------------------------------------- |
 | `deprecated_ledger_block` | P0       | Catches `ledger { }` → use `export ledger field: Type;` |
 | `invalid_void_type`       | P0       | Catches `Void` → use `[]` (empty tuple)                 |
-| `invalid_pragma_format`   | P0       | Catches old pragma → use `>= 0.16 && <= 0.18`           |
+| `invalid_pragma_format`   | P0       | Catches old pragma → use `pragma language_version 0.21;` |
 | `unexported_enum`         | P1       | Enums need `export` for TypeScript access               |
 | `module_level_const`      | P0       | Use `pure circuit` instead                              |
 | + 10 more checks          | P1-P2    | Overflow, division, assertions, etc.                    |

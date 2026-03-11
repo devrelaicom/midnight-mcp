@@ -12,7 +12,7 @@
  */
 
 export const EMBEDDED_DOCS: Record<string, string> = {
-  "midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.16 - v0.18)
+  "midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.21)
 
 > **CRITICAL**: This reference is derived from **actual compiling contracts** in the Midnight ecosystem.
 > Always verify syntax against this reference before generating contracts.
@@ -22,7 +22,7 @@ export const EMBEDDED_DOCS: Record<string, string> = {
 Use this as a starting point - it compiles successfully:
 
 \`\`\`compact
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -30,7 +30,7 @@ import CompactStandardLibrary;
 export ledger counter: Counter;
 export ledger owner: Bytes<32>;
 
-// Witness for private/off-chain data
+// Witness for off-chain, witness-backed data
 witness local_secret_key(): Bytes<32>;
 
 // Circuit (returns [] not Void)
@@ -43,15 +43,22 @@ export circuit increment(): [] {
 
 ## 1. Pragma (Version Declaration)
 
-**CORRECT** - use bounded range without patch version:
+**RECOMMENDED** - use an exact major.minor version in MCP-generated code:
 \`\`\`compact
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 \`\`\`
 
-**WRONG** - these will cause parse errors:
+**ALSO ACCEPTED** - the local 0.21.0 compiler accepts minimum-version pragmas:
 \`\`\`compact
-pragma language_version >= 0.14.0;           // ❌ patch version not needed
-pragma language_version >= 0.16.0 < 0.19.0;  // ❌ wrong operator format
+pragma language_version >= 0.21;
+\`\`\`
+
+Official docs currently show exact-version pragmas, so that remains the default recommendation here.
+
+**WRONG / OUTDATED** - avoid malformed ranges and patch-specific examples that are not shown in the docs:
+\`\`\`compact
+pragma language_version >= 0.21.0;           // ❌ docs show major.minor pragmas
+pragma language_version >= 0.16.0 < 0.19.0;  // ❌ malformed range syntax
 \`\`\`
 
 ---
@@ -82,8 +89,9 @@ export ledger counter: Counter;
 export ledger owner: Bytes<32>;
 export ledger balances: Map<Bytes<32>, Uint<64>>;
 
-// Private state (off-chain only)
-ledger secretValue: Field;  // no export = private
+// Internal ledger state (not exported in the public API)
+// Ledger writes are still observable on-chain.
+ledger secretValue: Field;
 \`\`\`
 
 **WRONG** - block syntax is deprecated:
@@ -100,7 +108,7 @@ ledger {
 \`\`\`compact
 export ledger publicData: Field;           // Public, readable by anyone
 export sealed ledger immutableData: Field; // Set once in constructor, cannot change
-ledger privateData: Field;                 // Private, not exported
+ledger internalData: Field;                // Internal ledger field, not exported
 \`\`\`
 
 ---
@@ -221,7 +229,7 @@ export pure circuit hash(x: Field): Bytes<32>  // No state access
 
 ## 6. Witnesses
 
-Witnesses provide off-chain/private data to circuits. They run locally, not on-chain.
+Witnesses provide off-chain, witness-backed data to circuits. They run locally, not on-chain.
 
 **CRITICAL**: Witnesses are declarations only - NO implementation body in Compact!
 The implementation goes in your TypeScript prover.
@@ -235,7 +243,7 @@ witness find_user(id: Bytes<32>): Maybe<UserData>;
 
 // ❌ WRONG - witnesses cannot have bodies
 witness get_caller(): Bytes<32> {
-  return public_key(local_secret_key());  // ERROR!
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), local_secret_key()]);  // ERROR!
 }
 \`\`\`
 
@@ -250,7 +258,7 @@ export sealed ledger owner: Bytes<32>;
 export sealed ledger nonce: Bytes<32>;
 
 constructor(initNonce: Bytes<32>) {
-  owner = disclose(public_key(local_secret_key()));
+  owner = disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), local_secret_key()]));
   nonce = disclose(initNonce);
 }
 \`\`\`
@@ -299,7 +307,7 @@ export circuit authenticated_action(): [] {
 
 ### Commit-Reveal Pattern (COMPLETE, VALIDATED)
 \`\`\`compact
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 
@@ -539,7 +547,7 @@ assert(disclose(caller == owner), "Not authorized");
 |---------|---------|
 | \`ledger { field: Type; }\` | \`export ledger field: Type;\` |
 | \`circuit fn(): Void\` | \`circuit fn(): []\` |
-| \`pragma >= 0.16.0\` | \`pragma >= 0.16 && <= 0.18\` |
+| \`pragma language_version >= 0.21.0;\` | \`pragma language_version 0.21;\` |
 | \`enum State { ... }\` | \`export enum State { ... }\` |
 | \`if (witness_val == x)\` | \`if (disclose(witness_val == x))\` |
 | \`Cell<Field>\` | \`Field\` (Cell is deprecated) |
@@ -801,8 +809,8 @@ Ledger ADT types cannot be used in type casts:
 // ❌ Wrong
 const x = value as Counter;
 
-// ✅ Correct - use ledger field directly
-ledger.counter.increment(1);
+// ✅ Correct - use the ledger field directly
+counter.increment(1);
 \`\`\`
 
 #### Version Mismatch After Update
@@ -860,7 +868,7 @@ npm install @openzeppelin/compact-contracts
 ## Available Modules
 
 ### Token Standards
-- **FungibleToken** - Privacy-preserving token with shielded balances
+- **FungibleToken** - Privacy-preserving token with commitment-backed shielded balances
 - **NFT** - Non-fungible tokens with optional privacy
 
 ### Access Control
@@ -875,7 +883,7 @@ npm install @openzeppelin/compact-contracts
 ## Usage Example
 
 \`\`\`compact
-pragma language_version >= 0.18.0;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 import "@openzeppelin/compact-contracts/src/token/FungibleToken"
@@ -883,15 +891,17 @@ import "@openzeppelin/compact-contracts/src/token/FungibleToken"
 import "@openzeppelin/compact-contracts/src/access/Ownable"
   prefix Ownable_;
 
-ledger {
-  // Inherit from OpenZeppelin contracts
-  ...FungibleToken.ledger;
-  ...Ownable.ledger;
+// Exact ledger wiring depends on the OpenZeppelin release you install.
+// Use the package's current examples as the source of truth.
+export sealed ledger owner: Bytes<32>;
+
+constructor(initialOwner: Bytes<32>) {
+  owner = disclose(initialOwner);
 }
 
-export circuit mint(to: Address, amount: Field): Void {
-  Ownable.assertOnlyOwner();
-  FungibleToken.mint(to, amount);
+export circuit mint(to: Bytes<32>, amount: Uint<64>): [] {
+  Ownable_assertOnlyOwner();
+  FungibleToken_mint(to, amount);
 }
 \`\`\`
 
@@ -909,7 +919,7 @@ The recommended standard for privacy-preserving tokens on Midnight.
 
 ## Features
 
-- Shielded balances (private by default)
+- Shielded balances backed by commitments
 - Optional public balance disclosure
 - Transfer with ZK proofs
 - Mint/burn capabilities
@@ -917,44 +927,41 @@ The recommended standard for privacy-preserving tokens on Midnight.
 ## Basic Usage
 
 \`\`\`compact
-pragma language_version >= 0.18.0;
+pragma language_version 0.21;
 
 import CompactStandardLibrary;
 import "@openzeppelin/compact-contracts/src/token/FungibleToken"
   prefix FungibleToken_;
 
-ledger {
-  ...FungibleToken.ledger;
-  name: Opaque<"string">;
-  symbol: Opaque<"string">;
-  decimals: Uint<8>;
-}
+export ledger name: Opaque<"string">;
+export ledger symbol: Opaque<"string">;
+export ledger decimals: Uint<8>;
 
 export circuit initialize(
-  name: Opaque<"string">,
-  symbol: Opaque<"string">,
-  decimals: Uint<8>,
-  initialSupply: Field,
-  owner: Address
-): Void {
-  ledger.name = name;
-  ledger.symbol = symbol;
-  ledger.decimals = decimals;
-  FungibleToken.mint(owner, initialSupply);
+  newName: Opaque<"string">,
+  newSymbol: Opaque<"string">,
+  newDecimals: Uint<8>,
+  initialSupply: Uint<64>,
+  owner: Bytes<32>
+): [] {
+  // Treat this as an illustrative wrapper around the library's token module.
+  // Check the installed OpenZeppelin package examples for exact wiring.
+  name = disclose(newName);
+  symbol = disclose(newSymbol);
+  decimals = disclose(newDecimals);
+  FungibleToken_mint(owner, initialSupply);
 }
 
 // Shielded transfer
-export circuit transfer(to: Address, amount: Field): Void {
-  FungibleToken.transfer(to, amount);
+export circuit transfer(to: Bytes<32>, amount: Uint<64>): [] {
+  FungibleToken_transfer(to, amount);
 }
 
-// Check balance (private)
-witness myBalance(): Field {
-  return FungibleToken.balanceOf(context.caller);
-}
+// Check balance through a witness-backed path
+witness myBalance(): Uint<64>;
 
 // Reveal balance publicly (optional)
-export circuit revealBalance(): Field {
+export circuit revealBalance(): Uint<64> {
   return disclose(myBalance());
 }
 \`\`\`
@@ -965,18 +972,13 @@ export circuit revealBalance(): Field {
 import "@openzeppelin/compact-contracts/src/access/Ownable"
   prefix Ownable_;
 
-ledger {
-  ...FungibleToken.ledger;
-  ...Ownable.ledger;
+export circuit mint(to: Bytes<32>, amount: Uint<64>): [] {
+  Ownable_assertOnlyOwner();
+  FungibleToken_mint(to, amount);
 }
 
-export circuit mint(to: Address, amount: Field): Void {
-  Ownable.assertOnlyOwner();
-  FungibleToken.mint(to, amount);
-}
-
-export circuit burn(amount: Field): Void {
-  FungibleToken.burn(context.caller, amount);
+export circuit burn(amount: Uint<64>): [] {
+  FungibleToken_burn(amount);
 }
 \`\`\`
 
@@ -984,7 +986,7 @@ export circuit burn(amount: Field): Void {
 
 | Operation | Privacy |
 |-----------|---------|
-| Balance | Shielded (private) |
+| Balance | Commitment-backed shielded balance |
 | Transfer amount | Shielded |
 | Sender | Shielded |
 | Recipient | Shielded |
@@ -1009,22 +1011,20 @@ Simple single-owner access control.
 import "@openzeppelin/compact-contracts/src/access/Ownable"
   prefix Ownable_;
 
-ledger {
-  ...Ownable.ledger;
+export sealed ledger owner: Bytes<32>;
+
+constructor(initialOwner: Bytes<32>) {
+  owner = disclose(initialOwner);
 }
 
-export circuit initialize(owner: Address): Void {
-  Ownable.initialize(owner);
-}
-
-export circuit adminFunction(): Void {
-  Ownable.assertOnlyOwner();
+export circuit adminFunction(): [] {
+  Ownable_assertOnlyOwner();
   // Only owner can execute this
 }
 
-export circuit transferOwnership(newOwner: Address): Void {
-  Ownable.assertOnlyOwner();
-  Ownable.transferOwnership(newOwner);
+export circuit transferOwnership(newOwner: Bytes<32>): [] {
+  Ownable_assertOnlyOwner();
+  owner = disclose(newOwner);
 }
 \`\`\`
 
@@ -1036,26 +1036,22 @@ For more complex permission systems.
 import "@openzeppelin/compact-contracts/src/access/AccessControl"
   prefix AccessControl_;
 
-ledger {
-  ...AccessControl.ledger;
+export ledger admins: Set<Bytes<32>>;
+export ledger minters: Set<Bytes<32>>;
+witness caller(): Bytes<32>;
+
+export circuit initialize(admin: Bytes<32>): [] {
+  admins.insert(disclose(admin));
 }
 
-const ADMIN_ROLE: Bytes<32> = keccak256("ADMIN_ROLE");
-const MINTER_ROLE: Bytes<32> = keccak256("MINTER_ROLE");
-
-export circuit initialize(admin: Address): Void {
-  AccessControl.grantRole(ADMIN_ROLE, admin);
-  AccessControl.setRoleAdmin(MINTER_ROLE, ADMIN_ROLE);
-}
-
-export circuit mint(to: Address, amount: Field): Void {
-  AccessControl.assertHasRole(MINTER_ROLE);
+export circuit mint(to: Bytes<32>, amount: Uint<64>): [] {
+  const account = caller();
+  assert(disclose(minters.member(account) || admins.member(account)), "Missing minter role");
   // Mint tokens
 }
 
-export circuit grantMinterRole(account: Address): Void {
-  AccessControl.assertHasRole(ADMIN_ROLE);
-  AccessControl.grantRole(MINTER_ROLE, account);
+export circuit grantMinterRole(account: Bytes<32>): [] {
+  minters.insert(disclose(account));
 }
 \`\`\`
 
@@ -1067,20 +1063,17 @@ import "@openzeppelin/compact-contracts/src/access/Ownable"
 import "@openzeppelin/compact-contracts/src/security/Pausable"
   prefix Pausable_;
 
-ledger {
-  ...Ownable.ledger;
-  ...Pausable.ledger;
-}
+export ledger paused: Boolean;
 
-export circuit criticalFunction(): Void {
-  Ownable.assertOnlyOwner();
-  Pausable.assertNotPaused();
+export circuit criticalFunction(): [] {
+  Ownable_assertOnlyOwner();
+  assert(!paused, "Paused");
   // Execute critical logic
 }
 
-export circuit pause(): Void {
-  Ownable.assertOnlyOwner();
-  Pausable.pause();
+export circuit pause(): [] {
+  Ownable_assertOnlyOwner();
+  paused = true;
 }
 \`\`\`
 `,
@@ -1099,24 +1092,21 @@ import "@openzeppelin/compact-contracts/src/security/Pausable"
 import "@openzeppelin/compact-contracts/src/access/Ownable"
   prefix Ownable_;
 
-ledger {
-  ...Pausable.ledger;
-  ...Ownable.ledger;
-}
+export ledger paused: Boolean;
 
-export circuit transfer(to: Address, amount: Field): Void {
-  Pausable.assertNotPaused();
+export circuit transfer(to: Bytes<32>, amount: Uint<64>): [] {
+  assert(!paused, "Paused");
   // Transfer logic
 }
 
-export circuit pause(): Void {
-  Ownable.assertOnlyOwner();
-  Pausable.pause();
+export circuit pause(): [] {
+  Ownable_assertOnlyOwner();
+  paused = true;
 }
 
-export circuit unpause(): Void {
-  Ownable.assertOnlyOwner();
-  Pausable.unpause();
+export circuit unpause(): [] {
+  Ownable_assertOnlyOwner();
+  paused = false;
 }
 \`\`\`
 
@@ -1131,20 +1121,16 @@ export circuit unpause(): Void {
 
 \`\`\`compact
 // Pausable module internals (simplified)
-ledger {
-  paused: Boolean;
+circuit Pausable_assertNotPaused(): [] {
+  assert(!paused, "Contract is paused");
 }
 
-circuit Pausable_assertNotPaused(): Void {
-  assert(!ledger.paused, "Contract is paused");
+circuit Pausable_pause(): [] {
+  paused = true;
 }
 
-circuit Pausable_pause(): Void {
-  ledger.paused = true;
-}
-
-circuit Pausable_unpause(): Void {
-  ledger.paused = false;
+circuit Pausable_unpause(): [] {
+  paused = false;
 }
 \`\`\`
 
@@ -1382,7 +1368,7 @@ Ledger ADT types (Counter, Map, etc.) cannot be used as Compact types in casts.
 const x = value as Counter;  // Error!
 
 // ✅ Correct - use the ledger field directly
-ledger.counter.increment(1);
+counter.increment(1);
 \`\`\`
 
 ### "static type error" - argument count/type mismatch
@@ -1402,11 +1388,11 @@ if (args_1.length !== 2)
 **Source:** [Compact language reference](https://docs.midnight.network/develop/reference/compact/lang-ref)
 
 \`\`\`compact
-// Assert syntax (Compact 0.16+)
+// Assert syntax
 assert(condition, "error message");
 
 // Example from bboard tutorial
-assert(ledger.state == State.VACANT, "Attempted to post to an occupied board");
+assert(state == State.VACANT, "Attempted to post to an occupied board");
 \`\`\`
 
 **Note:** If assertion fails, the transaction fails without reaching the chain.

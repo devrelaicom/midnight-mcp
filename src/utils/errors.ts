@@ -77,7 +77,7 @@ export const SelfCorrectionHints = {
     suggestion: `Version should be like '${example}'. Check available versions with midnight-get-version-info first.`,
     correction: {
       invalidValue: version,
-      expectedFormat: "v1.0.0 or 0.14.0",
+      expectedFormat: "v1.0.0 or 0.21.0",
       example,
     },
   }),

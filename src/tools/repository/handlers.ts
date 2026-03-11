@@ -697,6 +697,10 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
   // This is more reliable than fetching from GitHub and includes pitfalls/patterns
   if (repoName === "compact" || repoName === "midnight-compact") {
     const compactReference = EMBEDDED_DOCS["midnight://docs/compact-reference"];
+    const currentVersionLabel =
+      COMPACT_VERSION.min === COMPACT_VERSION.max
+        ? COMPACT_VERSION.max
+        : `${COMPACT_VERSION.min}-${COMPACT_VERSION.max}`;
 
     // Check if there's a newer release we might not have documented
     // Version config is centralized in src/config/compact-version.ts
@@ -706,7 +710,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       const versionInfo = await releaseTracker.getVersionInfo("midnightntwrk", "compact");
       const latestTag = versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag;
       if (latestTag) {
-        // Extract version number from tag (e.g., "v0.18.0" -> "0.18")
+        // Extract version number from tag (e.g., "v0.21.0" -> "0.21")
         const latestVersion = latestTag.replace(/^v/, "").split(".").slice(0, 2).join(".");
 
         if (
@@ -723,7 +727,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
     if (compactReference) {
       return {
         repository: "midnightntwrk/compact",
-        version: `${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (current)`,
+        version: `${currentVersionLabel} (current)`,
         versionConfig: {
           min: COMPACT_VERSION.min,
           max: COMPACT_VERSION.max,
@@ -771,9 +775,9 @@ export circuit increment(): [] {
             error: 'parse error: found "{" looking for ";"',
           },
           {
-            wrong: "pragma language_version >= 0.14.0;",
+            wrong: "pragma language_version >= 0.21.0;",
             correct: RECOMMENDED_PRAGMA,
-            error: "version mismatch or parse error",
+            error: "outdated pragma style for MCP guidance",
           },
           {
             wrong: "enum State { a, b }",
@@ -874,7 +878,7 @@ KEY RULES:
 6. Circuit params touching ledger need disclose(): const d = disclose(param);
 
 Compact is NOT TypeScript - don't guess syntax, use this reference!
-Version: ${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (updated: ${COMPACT_VERSION.lastUpdated}).`,
+Version: ${currentVersionLabel} (updated: ${COMPACT_VERSION.lastUpdated}).`,
       };
     }
   }

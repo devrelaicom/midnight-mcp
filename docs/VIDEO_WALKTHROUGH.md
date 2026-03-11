@@ -118,13 +118,13 @@ Open a fresh Claude chat WITHOUT the MCP enabled:
 - Missing pragma
 - Wrong function syntax
 
-> "Claude's training data is from 2024. Compact has evolved. This code won't compile."
+> "Claude's training data is from 2024. Compact has evolved. This code won't compile against the current 0.21 language rules."
 
 ### Show the actual error
 
 Copy the generated code, try to explain why it fails:
 
-> "The `ledger { }` block syntax was removed. `Void` should be `[]`. The pragma format is wrong. An actual developer would spend 30 minutes debugging this."
+> "The `ledger { }` block syntax was removed. `Void` should be `[]`. The safest default is an exact `pragma language_version 0.21;`. An actual developer would spend 30 minutes debugging this."
 
 ---
 
@@ -233,7 +233,7 @@ midnight-search-typescript - Search TypeScript SDK code
 midnight-fetch-docs       - Fetch live docs from docs.midnight.network
 ```
 
-> Prompt: "Find code that handles shielded transactions"
+> Prompt: "Find code that handles commitment-backed shielded transactions"
 
 > "It's not keyword matching - it understands semantic meaning and finds relevant code across all 102 repos."
 
@@ -272,7 +272,7 @@ midnight-list-examples     - List example contracts
 midnight-explain-circuit   - Explain circuit purpose
 ```
 
-> Prompt: "What changed between Compact 0.16 and 0.18?"
+> Prompt: "What should I check when updating a pre-0.21 Compact contract to current 0.21 syntax?"
 
 > "It knows the version history and can guide migrations."
 

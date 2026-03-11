@@ -157,7 +157,7 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
 // Output (success)
 {
   success: true;
-  message: string;           // "✅ Compilation successful (Compiler v0.18.0) in 2841ms"
+  message: string;           // "✅ Compilation successful (Compiler v0.21.0) in 2841ms"
   validationType: "compiler";
   compilerVersion: string;
   compilationMode: "syntax-only" | "full";
@@ -514,7 +514,7 @@ Complete upgrade analysis in one call (combines version-info + breaking-changes 
 // Input
 {
   repo?: string;           // Default: "compact"
-  currentVersion: string;  // e.g., "v0.14.0"
+  currentVersion: string;  // e.g., "v0.29.0" or "0.21.0"
 }
 
 // Output

@@ -27,12 +27,14 @@ describe("Prompt Templates", () => {
 
   it("should generate review-contract prompt", () => {
     const contractCode = `
-ledger {
-  counter: Counter;
-}
+pragma language_version 0.21;
 
-export circuit increment(): Void {
-  ledger.counter.increment(1);
+import CompactStandardLibrary;
+
+export ledger counter: Counter;
+
+export circuit increment(): [] {
+  counter.increment(1);
 }
     `;
 
@@ -70,7 +72,7 @@ export circuit increment(): Void {
 
   it("should generate debug-contract prompt", () => {
     const messages = generatePrompt("midnight:debug-contract", {
-      contractCode: "export circuit test(): Void {}",
+      contractCode: "export circuit test(): [] {}",
       errorMessage: "Assertion failed at line 5",
     });
 
