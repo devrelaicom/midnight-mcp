@@ -3,15 +3,8 @@
  * MCP tool registration for analysis operations
  */
 
-import type {
-  ExtendedToolDefinition,
-  OutputSchema,
-} from "../../types/index.js";
-import {
-  analyzeContract,
-  explainCircuit,
-  compileContract,
-} from "./handlers.js";
+import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
+import { analyzeContract, explainCircuit, compileContract } from "./handlers.js";
 
 // ============================================================================
 // Output Schemas
@@ -152,12 +145,7 @@ const explainCircuitOutputSchema: OutputSchema = {
       description: "Privacy-related considerations",
     },
   },
-  required: [
-    "circuitName",
-    "explanation",
-    "zkImplications",
-    "privacyConsiderations",
-  ],
+  required: ["circuitName", "explanation", "zkImplications", "privacyConsiderations"],
   description: "Detailed circuit explanation with privacy analysis",
 };
 
@@ -363,8 +351,7 @@ USAGE GUIDANCE:
         },
         fullCompile: {
           type: "boolean",
-          description:
-            "Perform full compilation including ZK generation (slower but complete)",
+          description: "Perform full compilation including ZK generation (slower but complete)",
         },
       },
       required: ["code"],

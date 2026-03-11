@@ -55,15 +55,13 @@ export const codeResources: ResourceDefinition[] = [
   {
     uri: "midnight://code/examples/nullifier",
     name: "Nullifier Pattern",
-    description:
-      "How to create and use nullifiers to prevent double-spending and replay attacks",
+    description: "How to create and use nullifiers to prevent double-spending and replay attacks",
     mimeType: "text/x-compact",
   },
   {
     uri: "midnight://code/examples/hash",
     name: "Hash Functions",
-    description:
-      "Using hash functions for commitments, nullifiers, and data integrity",
+    description: "Using hash functions for commitments, nullifiers, and data integrity",
     mimeType: "text/x-compact",
   },
   {
@@ -75,8 +73,7 @@ export const codeResources: ResourceDefinition[] = [
   {
     uri: "midnight://code/templates/basic",
     name: "Basic Contract Template",
-    description:
-      "Starting template with initialization, access control, and state management",
+    description: "Starting template with initialization, access control, and state management",
     mimeType: "text/x-compact",
   },
 ];
@@ -95,10 +92,7 @@ export async function getCode(uri: string): Promise<string | null> {
     const exampleName = uri.replace("midnight://code/examples/", "");
     try {
       // Map example names to repositories
-      const repoMap: Record<
-        string,
-        { owner: string; repo: string; path: string }
-      > = {
+      const repoMap: Record<string, { owner: string; repo: string; path: string }> = {
         counter: {
           owner: "midnightntwrk",
           repo: "example-counter",
@@ -113,11 +107,7 @@ export async function getCode(uri: string): Promise<string | null> {
 
       const mapping = repoMap[exampleName];
       if (mapping) {
-        const file = await githubClient.getFileContent(
-          mapping.owner,
-          mapping.repo,
-          mapping.path
-        );
+        const file = await githubClient.getFileContent(mapping.owner, mapping.repo, mapping.path);
         if (file) {
           return file.content;
         }

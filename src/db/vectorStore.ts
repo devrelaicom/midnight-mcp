@@ -100,6 +100,7 @@ class VectorStore {
       }
 
       const ids = validDocuments.map((d) => d.id);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const embeddings = validDocuments.map((d) => d.embedding!); // Safe after filter
       const metadatas = validDocuments.map((d) => ({
         repository: d.metadata.repository,
@@ -132,11 +133,7 @@ class VectorStore {
   /**
    * Search for similar documents
    */
-  async search(
-    query: string,
-    limit = 10,
-    filter?: SearchFilter
-  ): Promise<SearchResult[]> {
+  async search(query: string, limit = 10, filter?: SearchFilter): Promise<SearchResult[]> {
     if (!this.collection) {
       logger.warn("Vector store not initialized, returning empty results");
       return [];
@@ -170,12 +167,17 @@ class VectorStore {
       // Format results
       const searchResults: SearchResult[] = [];
       if (results.ids[0] && results.documents[0] && results.metadatas[0]) {
-        for (let i = 0; i < results.ids[0].length; i++) {
-          const metadata = results.metadatas[0][i] as CodeDocument["metadata"];
+        const ids = results.ids[0];
+        const docs = results.documents[0];
+        const metas = results.metadatas[0];
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i];
+          if (!id) continue;
+          const metadata = metas[i] as CodeDocument["metadata"];
           searchResults.push({
-            id: results.ids[0][i],
-            content: results.documents[0][i] || "",
-            score: results.distances ? 1 - (results.distances[0][i] || 0) : 0,
+            id,
+            content: docs[i] ?? "",
+            score: results.distances?.[0]?.[i] != null ? 1 - (results.distances[0][i] ?? 0) : 0,
             metadata,
           });
         }

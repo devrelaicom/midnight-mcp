@@ -21,8 +21,6 @@ export interface HealthStatus {
 // Track server start time
 const startTime = Date.now();
 
-const VERSION = CURRENT_VERSION;
-
 /**
  * Check if GitHub API is accessible
  */
@@ -71,17 +69,11 @@ async function checkVectorStore(): Promise<{
     // Import dynamically to handle optional dependency
     const { vectorStore } = await import("../db/index.js");
 
-    // Check if vector store is initialized
-    if (vectorStore) {
-      return {
-        status: "pass",
-        message: "Vector store available",
-      };
-    }
-
+    // vectorStore is always instantiated; if the import succeeds, it's available
+    void vectorStore;
     return {
-      status: "warn",
-      message: "Vector store not initialized (semantic search unavailable)",
+      status: "pass",
+      message: "Vector store available",
     };
   } catch {
     return {
@@ -127,17 +119,14 @@ export async function getHealthStatus(): Promise<HealthStatus> {
   const checks: HealthStatus["checks"] = [];
 
   // Run all health checks in parallel
-  const [githubCheck, vectorCheck] = await Promise.all([
-    checkGitHubAPI(),
-    checkVectorStore(),
-  ]);
+  const [githubCheck, vectorCheck] = await Promise.all([checkGitHubAPI(), checkVectorStore()]);
 
   const memoryCheck = checkMemory();
 
   checks.push(
     { name: "github_api", ...githubCheck },
     { name: "vector_store", ...vectorCheck },
-    { name: "memory", ...memoryCheck }
+    { name: "memory", ...memoryCheck },
   );
 
   // Determine overall status
@@ -154,7 +143,7 @@ export async function getHealthStatus(): Promise<HealthStatus> {
   return {
     status,
     timestamp: new Date().toISOString(),
-    version: VERSION,
+    version: CURRENT_VERSION,
     uptime: Math.round((Date.now() - startTime) / 1000),
     checks,
   };
@@ -169,7 +158,7 @@ export function getQuickHealthStatus(): Omit<HealthStatus, "checks"> & {
   return {
     status: "healthy",
     timestamp: new Date().toISOString(),
-    version: VERSION,
+    version: CURRENT_VERSION,
     uptime: Math.round((Date.now() - startTime) / 1000),
     checks: [{ name: "server", status: "pass" as const }],
   };

@@ -3,16 +3,8 @@
  * MCP tool registration for discovery/meta operations
  */
 
-import type {
-  ExtendedToolDefinition,
-  OutputSchema,
-} from "../../types/index.js";
-import {
-  listToolCategories,
-  listCategoryTools,
-  suggestTool,
-  setMetaTools,
-} from "./handlers.js";
+import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
+import { listToolCategories, listCategoryTools, suggestTool, setMetaTools } from "./handlers.js";
 
 // ============================================================================
 // Output Schemas
@@ -197,8 +189,7 @@ USAGE GUIDANCE:
       properties: {
         intent: {
           type: "string",
-          description:
-            "What you want to accomplish (natural language description)",
+          description: "What you want to accomplish (natural language description)",
         },
       },
       required: ["intent"],

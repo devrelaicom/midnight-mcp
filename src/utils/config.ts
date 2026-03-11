@@ -5,9 +5,7 @@ const ConfigSchema = z.object({
   mode: z.enum(["hosted", "local"]).default("hosted"),
 
   // Hosted API URL (used when mode is 'hosted')
-  hostedApiUrl: z
-    .string()
-    .default("https://midnight-mcp-api.midnightmcp.workers.dev"),
+  hostedApiUrl: z.string().default("https://midnight-mcp-api.midnightmcp.workers.dev"),
 
   // GitHub
   githubToken: z.string().optional(),
@@ -34,8 +32,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 function loadConfig(): Config {
   // Determine mode: local if MIDNIGHT_LOCAL=true or if OPENAI_API_KEY is set
   const isLocalMode =
-    process.env.MIDNIGHT_LOCAL === "true" ||
-    (process.env.OPENAI_API_KEY && process.env.CHROMA_URL);
+    process.env.MIDNIGHT_LOCAL === "true" || (process.env.OPENAI_API_KEY && process.env.CHROMA_URL);
 
   const rawConfig = {
     mode: isLocalMode ? "local" : "hosted",
@@ -45,9 +42,7 @@ function loadConfig(): Config {
     openaiApiKey: process.env.OPENAI_API_KEY,
     embeddingModel: process.env.EMBEDDING_MODEL,
     logLevel: process.env.LOG_LEVEL,
-    syncInterval: process.env.SYNC_INTERVAL
-      ? parseInt(process.env.SYNC_INTERVAL)
-      : undefined,
+    syncInterval: process.env.SYNC_INTERVAL ? parseInt(process.env.SYNC_INTERVAL) : undefined,
     port: process.env.PORT ? parseInt(process.env.PORT) : undefined,
     dataDir: process.env.DATA_DIR,
     cacheDir: process.env.CACHE_DIR,

@@ -8,11 +8,7 @@ import { z } from "zod";
 // Schema definitions
 export const AnalyzeContractInputSchema = z.object({
   code: z.string().describe("Compact contract source code"),
-  checkSecurity: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe("Run security analysis"),
+  checkSecurity: z.boolean().optional().default(true).describe("Run security analysis"),
 });
 
 export const ExplainCircuitInputSchema = z.object({

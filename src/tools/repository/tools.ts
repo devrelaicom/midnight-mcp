@@ -36,8 +36,7 @@ USAGE GUIDANCE:
       properties: {
         repo: {
           type: "string",
-          description:
-            "Repository name (e.g., 'compact', 'midnight-js', 'example-counter')",
+          description: "Repository name (e.g., 'compact', 'midnight-js', 'example-counter')",
         },
         path: {
           type: "string",
@@ -49,13 +48,11 @@ USAGE GUIDANCE:
         },
         startLine: {
           type: "number",
-          description:
-            "Start line number (1-based, inclusive). Use to request specific sections.",
+          description: "Start line number (1-based, inclusive). Use to request specific sections.",
         },
         endLine: {
           type: "number",
-          description:
-            "End line number (1-based, inclusive). Use with startLine for a range.",
+          description: "End line number (1-based, inclusive). Use with startLine for a range.",
         },
       },
       required: ["repo", "path"],
@@ -105,8 +102,7 @@ USAGE GUIDANCE:
         repos: {
           type: "array",
           items: { type: "string" },
-          description:
-            "Specific repos to check (default: all configured repos)",
+          description: "Specific repos to check (default: all configured repos)",
         },
       },
       required: [],
@@ -128,8 +124,7 @@ USAGE GUIDANCE:
       properties: {
         repo: {
           type: "string",
-          description:
-            "Repository name (e.g., 'compact', 'midnight-js', 'sdk')",
+          description: "Repository name (e.g., 'compact', 'midnight-js', 'sdk')",
         },
       },
       required: ["repo"],
@@ -155,8 +150,7 @@ USAGE GUIDANCE:
         },
         currentVersion: {
           type: "string",
-          description:
-            "Version you're currently using (e.g., 'v1.0.0', '0.5.2')",
+          description: "Version you're currently using (e.g., 'v1.0.0', '0.5.2')",
         },
       },
       required: ["repo", "currentVersion"],
@@ -427,8 +421,7 @@ ALWAYS check this reference before writing Compact contracts.`,
       properties: {
         code: {
           type: "string",
-          description:
-            "The Compact contract source code to analyze (provide this OR filePath)",
+          description: "The Compact contract source code to analyze (provide this OR filePath)",
         },
         filePath: {
           type: "string",

@@ -6,12 +6,10 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { startServer, startHttpServer } from "./server.js";
 import { setOutputFormat } from "./utils/index.js";
+import { CURRENT_VERSION } from "./utils/version.js";
 
 // Load .env from the current working directory
 config({ path: resolve(process.cwd(), ".env") });
-
-// Version injected at build time by tsup
-const CURRENT_VERSION = process.env.NPM_PACKAGE_VERSION ?? "unknown";
 
 // Handle uncaught errors
 process.on("uncaughtException", (error) => {
@@ -44,14 +42,10 @@ const argv = yargs(hideBin(process.argv))
   })
   .option("json", {
     type: "boolean",
-    description:
-      "Output results in JSON format (default: YAML for better LLM efficiency)",
+    description: "Output results in JSON format (default: YAML for better LLM efficiency)",
     default: false,
   })
-  .example(
-    "$0 --stdio",
-    "Start server with stdio transport (for Claude Desktop)"
-  )
+  .example("$0 --stdio", "Start server with stdio transport (for Claude Desktop)")
   .example("$0 --http --port 3000", "Start HTTP server on port 3000")
   .help()
   .alias("h", "help")
@@ -79,7 +73,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error("Failed to start server:", error);
   process.exit(1);
 });

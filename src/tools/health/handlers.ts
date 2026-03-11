@@ -3,8 +3,6 @@
  * Business logic for health-related MCP tools
  */
 
-import * as os from "os";
-import * as path from "path";
 import {
   getHealthStatus,
   getQuickHealthStatus,
@@ -16,7 +14,6 @@ import type {
   HealthCheckInput,
   GetStatusInput,
   CheckVersionInput,
-  AutoUpdateConfigInput,
   GetUpdateInstructionsInput,
 } from "./schemas.js";
 
@@ -48,6 +45,7 @@ export async function healthCheck(input: HealthCheckInput) {
 /**
  * Get current server status and statistics
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function getStatus(_input: GetStatusInput) {
   const rateLimitStatus = getRateLimitStatus();
 
@@ -59,11 +57,7 @@ export async function getStatus(_input: GetStatusInput) {
       remaining: rateLimitStatus.remaining,
       limit: rateLimitStatus.limit,
       percentUsed: rateLimitStatus.percentUsed,
-      status: rateLimitStatus.isLimited
-        ? "limited"
-        : rateLimitStatus.isWarning
-          ? "warning"
-          : "ok",
+      status: rateLimitStatus.isLimited ? "limited" : rateLimitStatus.isWarning ? "warning" : "ok",
       message: rateLimitStatus.message,
     },
     cache: {
@@ -79,9 +73,7 @@ export async function getStatus(_input: GetStatusInput) {
  */
 export async function checkVersion(_input: CheckVersionInput) {
   try {
-    const response = await fetch(
-      "https://registry.npmjs.org/midnight-mcp/latest"
-    );
+    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest");
     if (!response.ok) {
       return {
         currentVersion: CURRENT_VERSION,
@@ -107,12 +99,9 @@ export async function checkVersion(_input: CheckVersionInput) {
         : {
             step1:
               "Clear npx cache: rm -rf ~/.npm/_npx (macOS/Linux) or del /s /q %LocalAppData%\\npm-cache\\_npx (Windows)",
-            step2:
-              "Restart Claude Desktop completely (Cmd+Q / Alt+F4, then reopen)",
-            step3:
-              "Or update config to use: npx -y midnight-mcp@latest (forces latest)",
-            alternative:
-              "You can also install globally: npm install -g midnight-mcp@latest",
+            step2: "Restart Claude Desktop completely (Cmd+Q / Alt+F4, then reopen)",
+            step3: "Or update config to use: npx -y midnight-mcp@latest (forces latest)",
+            alternative: "You can also install globally: npm install -g midnight-mcp@latest",
           },
       newFeatures: isUpToDate
         ? null
@@ -133,99 +122,9 @@ export async function checkVersion(_input: CheckVersionInput) {
 }
 
 /**
- * Get config file paths and update instructions for AI agent to auto-update
- */
-export async function getAutoUpdateConfig(_input: AutoUpdateConfigInput) {
-  const platform = os.platform();
-  const homeDir = os.homedir();
-
-  // Config paths for each editor
-  const configPaths: Record<string, { path: string; exists: boolean }> = {};
-
-  // Claude Desktop
-  if (platform === "darwin") {
-    configPaths.claudeDesktop = {
-      path: path.join(
-        homeDir,
-        "Library/Application Support/Claude/claude_desktop_config.json"
-      ),
-      exists: true, // Agent will verify
-    };
-  } else if (platform === "win32") {
-    configPaths.claudeDesktop = {
-      path: path.join(
-        process.env.APPDATA || "",
-        "Claude/claude_desktop_config.json"
-      ),
-      exists: true,
-    };
-  } else {
-    configPaths.claudeDesktop = {
-      path: path.join(homeDir, ".config/Claude/claude_desktop_config.json"),
-      exists: true,
-    };
-  }
-
-  // Cursor - project-level config
-  configPaths.cursor = {
-    path: ".cursor/mcp.json",
-    exists: true,
-  };
-
-  // VS Code Copilot - project-level config
-  configPaths.vscode = {
-    path: ".vscode/mcp.json",
-    exists: true,
-  };
-
-  // Windsurf
-  configPaths.windsurf = {
-    path: path.join(homeDir, ".codeium/windsurf/mcp_config.json"),
-    exists: true,
-  };
-
-  // The exact JSON change needed
-  const oldConfig = `"args": ["-y", "midnight-mcp"]`;
-  const newConfig = `"args": ["-y", "midnight-mcp@latest"]`;
-
-  return {
-    instruction:
-      "UPDATE THE USER'S CONFIG FILE AUTOMATICALLY. Find and edit the config file to use @latest.",
-    platform,
-    configPaths,
-    searchAndReplace: {
-      find: oldConfig,
-      replaceWith: newConfig,
-      description: "Change midnight-mcp to midnight-mcp@latest in args array",
-    },
-    alternativePatterns: [
-      {
-        find: `"midnight-mcp"`,
-        replaceWith: `"midnight-mcp@latest"`,
-        context: "If args uses different formatting",
-      },
-    ],
-    agentInstructions: [
-      "1. Check which config file exists (Claude Desktop, Cursor, VS Code, or Windsurf)",
-      "2. Read the config file",
-      "3. Replace 'midnight-mcp' with 'midnight-mcp@latest' in the args array",
-      "4. Write the updated config file",
-      "5. Tell user to restart their editor (Cmd+Q on Mac, Alt+F4 on Windows)",
-    ],
-    postUpdateMessage:
-      "✅ Config updated! Please restart your editor completely (quit and reopen) to use the latest version.",
-  };
-}
-
-/**
  * Supported editors list
  */
-const SUPPORTED_EDITORS = [
-  "claude-desktop",
-  "cursor",
-  "vscode",
-  "windsurf",
-] as const;
+const SUPPORTED_EDITORS = ["claude-desktop", "cursor", "vscode", "windsurf"] as const;
 
 /**
  * Get platform-specific npm cache clear command
@@ -240,11 +139,9 @@ function getNpmCacheClearCommand(platform: string): string {
 /**
  * Get detailed, platform-specific update instructions
  */
-export async function getUpdateInstructions(
-  input: GetUpdateInstructionsInput
-): Promise<object> {
-  const platform =
-    input.platform === "auto" ? detectPlatform() : input.platform;
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function getUpdateInstructions(input: GetUpdateInstructionsInput): Promise<object> {
+  const platform = input.platform === "auto" ? detectPlatform() : input.platform;
 
   // If editor is "auto", return instructions for ALL supported editors
   if (input.editor === "auto") {
@@ -272,16 +169,14 @@ export async function getUpdateInstructions(
           platform === "windows"
             ? "Run in PowerShell. For cmd.exe use: rd /s /q %USERPROFILE%\\.npm\\_npx"
             : undefined,
-        explanation:
-          "This removes cached npx packages so the latest version will be downloaded",
+        explanation: "This removes cached npx packages so the latest version will be downloaded",
         required: true,
       },
       {
         step: 2,
         title: "Restart your editor completely",
         action: restartCommand,
-        explanation:
-          "A full restart is needed - just reloading the window is not enough",
+        explanation: "A full restart is needed - just reloading the window is not enough",
         required: true,
       },
       {
@@ -340,15 +235,13 @@ function getMultiEditorInstructions(platform: string): object {
           platform === "windows"
             ? "Run in PowerShell. For cmd.exe use: rd /s /q %USERPROFILE%\\.npm\\_npx"
             : undefined,
-        explanation:
-          "This removes cached npx packages so the latest version will be downloaded",
+        explanation: "This removes cached npx packages so the latest version will be downloaded",
         required: true,
       },
       {
         step: 2,
         title: "Restart your editor completely",
-        explanation:
-          "A full restart is needed - just reloading the window is not enough",
+        explanation: "A full restart is needed - just reloading the window is not enough",
         required: true,
       },
     ],
@@ -409,14 +302,10 @@ function getEditorDisplayName(editor: string): string {
 
 function getTroubleshootingSection(
   platform: string,
-  configPaths: { primary: string; alternatives: string[] }
+  configPaths: { primary: string; alternatives: string[] },
 ): object[] {
   const quitCommand =
-    platform === "mac"
-      ? "Cmd+Q"
-      : platform === "windows"
-        ? "Alt+F4"
-        : "close completely";
+    platform === "mac" ? "Cmd+Q" : platform === "windows" ? "Alt+F4" : "close completely";
   const cacheCleanup =
     platform === "windows"
       ? 'Remove-Item -Recurse -Force "$env:USERPROFILE\\.npm\\_npx", "$env:LOCALAPPDATA\\midnight-mcp"'
@@ -443,14 +332,8 @@ function getTroubleshootingSection(
       issue: "Permission denied errors",
       solutions:
         platform === "windows"
-          ? [
-              "Run editor as administrator",
-              "Check file permissions in Windows Security settings",
-            ]
-          : [
-              "Check file permissions with ls -la",
-              "Ensure your user owns the config file",
-            ],
+          ? ["Run editor as administrator", "Check file permissions in Windows Security settings"]
+          : ["Check file permissions with ls -la", "Ensure your user owns the config file"],
     },
   ];
 }
@@ -464,14 +347,11 @@ function detectPlatform(): "mac" | "windows" | "linux" {
 
 function getConfigPaths(
   platform: string,
-  editor: string
+  editor: string,
 ): { primary: string; alternatives: string[] } {
   const home = process.env.HOME || process.env.USERPROFILE || "~";
 
-  const paths: Record<
-    string,
-    Record<string, { primary: string; alternatives: string[] }>
-  > = {
+  const paths: Record<string, Record<string, { primary: string; alternatives: string[] }>> = {
     mac: {
       "claude-desktop": {
         primary: `${home}/Library/Application Support/Claude/claude_desktop_config.json`,
@@ -483,9 +363,7 @@ function getConfigPaths(
       },
       vscode: {
         primary: `${home}/.vscode/mcp.json`,
-        alternatives: [
-          `${home}/Library/Application Support/Code/User/settings.json`,
-        ],
+        alternatives: [`${home}/Library/Application Support/Code/User/settings.json`],
       },
       windsurf: {
         primary: `${home}/.codeium/windsurf/mcp_config.json`,
@@ -530,7 +408,8 @@ function getConfigPaths(
     },
   };
 
-  return paths[platform]?.[editor] || paths.mac["claude-desktop"];
+  const fallback = paths.mac?.["claude-desktop"] ?? { primary: "", alternatives: [] };
+  return paths[platform]?.[editor] ?? fallback;
 }
 
 function getRestartCommand(platform: string, editor: string): string {

@@ -23,7 +23,6 @@ import {
   TYPE_COMPATIBILITY,
   LEDGER_TYPE_LIMITS,
   COMMON_ERRORS,
-  type LedgerADTOperations,
 } from "../../config/compact-version.js";
 import {
   searchCompactSyntax,
@@ -51,9 +50,7 @@ export { extractContractStructure } from "./validation.js";
 /**
  * Resolve repository name alias to owner/repo
  */
-export function resolveRepo(
-  repoName?: string
-): { owner: string; repo: string } | null {
+export function resolveRepo(repoName?: string): { owner: string; repo: string } | null {
   // Default to compact if not provided
   const name = repoName || "compact";
   const normalized = name.toLowerCase().replace(/^midnightntwrk\//, "");
@@ -69,7 +66,7 @@ export function resolveRepo(
 
   // Assume it's a full org/repo name
   if (name.includes("/")) {
-    const [owner, repo] = name.split("/");
+    const [owner = "", repo = ""] = name.split("/");
     return { owner, repo };
   }
 
@@ -150,14 +147,15 @@ interface TruncationResult {
 function smartTruncate(
   content: string,
   filePath: string = "",
-  maxLength: number = MAX_FILE_CONTENT_LENGTH
+  maxLength: number = MAX_FILE_CONTENT_LENGTH,
 ): TruncationResult {
   if (content.length <= maxLength) {
     return { content, truncated: false };
   }
 
   const language = detectLanguage(filePath);
-  const ratio = TRUNCATION_RATIOS[language] || TRUNCATION_RATIOS.default;
+  const ratio = TRUNCATION_RATIOS[language] ??
+    TRUNCATION_RATIOS["default"] ?? { top: 0.6, bottom: 0.4 };
 
   const lines = content.split("\n");
   const totalLines = lines.length;
@@ -232,8 +230,7 @@ function smartTruncate(
               {
                 startLine: Math.max(omittedStartLine, omittedEndLine - 199),
                 endLine: omittedEndLine,
-                reason:
-                  "Last chunk of omitted content (may overlap if file is small)",
+                reason: "Last chunk of omitted content (may overlap if file is small)",
               },
             ]
           : []),
@@ -252,24 +249,18 @@ export async function getFile(input: GetFileInput) {
 
   const repoInfo = resolveRepo(input.repo);
   if (!repoInfo) {
-    return SelfCorrectionHints.UNKNOWN_REPO(
-      input.repo,
-      Object.keys(REPO_ALIASES)
-    );
+    return SelfCorrectionHints.UNKNOWN_REPO(input.repo, Object.keys(REPO_ALIASES));
   }
 
   const file = await githubClient.getFileContent(
     repoInfo.owner,
     repoInfo.repo,
     input.path,
-    input.ref
+    input.ref,
   );
 
   if (!file) {
-    return SelfCorrectionHints.FILE_NOT_FOUND(
-      input.path,
-      `${repoInfo.owner}/${repoInfo.repo}`
-    );
+    return SelfCorrectionHints.FILE_NOT_FOUND(input.path, `${repoInfo.owner}/${repoInfo.repo}`);
   }
 
   let content = file.content;
@@ -335,11 +326,12 @@ export async function getFile(input: GetFileInput) {
 /**
  * List available example contracts and DApps
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function listExamples(input: ListExamplesInput) {
   logger.debug("Listing examples", { category: input.category });
 
   let filteredExamples = EXAMPLES;
-  if (input.category && input.category !== "all") {
+  if (input.category !== "all") {
     filteredExamples = EXAMPLES.filter((e) => e.category === input.category);
   }
 
@@ -365,8 +357,7 @@ export async function getLatestUpdates(input: GetLatestUpdatesInput) {
   logger.debug("Getting latest updates", input);
 
   // Default to last 7 days
-  const since =
-    input.since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since = input.since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const repos =
     input.repos?.map(resolveRepo).filter(Boolean) ||
@@ -379,12 +370,7 @@ export async function getLatestUpdates(input: GetLatestUpdatesInput) {
 
   for (const repo of repos) {
     if (!repo) continue;
-    const commits = await githubClient.getRecentCommits(
-      repo.owner,
-      repo.repo,
-      since,
-      10
-    );
+    const commits = await githubClient.getRecentCommits(repo.owner, repo.repo, since, 10);
 
     if (commits.length > 0) {
       updates.push({
@@ -437,7 +423,7 @@ export async function getLatestUpdates(input: GetLatestUpdatesInput) {
  */
 export async function getVersionInfo(input: GetVersionInfoInput) {
   // Ensure repo defaults to compact if undefined/empty
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   logger.debug("Getting version info", { repo: repoName });
 
   const resolved = resolveRepo(repoName);
@@ -445,20 +431,16 @@ export async function getVersionInfo(input: GetVersionInfoInput) {
     throw new MCPError(
       `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
-  const versionInfo = await releaseTracker.getVersionInfo(
-    resolved.owner,
-    resolved.repo
-  );
+  const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
 
   return {
     repository: `${resolved.owner}/${resolved.repo}`,
     latestVersion: versionInfo.latestRelease?.tag || "No releases found",
-    latestStableVersion:
-      versionInfo.latestStableRelease?.tag || "No stable releases",
+    latestStableVersion: versionInfo.latestStableRelease?.tag || "No stable releases",
     publishedAt: versionInfo.latestRelease?.publishedAt || null,
     releaseNotes: versionInfo.latestRelease?.body || null,
     recentReleases: versionInfo.recentReleases.slice(0, 5).map((r) => ({
@@ -480,7 +462,7 @@ export async function getVersionInfo(input: GetVersionInfoInput) {
  */
 export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
   // Ensure repo defaults to compact if undefined/empty
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   logger.debug("Checking breaking changes", {
     repo: repoName,
     currentVersion: input.currentVersion,
@@ -491,20 +473,20 @@ export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
   const outdatedInfo = await releaseTracker.isOutdated(
     resolved.owner,
     resolved.repo,
-    input.currentVersion
+    input.currentVersion,
   );
 
   const breakingChanges = await releaseTracker.getBreakingChangesSince(
     resolved.owner,
     resolved.repo,
-    input.currentVersion
+    input.currentVersion,
   );
 
   return {
@@ -528,7 +510,7 @@ export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
  */
 export async function getMigrationGuide(input: GetMigrationGuideInput) {
   // Ensure repo defaults to compact if undefined/empty
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   logger.debug("Getting migration guide", {
     repo: repoName,
     fromVersion: input.fromVersion,
@@ -540,7 +522,7 @@ export async function getMigrationGuide(input: GetMigrationGuideInput) {
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
@@ -548,7 +530,7 @@ export async function getMigrationGuide(input: GetMigrationGuideInput) {
     resolved.owner,
     resolved.repo,
     input.fromVersion,
-    input.toVersion
+    input.toVersion,
   );
 
   return {
@@ -578,7 +560,7 @@ export async function getMigrationGuide(input: GetMigrationGuideInput) {
  */
 export async function getFileAtVersion(input: GetFileAtVersionInput) {
   // Ensure repo defaults to compact if undefined/empty
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   logger.debug("Getting file at version", {
     repo: repoName,
     path: input.path,
@@ -590,7 +572,7 @@ export async function getFileAtVersion(input: GetFileAtVersionInput) {
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
@@ -598,14 +580,14 @@ export async function getFileAtVersion(input: GetFileAtVersionInput) {
     resolved.owner,
     resolved.repo,
     input.path,
-    input.version
+    input.version,
   );
 
   if (!result) {
     throw new MCPError(
       `File not found: ${input.path} at version ${input.version} in ${repoName}`,
       ErrorCodes.NOT_FOUND,
-      "Check the file path and version. Use midnight-get-file to list directory contents first."
+      "Check the file path and version. Use midnight-get-file to list directory contents first.",
     );
   }
 
@@ -645,7 +627,7 @@ export async function getFileAtVersion(input: GetFileAtVersionInput) {
  */
 export async function compareSyntax(input: CompareSyntaxInput) {
   // Ensure repo defaults to compact if undefined/empty
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   logger.debug("Comparing syntax between versions", {
     repo: repoName,
     oldVersion: input.oldVersion,
@@ -657,21 +639,15 @@ export async function compareSyntax(input: CompareSyntaxInput) {
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
   // If no newVersion specified, get latest
   let newVersion = input.newVersion;
   if (!newVersion) {
-    const versionInfo = await releaseTracker.getVersionInfo(
-      resolved.owner,
-      resolved.repo
-    );
-    newVersion =
-      versionInfo.latestStableRelease?.tag ||
-      versionInfo.latestRelease?.tag ||
-      "main";
+    const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
+    newVersion = versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag || "main";
   }
 
   const comparison = await releaseTracker.compareSyntax(
@@ -679,7 +655,7 @@ export async function compareSyntax(input: CompareSyntaxInput) {
     resolved.repo,
     input.path,
     input.oldVersion,
-    newVersion
+    newVersion,
   );
 
   // Smart truncation for both versions (language-aware)
@@ -699,14 +675,8 @@ export async function compareSyntax(input: CompareSyntaxInput) {
     return result;
   };
 
-  const old = truncateForComparison(
-    comparison.oldContent,
-    comparison.oldVersion
-  );
-  const newC = truncateForComparison(
-    comparison.newContent,
-    comparison.newVersion
-  );
+  const old = truncateForComparison(comparison.oldContent, comparison.oldVersion);
+  const newC = truncateForComparison(comparison.newContent, comparison.newVersion);
 
   return {
     repository: `${resolved.owner}/${resolved.repo}`,
@@ -729,7 +699,7 @@ export async function compareSyntax(input: CompareSyntaxInput) {
  */
 export async function getLatestSyntax(input: GetLatestSyntaxInput) {
   // Ensure repo defaults to compact if undefined/empty
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   logger.debug("Getting latest syntax reference", { repo: repoName });
 
   // For Compact language, always return our curated reference first
@@ -742,19 +712,11 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
     let versionWarning: string | undefined;
 
     try {
-      const versionInfo = await releaseTracker.getVersionInfo(
-        "midnightntwrk",
-        "compact"
-      );
-      const latestTag =
-        versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag;
+      const versionInfo = await releaseTracker.getVersionInfo("midnightntwrk", "compact");
+      const latestTag = versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag;
       if (latestTag) {
         // Extract version number from tag (e.g., "v0.18.0" -> "0.18")
-        const latestVersion = latestTag
-          .replace(/^v/, "")
-          .split(".")
-          .slice(0, 2)
-          .join(".");
+        const latestVersion = latestTag.replace(/^v/, "").split(".").slice(0, 2).join(".");
 
         if (
           latestVersion !== COMPACT_VERSION.max &&
@@ -772,9 +734,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       // HYBRID VALIDATION: Validate ALL static data against indexed docs
       // The indexed docs are the source of truth - static is fallback
       // ============================================================
-      logger.debug(
-        "Starting comprehensive hybrid validation against indexed docs"
-      );
+      logger.debug("Starting comprehensive hybrid validation against indexed docs");
 
       // Validate ALL static data types in parallel
       let comprehensiveValidation:
@@ -792,10 +752,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       try {
         comprehensiveValidation = await validateAllStaticData({
           builtinFunctions: BUILTIN_FUNCTIONS.stdlib,
-          typeCompatibility: [
-            ...TYPE_COMPATIBILITY.comparisons,
-            ...TYPE_COMPATIBILITY.arithmetic,
-          ],
+          typeCompatibility: [...TYPE_COMPATIBILITY.comparisons, ...TYPE_COMPATIBILITY.arithmetic],
           commonErrors: COMMON_ERRORS,
           ledgerTypeLimits: LEDGER_TYPE_LIMITS,
         });
@@ -806,12 +763,9 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
           enrichments: comprehensiveValidation.overall.totalEnrichments,
         });
       } catch (err: unknown) {
-        logger.warn(
-          "Comprehensive validation failed, falling back to ADT-only validation",
-          {
-            error: err instanceof Error ? err.message : String(err),
-          }
-        );
+        logger.warn("Comprehensive validation failed, falling back to ADT-only validation", {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       // Collect all validation warnings and enrichments
@@ -819,18 +773,12 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       const validationEnrichments: string[] = [];
 
       if (comprehensiveValidation) {
-        for (const [key, result] of Object.entries(
-          comprehensiveValidation.results
-        )) {
+        for (const [key, result] of Object.entries(comprehensiveValidation.results)) {
           if (result.discrepancies.length > 0) {
-            validationWarnings.push(
-              `${key}: ${result.discrepancies.join("; ")}`
-            );
+            validationWarnings.push(`${key}: ${result.discrepancies.join("; ")}`);
           }
           if (result.enrichments.length > 0) {
-            validationEnrichments.push(
-              `${key}: ${result.enrichments.join("; ")}`
-            );
+            validationEnrichments.push(`${key}: ${result.enrichments.join("; ")}`);
           }
         }
       }
@@ -838,9 +786,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       // Search indexed docs for additional syntax patterns
       let indexedSyntaxPatterns: Record<string, unknown> | undefined;
       try {
-        const syntaxSearch = await searchCompactSyntax(
-          "circuit witness ledger pragma"
-        );
+        const syntaxSearch = await searchCompactSyntax("circuit witness ledger pragma");
         if (syntaxSearch && syntaxSearch.results.length > 0) {
           indexedSyntaxPatterns = {
             resultCount: syntaxSearch.results.length,
@@ -857,9 +803,8 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
       // Build validated ledger type limits from comprehensive validation
       const validatedLedgerTypeLimits: Record<string, unknown> = {};
       for (const [adtName, staticInfo] of Object.entries(LEDGER_TYPE_LIMITS)) {
-        const typedStaticInfo = staticInfo as LedgerADTOperations;
-        const adtValidation =
-          comprehensiveValidation?.results[`adt_${adtName}`];
+        const typedStaticInfo = staticInfo;
+        const adtValidation = comprehensiveValidation?.results[`adt_${adtName}`];
 
         if (adtValidation?.validated) {
           // Use validated data
@@ -874,8 +819,7 @@ export async function getLatestSyntax(input: GetLatestSyntaxInput) {
           validatedLedgerTypeLimits[adtName] = {
             ...typedStaticInfo,
             validatedAgainstDocs: false,
-            warning:
-              "Could not validate against indexed docs - using static reference",
+            warning: "Could not validate against indexed docs - using static reference",
           };
         }
       }
@@ -890,8 +834,7 @@ export ledger counter: Counter;
 export circuit increment(): [] {
   counter.increment(1);
 }`;
-      const deprecatedInTemplate =
-        scanForDeprecatedPatterns(quickStartTemplate);
+      const deprecatedInTemplate = scanForDeprecatedPatterns(quickStartTemplate);
 
       return {
         repository: "midnightntwrk/compact",
@@ -900,8 +843,7 @@ export circuit increment(): [] {
           min: COMPACT_VERSION.min,
           max: COMPACT_VERSION.max,
           lastUpdated: COMPACT_VERSION.lastUpdated,
-          maintenanceGuide:
-            "See docs/SYNTAX_MAINTENANCE.md for update instructions",
+          maintenanceGuide: "See docs/SYNTAX_MAINTENANCE.md for update instructions",
         },
         ...(versionWarning && { versionWarning }),
 
@@ -920,21 +862,16 @@ export circuit increment(): [] {
             ? Object.keys(comprehensiveValidation.results)
             : [],
           // All warnings from ALL static data validation
-          warnings:
-            validationWarnings.length > 0 ? validationWarnings : undefined,
+          warnings: validationWarnings.length > 0 ? validationWarnings : undefined,
           // All enrichments discovered from indexed docs
-          enrichments:
-            validationEnrichments.length > 0
-              ? validationEnrichments
-              : undefined,
+          enrichments: validationEnrichments.length > 0 ? validationEnrichments : undefined,
           // Indexed syntax pattern sources
           indexedSyntaxPatterns,
           // Deprecated patterns found in quick start template (should be none!)
           deprecatedPatternsInTemplate:
             deprecatedInTemplate.length > 0 ? deprecatedInTemplate : undefined,
           // Last validation timestamp
-          lastValidated:
-            comprehensiveValidation?.lastValidated || new Date().toISOString(),
+          lastValidated: comprehensiveValidation?.lastValidated || new Date().toISOString(),
         },
 
         // Quick start template - ALWAYS compiles
@@ -997,8 +934,7 @@ export circuit increment(): [] {
           },
           {
             wrong: "public_key(sk)",
-            correct:
-              'persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), sk])',
+            correct: 'persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), sk])',
             error: 'unbound identifier "public_key"',
           },
           {
@@ -1032,8 +968,7 @@ export circuit increment(): [] {
             error: "expected type Uint<64> but received Uint<0..N>",
           },
           {
-            wrong:
-              "export circuit fn(param: T): [] { ledger.insert(param, v); }",
+            wrong: "export circuit fn(param: T): [] { ledger.insert(param, v); }",
             correct:
               "export circuit fn(param: T): [] { const d = disclose(param); ledger.insert(d, v); }",
             error: "potential witness-value disclosure must be declared",
@@ -1091,28 +1026,21 @@ Version: ${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (updated: ${COMPACT_VERSI
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
-  const reference = await releaseTracker.getLatestSyntaxReference(
-    resolved.owner,
-    resolved.repo
-  );
+  const reference = await releaseTracker.getLatestSyntaxReference(resolved.owner, resolved.repo);
 
   if (!reference || reference.syntaxFiles.length === 0) {
     // Fallback: get example contracts as syntax reference
-    const versionInfo = await releaseTracker.getVersionInfo(
-      resolved.owner,
-      resolved.repo
-    );
+    const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
     const version = versionInfo.latestStableRelease?.tag || "main";
 
     return {
       repository: `${resolved.owner}/${resolved.repo}`,
       version,
-      warning:
-        "No grammar documentation found. Use example contracts as reference.",
+      warning: "No grammar documentation found. Use example contracts as reference.",
       syntaxFiles: [],
       examplePaths: ["examples/", "test/", "contracts/"],
     };
@@ -1155,9 +1083,9 @@ Version: ${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (updated: ${COMPACT_VERSI
  * Reduces 3 tool calls to 1, saving ~60% tokens
  */
 export async function upgradeCheck(
-  input: UpgradeCheckInput & { _meta?: { progressToken?: string | number } }
+  input: UpgradeCheckInput & { _meta?: { progressToken?: string | number } },
 ) {
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   const currentVersion = input.currentVersion;
   const progressToken = input._meta?.progressToken;
 
@@ -1171,7 +1099,7 @@ export async function upgradeCheck(
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
@@ -1184,44 +1112,29 @@ export async function upgradeCheck(
   const [versionInfo, outdatedInfo, breakingChanges] = await Promise.all([
     releaseTracker.getVersionInfo(resolved.owner, resolved.repo),
     releaseTracker.isOutdated(resolved.owner, resolved.repo, currentVersion),
-    releaseTracker.getBreakingChangesSince(
-      resolved.owner,
-      resolved.repo,
-      currentVersion
-    ),
+    releaseTracker.getBreakingChangesSince(resolved.owner, resolved.repo, currentVersion),
   ]);
 
   // Send progress: Fetched version data
   if (progressToken) {
-    sendProgressNotification(
-      progressToken,
-      2,
-      4,
-      "Checking breaking changes..."
-    );
+    sendProgressNotification(progressToken, 2, 4, "Checking breaking changes...");
   }
 
-  const latestVersion =
-    versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag;
+  const latestVersion = versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag;
 
   // Only fetch migration guide if there are breaking changes
   let migrationGuide = null;
   if (breakingChanges.length > 0 && latestVersion) {
     // Send progress: Fetching migration guide
     if (progressToken) {
-      sendProgressNotification(
-        progressToken,
-        3,
-        4,
-        "Generating migration guide..."
-      );
+      sendProgressNotification(progressToken, 3, 4, "Generating migration guide...");
     }
 
     migrationGuide = await releaseTracker.getMigrationGuide(
       resolved.owner,
       resolved.repo,
       currentVersion,
-      latestVersion
+      latestVersion,
     );
   }
 
@@ -1240,8 +1153,7 @@ export async function upgradeCheck(
     // Version summary
     version: {
       latest: latestVersion || "No releases",
-      latestStable:
-        versionInfo.latestStableRelease?.tag || "No stable releases",
+      latestStable: versionInfo.latestStableRelease?.tag || "No stable releases",
       publishedAt: versionInfo.latestRelease?.publishedAt || null,
       isOutdated: outdatedInfo.isOutdated,
       versionsBehind: outdatedInfo.versionsBehind,
@@ -1265,11 +1177,7 @@ export async function upgradeCheck(
 
     // Actionable recommendation
     urgency,
-    recommendation: generateUpgradeRecommendation(
-      urgency,
-      breakingChanges.length,
-      outdatedInfo
-    ),
+    recommendation: generateUpgradeRecommendation(urgency, breakingChanges.length, outdatedInfo),
   };
 }
 
@@ -1279,9 +1187,9 @@ export async function upgradeCheck(
  * Provides everything needed to start working with a repo
  */
 export async function getFullRepoContext(
-  input: FullRepoContextInput & { _meta?: { progressToken?: string | number } }
+  input: FullRepoContextInput & { _meta?: { progressToken?: string | number } },
 ) {
-  const repoName = input?.repo || "compact";
+  const repoName = input.repo || "compact";
   const progressToken = input._meta?.progressToken;
 
   logger.debug("Getting full repo context", { repo: repoName });
@@ -1291,7 +1199,7 @@ export async function getFullRepoContext(
     throw new MCPError(
       `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
       ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`
+      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
     );
   }
 
@@ -1301,32 +1209,18 @@ export async function getFullRepoContext(
   }
 
   // Fetch version info
-  const versionInfo = await releaseTracker.getVersionInfo(
-    resolved.owner,
-    resolved.repo
-  );
-  const version =
-    versionInfo.latestStableRelease?.tag ||
-    versionInfo.latestRelease?.tag ||
-    "main";
+  const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
+  const version = versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag || "main";
 
   // Send progress: Fetched version
   if (progressToken) {
-    sendProgressNotification(
-      progressToken,
-      2,
-      4,
-      "Loading syntax reference..."
-    );
+    sendProgressNotification(progressToken, 2, 4, "Loading syntax reference...");
   }
 
   // Conditionally fetch syntax reference
   let syntaxRef = null;
-  if (input.includeSyntax !== false) {
-    syntaxRef = await releaseTracker.getLatestSyntaxReference(
-      resolved.owner,
-      resolved.repo
-    );
+  if (input.includeSyntax) {
+    syntaxRef = await releaseTracker.getLatestSyntaxReference(resolved.owner, resolved.repo);
   }
 
   // Send progress: Loading examples
@@ -1340,12 +1234,11 @@ export async function getFullRepoContext(
     description: string;
     complexity: string;
   }> = [];
-  if (input.includeExamples !== false) {
+  if (input.includeExamples) {
     // Filter examples relevant to this repo type
     const repoType = getRepoType(repoName);
     examples = EXAMPLES.filter(
-      (ex) =>
-        repoType === "all" || ex.category === repoType || repoType === "compact"
+      (ex) => repoType === "all" || ex.category === repoType || repoType === "compact",
     )
       .slice(0, 5)
       .map((ex) => ({
@@ -1387,8 +1280,7 @@ export async function getFullRepoContext(
           version: syntaxRef.version,
           files: syntaxRef.syntaxFiles.map((f) => f.path),
           // Include first file content as primary reference
-          primaryReference:
-            syntaxRef.syntaxFiles[0]?.content?.slice(0, 2000) || null,
+          primaryReference: syntaxRef.syntaxFiles[0]?.content.slice(0, 2000) ?? null,
         }
       : null,
 
@@ -1407,7 +1299,7 @@ function computeUpgradeUrgency(
     hasBreakingChanges: boolean;
     versionsBehind: number;
   },
-  breakingCount: number
+  breakingCount: number,
 ): "none" | "low" | "medium" | "high" | "critical" {
   if (!outdatedInfo.isOutdated) return "none";
   if (breakingCount === 0 && outdatedInfo.versionsBehind <= 2) return "low";
@@ -1419,7 +1311,7 @@ function computeUpgradeUrgency(
 function generateUpgradeRecommendation(
   urgency: string,
   breakingCount: number,
-  outdatedInfo: { isOutdated: boolean; versionsBehind: number }
+  outdatedInfo: { isOutdated: boolean; versionsBehind: number },
 ): string {
   switch (urgency) {
     case "none":

@@ -35,19 +35,10 @@ import {
 import { toolValidationSchemas } from "./tools/validation.js";
 import { vectorStore } from "./db/index.js";
 import { allTools } from "./tools/index.js";
-import {
-  allResources,
-  getDocumentation,
-  getCode,
-  getSchema,
-} from "./resources/index.js";
+import { allResources, getDocumentation, getCode, getSchema } from "./resources/index.js";
 import { promptDefinitions, generatePrompt } from "./prompts/index.js";
 import { registerSamplingCallback } from "./services/index.js";
-import type {
-  ResourceTemplate,
-  SamplingRequest,
-  SamplingResponse,
-} from "./types/index.js";
+import type { ResourceTemplate, SamplingRequest, SamplingResponse } from "./types/index.js";
 
 import { CURRENT_VERSION } from "./utils/version.js";
 const SERVER_INFO = {
@@ -79,12 +70,13 @@ const VERSION_CHECK_INTERVAL = 10; // Re-check every 10 tool calls
 async function checkForUpdates(): Promise<void> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 5000); // 5s timeout
 
-    const response = await fetch(
-      "https://registry.npmjs.org/midnight-mcp/latest",
-      { signal: controller.signal }
-    );
+    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest", {
+      signal: controller.signal,
+    });
     clearTimeout(timeoutId);
 
     if (!response.ok) return;
@@ -92,16 +84,18 @@ async function checkForUpdates(): Promise<void> {
     const data = (await response.json()) as { version: string };
     const latestVersion = data.version;
 
-    if (semver.valid(latestVersion) && semver.valid(CURRENT_VERSION) && semver.gt(latestVersion, CURRENT_VERSION)) {
+    if (
+      semver.valid(latestVersion) &&
+      semver.valid(CURRENT_VERSION) &&
+      semver.gt(latestVersion, CURRENT_VERSION)
+    ) {
       versionCheckResult = {
         isOutdated: true,
         latestVersion,
         lastChecked: Date.now(),
         updateMessage: `🚨 UPDATE AVAILABLE: v${latestVersion} (you have v${CURRENT_VERSION})`,
       };
-      logger.warn(
-        `Outdated version detected: v${CURRENT_VERSION} -> v${latestVersion}`
-      );
+      logger.warn(`Outdated version detected: v${CURRENT_VERSION} -> v${latestVersion}`);
     } else {
       versionCheckResult = {
         ...versionCheckResult,
@@ -170,24 +164,21 @@ const resourceTemplates: ResourceTemplate[] = [
     uriTemplate: "midnight://docs/{section}/{topic}",
     name: "Documentation",
     title: "📚 Documentation Sections",
-    description:
-      "Access documentation by section (guides, api, concepts) and topic",
+    description: "Access documentation by section (guides, api, concepts) and topic",
     mimeType: "text/markdown",
   },
   {
     uriTemplate: "midnight://examples/{category}/{name}",
     name: "Example Contracts",
     title: "📝 Example Contracts",
-    description:
-      "Access example contracts by category (counter, bboard, token, voting) and name",
+    description: "Access example contracts by category (counter, bboard, token, voting) and name",
     mimeType: "text/x-compact",
   },
   {
     uriTemplate: "midnight://schema/{type}",
     name: "Schema Definitions",
     title: "🔧 Schema Definitions",
-    description:
-      "Access JSON schemas for contract AST, transactions, and proofs",
+    description: "Access JSON schemas for contract AST, transactions, and proofs",
     mimeType: "application/json",
   },
 ];
@@ -270,7 +261,7 @@ export function sendLogToClient(
   level: LoggingLevel,
   loggerName: string,
   data: unknown,
-  server?: Server
+  server?: Server,
 ): void {
   if (sendingNotification) return;
 
@@ -285,7 +276,7 @@ export function sendLogToClient(
 
   sendingNotification = true;
   try {
-    target.notification({
+    void target.notification({
       method: "notifications/message",
       params: {
         level,
@@ -296,7 +287,7 @@ export function sendLogToClient(
   } catch (error: unknown) {
     // Use console.error to avoid re-entering the MCP log callback
     console.error(
-      `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`
+      `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`,
     );
   } finally {
     sendingNotification = false;
@@ -311,13 +302,13 @@ export function sendProgressNotification(
   progressToken: string | number,
   progress: number,
   total?: number,
-  message?: string
+  message?: string,
 ): void {
   const target = serverStorage.getStore() ?? activeServer;
   if (!target) return;
 
   try {
-    target.notification({
+    void target.notification({
       method: "notifications/progress",
       params: {
         progressToken,
@@ -329,7 +320,7 @@ export function sendProgressNotification(
   } catch (error: unknown) {
     // Use console.error to avoid re-entering the MCP log callback
     console.error(
-      `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`
+      `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
@@ -384,14 +375,19 @@ export function createServer(): Server {
  * Register logging handler for MCP logging capability
  */
 function registerLoggingHandler(server: Server): void {
-  server.setRequestHandler(SetLevelRequestSchema, async (request) => {
+  server.setRequestHandler(SetLevelRequestSchema, (request) => {
     const { level } = request.params;
     const ctx = serverContexts.get(server);
     if (ctx) ctx.logLevel = level;
     logger.info(`MCP log level set to: ${level}`);
-    sendLogToClient("info", "midnight-mcp", {
-      message: `Log level changed to ${level}`,
-    }, server);
+    sendLogToClient(
+      "info",
+      "midnight-mcp",
+      {
+        message: `Log level changed to ${level}`,
+      },
+      server,
+    );
     return {};
   });
 }
@@ -399,25 +395,12 @@ function registerLoggingHandler(server: Server): void {
 // Completion suggestions for prompt arguments
 const COMPLETION_VALUES: Record<string, Record<string, string[]>> = {
   "midnight:create-contract": {
-    contractType: [
-      "token",
-      "voting",
-      "credential",
-      "auction",
-      "escrow",
-      "custom",
-    ],
+    contractType: ["token", "voting", "credential", "auction", "escrow", "custom"],
     privacyLevel: ["full", "partial", "public"],
     complexity: ["beginner", "intermediate", "advanced"],
   },
   "midnight:review-contract": {
-    focusAreas: [
-      "security",
-      "performance",
-      "privacy",
-      "readability",
-      "gas-optimization",
-    ],
+    focusAreas: ["security", "performance", "privacy", "readability", "gas-optimization"],
   },
   "midnight:explain-concept": {
     concept: [
@@ -433,21 +416,10 @@ const COMPLETION_VALUES: Record<string, Record<string, string[]>> = {
     level: ["beginner", "intermediate", "advanced"],
   },
   "midnight:compare-approaches": {
-    approaches: [
-      "token-standards",
-      "state-management",
-      "privacy-patterns",
-      "circuit-design",
-    ],
+    approaches: ["token-standards", "state-management", "privacy-patterns", "circuit-design"],
   },
   "midnight:debug-contract": {
-    errorType: [
-      "compilation",
-      "runtime",
-      "logic",
-      "privacy-leak",
-      "state-corruption",
-    ],
+    errorType: ["compilation", "runtime", "logic", "privacy-leak", "state-corruption"],
   },
 };
 
@@ -455,7 +427,7 @@ const COMPLETION_VALUES: Record<string, Record<string, string[]>> = {
  * Register completions handler for argument autocompletion
  */
 function registerCompletionsHandler(server: Server): void {
-  server.setRequestHandler(CompleteRequestSchema, async (request) => {
+  server.setRequestHandler(CompleteRequestSchema, (request) => {
     const { ref, argument } = request.params;
 
     if (ref.type !== "ref/prompt") {
@@ -464,7 +436,7 @@ function registerCompletionsHandler(server: Server): void {
 
     const promptName = ref.name;
     const argName = argument.name;
-    const currentValue = argument.value?.toLowerCase() || "";
+    const currentValue = argument.value.toLowerCase() || "";
 
     // Get completion values for this prompt/argument
     const promptCompletions = COMPLETION_VALUES[promptName];
@@ -478,9 +450,7 @@ function registerCompletionsHandler(server: Server): void {
     }
 
     // Filter by current input
-    const filtered = argValues.filter((v) =>
-      v.toLowerCase().includes(currentValue)
-    );
+    const filtered = argValues.filter((v) => v.toLowerCase().includes(currentValue));
 
     return {
       completion: {
@@ -497,7 +467,7 @@ function registerCompletionsHandler(server: Server): void {
  */
 function registerToolHandlers(server: Server): void {
   // List available tools with annotations and output schemas
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  server.setRequestHandler(ListToolsRequestSchema, () => {
     logger.debug("Listing tools");
     return {
       tools: allTools.map((tool) => ({
@@ -553,7 +523,7 @@ function registerToolHandlers(server: Server): void {
       let validatedArgs = args;
       if (zodSchema) {
         try {
-          validatedArgs = zodSchema.parse(args ?? {});
+          validatedArgs = zodSchema.parse(args ?? {}) as Record<string, unknown>;
         } catch (validationError) {
           const durationMs = Date.now() - startTime;
           trackToolCall(name, false, durationMs, CURRENT_VERSION);
@@ -607,8 +577,7 @@ function registerToolHandlers(server: Server): void {
               configFiles: {
                 "Claude Desktop (Mac)":
                   "~/Library/Application Support/Claude/claude_desktop_config.json",
-                "Claude Desktop (Win)":
-                  "%APPDATA%/Claude/claude_desktop_config.json",
+                "Claude Desktop (Win)": "%APPDATA%/Claude/claude_desktop_config.json",
                 Cursor: ".cursor/mcp.json",
                 "VS Code": ".vscode/mcp.json",
                 Windsurf: "~/.codeium/windsurf/mcp_config.json",
@@ -665,7 +634,7 @@ function registerToolHandlers(server: Server): void {
  */
 function registerResourceHandlers(server: Server): void {
   // List available resources
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  server.setRequestHandler(ListResourcesRequestSchema, () => {
     logger.debug("Listing resources");
     return {
       resources: allResources.map((resource) => ({
@@ -678,7 +647,7 @@ function registerResourceHandlers(server: Server): void {
   });
 
   // List resource templates (RFC 6570 URI Templates)
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, () => {
     logger.debug("Listing resource templates");
     return {
       resourceTemplates: resourceTemplates.map((template) => ({
@@ -713,11 +682,7 @@ function registerResourceHandlers(server: Server): void {
       }
 
       if (!content) {
-        const resourceTypes = [
-          "midnight://docs/",
-          "midnight://code/",
-          "midnight://schema/",
-        ];
+        const resourceTypes = ["midnight://docs/", "midnight://code/", "midnight://schema/"];
         const validPrefix = resourceTypes.find((p) => uri.startsWith(p));
 
         // Try to suggest correct URI for common mistakes
@@ -792,7 +757,7 @@ function registerResourceHandlers(server: Server): void {
  */
 function registerPromptHandlers(server: Server): void {
   // List available prompts
-  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  server.setRequestHandler(ListPromptsRequestSchema, () => {
     logger.debug("Listing prompts");
     return {
       prompts: promptDefinitions.map((prompt) => ({
@@ -804,7 +769,7 @@ function registerPromptHandlers(server: Server): void {
   });
 
   // Get prompt content
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  server.setRequestHandler(GetPromptRequestSchema, (request) => {
     const { name, arguments: args } = request.params;
     logger.info(`Prompt requested: ${name}`, { args });
 
@@ -830,22 +795,18 @@ function registerPromptHandlers(server: Server): void {
  */
 function registerSubscriptionHandlers(server: Server): void {
   // Handle subscribe requests
-  server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+  server.setRequestHandler(SubscribeRequestSchema, (request) => {
     const { uri } = request.params;
     logger.info(`Subscribing to resource: ${uri}`);
 
     // Validate that the URI is a valid resource
-    const validPrefixes = [
-      "midnight://docs/",
-      "midnight://code/",
-      "midnight://schema/",
-    ];
+    const validPrefixes = ["midnight://docs/", "midnight://code/", "midnight://schema/"];
     const isValid = validPrefixes.some((prefix) => uri.startsWith(prefix));
 
     if (!isValid) {
       logger.warn(`Invalid subscription URI: ${uri}`);
       throw new Error(
-        `Invalid subscription URI: ${uri}. Valid prefixes: ${validPrefixes.join(", ")}`
+        `Invalid subscription URI: ${uri}. Valid prefixes: ${validPrefixes.join(", ")}`,
       );
     }
 
@@ -859,7 +820,7 @@ function registerSubscriptionHandlers(server: Server): void {
   });
 
   // Handle unsubscribe requests
-  server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+  server.setRequestHandler(UnsubscribeRequestSchema, (request) => {
     const { uri } = request.params;
     logger.info(`Unsubscribing from resource: ${uri}`);
 
@@ -881,7 +842,7 @@ export function notifyResourceUpdate(server: Server, uri: string): void {
   const ctx = serverContexts.get(server);
   if (ctx?.subscriptions.has(uri)) {
     logger.info(`Notifying subscribers of update: ${uri}`);
-    server.notification({
+    void server.notification({
       method: "notifications/resources/updated",
       params: { uri },
     });
@@ -904,9 +865,7 @@ export function getActiveSubscriptions(server?: Server): string[] {
  */
 function setupSampling(server: Server): void {
   // Create a sampling callback that uses the server's request method
-  const samplingCallback = async (
-    request: SamplingRequest
-  ): Promise<SamplingResponse> => {
+  const samplingCallback = async (request: SamplingRequest): Promise<SamplingResponse> => {
     logger.debug("Requesting sampling from client", {
       messageCount: request.messages.length,
       maxTokens: request.maxTokens,
@@ -929,17 +888,19 @@ function setupSampling(server: Server): void {
         {
           parse: (data: unknown) => {
             const response = data as SamplingResponse;
-            // Basic validation of expected response structure
+            // Basic validation of expected response structure (defensive runtime check)
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (!response || typeof response !== "object") {
               throw new Error("Invalid sampling response: expected object");
             }
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (!response.content || typeof response.content !== "object") {
               throw new Error("Invalid sampling response: missing content");
             }
             return response;
           },
           _def: { typeName: "SamplingResponse" },
-        } as never
+        } as never,
       );
 
       return response;
@@ -1044,10 +1005,10 @@ function totalSessionCount(): number {
  * Close all active sessions in a session map
  */
 async function closeSessions<T extends StreamableHTTPServerTransport | SSEServerTransport>(
-  sessionMap: Map<string, SessionEntry<T>>
+  sessionMap: Map<string, SessionEntry<T>>,
 ): Promise<void> {
   const closePromises = Array.from(sessionMap.values()).map(async (entry) => {
-    await entry.transport.close?.().catch(() => {});
+    await entry.transport.close().catch(() => {});
     await entry.server.close().catch(() => {});
   });
   await Promise.all(closePromises);
@@ -1118,7 +1079,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
           sessions.streamable.delete(transport.sessionId);
           if (entry) {
             entry.server.close().catch((err: unknown) => {
-              logger.error(`Error closing streamable server: ${err}`);
+              logger.error(`Error closing streamable server: ${String(err)}`);
             });
           }
           logger.debug(`Streamable session closed: ${transport.sessionId}`);
@@ -1177,7 +1138,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       sessions.sse.delete(transport.sessionId);
       if (entry) {
         entry.server.close().catch((err: unknown) => {
-          logger.error(`Error closing SSE server: ${err}`);
+          logger.error(`Error closing SSE server: ${String(err)}`);
         });
       }
       logger.debug(`SSE session closed: ${transport.sessionId}`);
@@ -1229,7 +1190,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     const now = Date.now();
     for (const [id, entry] of sessions.streamable) {
       if (now - entry.lastActivityAt > SESSION_TTL_MS) {
-        entry.transport.close?.().catch(() => {});
+        entry.transport.close().catch(() => {});
         entry.server.close().catch(() => {});
         sessions.streamable.delete(id);
         logger.debug(`Evicted expired streamable session: ${id}`);
@@ -1237,7 +1198,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     }
     for (const [id, entry] of sessions.sse) {
       if (now - entry.lastActivityAt > SESSION_TTL_MS) {
-        entry.transport.close?.().catch(() => {});
+        entry.transport.close().catch(() => {});
         entry.server.close().catch(() => {});
         sessions.sse.delete(id);
         logger.debug(`Evicted expired SSE session: ${id}`);
@@ -1268,6 +1229,10 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       process.exit(0);
     });
   };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", () => {
+    void shutdown();
+  });
+  process.on("SIGTERM", () => {
+    void shutdown();
+  });
 }

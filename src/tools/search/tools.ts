@@ -9,12 +9,7 @@ import type {
   ToolAnnotations,
   ToolCategory,
 } from "../../types/index.js";
-import {
-  searchCompact,
-  searchTypeScript,
-  searchDocs,
-  fetchDocs,
-} from "./handlers.js";
+import { searchCompact, searchTypeScript, searchDocs, fetchDocs } from "./handlers.js";
 
 // ============================================================================
 // Output Schema for Search Results
@@ -219,8 +214,7 @@ USAGE GUIDANCE:
         },
         extractSection: {
           type: "string",
-          description:
-            "Optional: Extract only a specific section by heading text",
+          description: "Optional: Extract only a specific section by heading text",
         },
       },
       required: ["path"],

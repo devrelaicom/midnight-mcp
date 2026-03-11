@@ -44,7 +44,6 @@ import {
   HealthCheckInputSchema,
   GetStatusInputSchema,
   CheckVersionInputSchema,
-  AutoUpdateConfigInputSchema,
   GetUpdateInstructionsInputSchema,
 } from "./health/schemas.js";
 
@@ -92,7 +91,6 @@ export const toolValidationSchemas: Record<string, ZodSchema> = {
   "midnight-health-check": HealthCheckInputSchema,
   "midnight-get-status": GetStatusInputSchema,
   "midnight-check-version": CheckVersionInputSchema,
-  "midnight-auto-update-config": AutoUpdateConfigInputSchema,
   "midnight-get-update-instructions": GetUpdateInstructionsInputSchema,
 
   // Generation tools

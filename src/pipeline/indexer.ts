@@ -2,11 +2,7 @@ import { githubClient } from "./github.js";
 import { parseFile, ParsedFile } from "./parser.js";
 import { embeddingGenerator } from "./embeddings.js";
 import { vectorStore, CodeDocument } from "../db/vectorStore.js";
-import {
-  logger,
-  DEFAULT_REPOSITORIES,
-  RepositoryConfig,
-} from "../utils/index.js";
+import { logger, DEFAULT_REPOSITORIES, RepositoryConfig } from "../utils/index.js";
 
 export interface IndexStats {
   totalFiles: number;
@@ -38,9 +34,7 @@ export interface ChunkMetadata {
  */
 function extractPragmaVersion(content: string): string | undefined {
   // Match patterns like: pragma language_version >= 0.14.0;
-  const pragmaMatch = content.match(
-    /pragma\s+language_version\s*[><=]*\s*([\d.]+)/
-  );
+  const pragmaMatch = content.match(/pragma\s+language_version\s*[><=]*\s*([\d.]+)/);
   return pragmaMatch?.[1];
 }
 
@@ -51,16 +45,14 @@ function extractPragmaVersion(content: string): string | undefined {
 function createChunks(
   file: ParsedFile,
   repository: string,
-  repoVersion?: string
+  repoVersion?: string,
 ): Array<{ text: string; metadata: ChunkMetadata }> {
   const chunks: Array<{ text: string; metadata: ChunkMetadata }> = [];
   const indexedAt = new Date().toISOString();
 
   // Extract pragma version for Compact files
   const pragmaVersion =
-    file.language === "compact"
-      ? extractPragmaVersion(file.content)
-      : undefined;
+    file.language === "compact" ? extractPragmaVersion(file.content) : undefined;
 
   // Add code units as individual chunks
   for (const unit of file.codeUnits) {
@@ -93,10 +85,7 @@ function createChunks(
     let currentLine = 1;
 
     for (const line of lines) {
-      if (
-        currentChunk.length + line.length > chunkSize &&
-        currentChunk.length > 0
-      ) {
+      if (currentChunk.length + line.length > chunkSize && currentChunk.length > 0) {
         chunks.push({
           text: currentChunk,
           metadata: {
@@ -149,7 +138,7 @@ function createChunks(
  * Index a single repository
  */
 export async function indexRepository(
-  repoConfig: RepositoryConfig
+  repoConfig: RepositoryConfig,
 ): Promise<{ fileCount: number; chunkCount: number }> {
   const repoName = `${repoConfig.owner}/${repoConfig.repo}`;
   logger.info(`Starting index for ${repoName}...`);
@@ -202,7 +191,11 @@ export async function indexRepository(
 
       // Add embeddings to documents
       for (let i = 0; i < documents.length; i++) {
-        documents[i].embedding = embeddings[i].embedding;
+        const doc = documents[i];
+        const emb = embeddings[i];
+        if (doc && emb) {
+          doc.embedding = emb.embedding;
+        }
       }
 
       // Store in vector database
@@ -255,7 +248,7 @@ export async function indexAllRepositories(): Promise<IndexStats> {
  */
 export async function incrementalUpdate(
   repoConfig: RepositoryConfig,
-  since: string
+  since: string,
 ): Promise<{ fileCount: number; chunkCount: number }> {
   const repoName = `${repoConfig.owner}/${repoConfig.repo}`;
   logger.info(`Starting incremental update for ${repoName} since ${since}...`);
@@ -265,19 +258,17 @@ export async function incrementalUpdate(
     const changedPaths = await githubClient.getChangedFiles(
       repoConfig.owner,
       repoConfig.repo,
-      since
+      since,
     );
 
     // Filter by patterns
     const filteredPaths = githubClient.filterFilesByPatterns(
       changedPaths,
       repoConfig.patterns,
-      repoConfig.exclude
+      repoConfig.exclude,
     );
 
-    logger.info(
-      `Found ${filteredPaths.length} changed files matching patterns`
-    );
+    logger.info(`Found ${filteredPaths.length} changed files matching patterns`);
 
     let chunkCount = 0;
     const documents: CodeDocument[] = [];
@@ -291,7 +282,7 @@ export async function incrementalUpdate(
         repoConfig.owner,
         repoConfig.repo,
         filePath,
-        repoConfig.branch
+        repoConfig.branch,
       );
 
       if (file) {
@@ -328,7 +319,11 @@ export async function incrementalUpdate(
       const embeddings = await embeddingGenerator.generateEmbeddings(texts);
 
       for (let i = 0; i < documents.length; i++) {
-        documents[i].embedding = embeddings[i].embedding;
+        const doc = documents[i];
+        const emb = embeddings[i];
+        if (doc && emb) {
+          doc.embedding = emb.embedding;
+        }
       }
 
       await vectorStore.addDocuments(documents);

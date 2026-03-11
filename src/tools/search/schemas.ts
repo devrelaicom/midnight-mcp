@@ -8,11 +8,7 @@ import { z } from "zod";
 // Schema definitions
 export const SearchCompactInputSchema = z.object({
   query: z.string().describe("Natural language search query for Compact code"),
-  limit: z
-    .number()
-    .optional()
-    .default(10)
-    .describe("Maximum results to return"),
+  limit: z.number().optional().default(10).describe("Maximum results to return"),
   filter: z
     .object({
       repository: z.string().optional(),
@@ -24,11 +20,7 @@ export const SearchCompactInputSchema = z.object({
 
 export const SearchTypeScriptInputSchema = z.object({
   query: z.string().describe("Search query for TypeScript SDK code"),
-  includeTypes: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe("Include type definitions"),
+  includeTypes: z.boolean().optional().default(true).describe("Include type definitions"),
   limit: z.number().optional().default(10),
 });
 
@@ -46,14 +38,12 @@ export const FetchDocsInputSchema = z.object({
   path: z
     .string()
     .describe(
-      "Documentation page path (e.g., '/develop/faq', '/getting-started/installation', '/compact')"
+      "Documentation page path (e.g., '/develop/faq', '/getting-started/installation', '/compact')",
     ),
   extractSection: z
     .string()
     .optional()
-    .describe(
-      "Optional: Extract only a specific section by heading (e.g., 'General questions')"
-    ),
+    .describe("Optional: Extract only a specific section by heading (e.g., 'General questions')"),
 });
 
 // Type exports

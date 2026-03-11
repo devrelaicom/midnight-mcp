@@ -4,6 +4,7 @@
  */
 
 import { vectorStore, SearchFilter, SearchResult } from "../../db/index.js";
+import { CURRENT_VERSION } from "../../utils/version.js";
 import { embeddingGenerator } from "../../pipeline/embeddings.js";
 import {
   logger,
@@ -18,11 +19,7 @@ import {
   searchTypeScriptHosted,
   searchDocsHosted,
 } from "../../utils/index.js";
-import type {
-  SearchCompactInput,
-  SearchTypeScriptInput,
-  SearchDocsInput,
-} from "./schemas.js";
+import type { SearchCompactInput, SearchTypeScriptInput, SearchDocsInput } from "./schemas.js";
 
 // ============================================================================
 // Common Search Infrastructure
@@ -52,10 +49,7 @@ type SearchValidationResult =
  * Validate and prepare common search parameters
  * Extracts common validation logic used by all search functions
  */
-function validateSearchInput(
-  query: string,
-  limit: number | undefined
-): SearchValidationResult {
+function validateSearchInput(query: string, limit: number | undefined): SearchValidationResult {
   const queryValidation = validateQuery(query);
   if (!queryValidation.isValid) {
     return {
@@ -100,13 +94,11 @@ function checkSearchCache(cacheKey: string) {
 /**
  * Execute hosted search with fallback handling
  */
-async function tryHostedSearch<
-  T extends { results: unknown[]; totalResults?: number },
->(
+async function tryHostedSearch<T extends { results: unknown[]; totalResults?: number }>(
   searchType: string,
   hostedSearchFn: () => Promise<T>,
   cacheKey: string,
-  warnings: string[]
+  warnings: string[],
 ): Promise<{ result: T; cached: boolean } | null> {
   if (!isHostedMode()) {
     return null;
@@ -143,8 +135,8 @@ async function tryHostedSearch<
         if (result.source.lines) {
           const lineParts = result.source.lines.split("-");
           if (lineParts.length === 2) {
-            const parsedStart = parseInt(lineParts[0], 10);
-            const parsedEnd = parseInt(lineParts[1], 10);
+            const parsedStart = parseInt(lineParts[0] ?? "", 10);
+            const parsedEnd = parseInt(lineParts[1] ?? "", 10);
             if (!Number.isNaN(parsedStart)) {
               startLine = parsedStart;
             }
@@ -152,7 +144,7 @@ async function tryHostedSearch<
               endLine = parsedEnd;
             }
           } else if (lineParts.length === 1) {
-            const parsed = parseInt(lineParts[0], 10);
+            const parsed = parseInt(lineParts[0] ?? "", 10);
             if (!Number.isNaN(parsed)) {
               startLine = endLine = parsed;
             }
@@ -183,12 +175,9 @@ async function tryHostedSearch<
       cached: true,
     };
   } catch (error: unknown) {
-    logger.warn(
-      `Hosted API ${searchType} search failed, falling back to local`,
-      {
-        error: String(error),
-      }
-    );
+    logger.warn(`Hosted API ${searchType} search failed, falling back to local`, {
+      error: String(error),
+    });
     return null;
   }
 }
@@ -196,9 +185,11 @@ async function tryHostedSearch<
 /**
  * Add warnings to response and cache it
  */
-function finalizeResponse<
-  T extends { results: unknown[]; totalResults?: number },
->(response: T, cacheKey: string, warnings: string[]): T {
+function finalizeResponse<T extends { results: unknown[]; totalResults?: number }>(
+  response: T,
+  cacheKey: string,
+  warnings: string[],
+): T {
   const finalResponse = {
     ...response,
     ...(warnings.length > 0 && { warnings }),
@@ -228,7 +219,10 @@ function finalizeResponse<
 interface SearchConfig {
   searchType: string;
   cacheKeyExtra: (string | number | boolean | undefined)[];
-  hostedSearchFn: (query: string, limit: number) => Promise<{ results: unknown[]; totalResults?: number }>;
+  hostedSearchFn: (
+    query: string,
+    limit: number,
+  ) => Promise<{ results: unknown[]; totalResults?: number }>;
   buildFilter: () => SearchFilter;
   transformResult: (r: SearchResult) => Record<string, unknown>;
   postFilter?: (results: SearchResult[]) => SearchResult[];
@@ -240,11 +234,7 @@ interface SearchConfig {
  * Unified search pipeline: validate → cache → hosted → local → finalize.
  * Eliminates duplication across searchCompact, searchTypeScript, and searchDocs.
  */
-async function performSearch(
-  query: string,
-  limit: number | undefined,
-  config: SearchConfig
-) {
+async function performSearch(query: string, limit: number | undefined, config: SearchConfig) {
   // 1. Validate — throw on invalid input so the server returns isError: true
   const validation = validateSearchInput(query, limit);
   if (!validation.success) {
@@ -252,7 +242,7 @@ async function performSearch(
       validation.error.error,
       ErrorCodes.INVALID_INPUT,
       validation.error.suggestion,
-      { details: validation.error.details }
+      { details: validation.error.details },
     );
   }
   const { sanitizedQuery, limit: validatedLimit, warnings } = validation.context;
@@ -268,7 +258,7 @@ async function performSearch(
     config.searchType,
     sanitizedQuery,
     validatedLimit,
-    ...config.cacheKeyExtra
+    ...config.cacheKeyExtra,
   );
   const cached = checkSearchCache(cacheKey);
   if (cached) return cached;
@@ -278,7 +268,7 @@ async function performSearch(
     config.searchType,
     () => config.hostedSearchFn(sanitizedQuery, validatedLimit),
     cacheKey,
-    warnings
+    warnings,
   );
   if (hostedResult) {
     return { ...hostedResult.result, ...config.hostedResultExtra };
@@ -288,8 +278,8 @@ async function performSearch(
   if (embeddingGenerator.isDummyMode) {
     warnings.push(
       "No OpenAI API key configured — using random dummy embeddings. " +
-      "Search results will not be semantically relevant. " +
-      "Set OPENAI_API_KEY for accurate search."
+        "Search results will not be semantically relevant. " +
+        "Set OPENAI_API_KEY for accurate search.",
     );
   }
   const filter = config.buildFilter();
@@ -345,16 +335,13 @@ export async function searchTypeScript(input: SearchTypeScriptInput) {
   return performSearch(input.query, input.limit, {
     searchType: "typescript",
     cacheKeyExtra: [input.includeTypes],
-    hostedSearchFn: (query, limit) =>
-      searchTypeScriptHosted(query, limit, input.includeTypes),
+    hostedSearchFn: (query, limit) => searchTypeScriptHosted(query, limit, input.includeTypes),
     buildFilter: () => ({ language: "typescript" }),
     postFilter: (results) =>
       input.includeTypes
         ? results
         : results.filter(
-            (r) =>
-              r.metadata.codeType !== "type" &&
-              r.metadata.codeType !== "interface"
+            (r) => r.metadata.codeType !== "type" && r.metadata.codeType !== "interface",
           ),
     transformResult: (r) => ({
       code: r.content,
@@ -381,8 +368,7 @@ export async function searchDocs(input: SearchDocsInput) {
   return performSearch(input.query, input.limit, {
     searchType: "docs",
     cacheKeyExtra: [input.category],
-    hostedSearchFn: (query, limit) =>
-      searchDocsHosted(query, limit, input.category),
+    hostedSearchFn: (query, limit) => searchDocsHosted(query, limit, input.category),
     buildFilter: () => {
       const filter: SearchFilter = { language: "markdown" };
       if (input.category !== "all") {
@@ -440,7 +426,7 @@ const KNOWN_DOC_PATHS = [
  */
 function extractContentFromHtml(
   html: string,
-  extractSection?: string
+  extractSection?: string,
 ): {
   title: string;
   content: string;
@@ -449,19 +435,16 @@ function extractContentFromHtml(
 } {
   // Extract title
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const title = titleMatch
-    ? titleMatch[1].replace(" | Midnight Docs", "").trim()
-    : "Unknown";
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const title = titleMatch ? titleMatch[1]!.replace(" | Midnight Docs", "").trim() : "Unknown";
 
   // Extract last updated date
-  const lastUpdatedMatch = html.match(
-    /<time[^>]*datetime="([^"]+)"[^>]*itemprop="dateModified"/i
-  );
-  const lastUpdated = lastUpdatedMatch ? lastUpdatedMatch[1] : undefined;
+  const lastUpdatedMatch = html.match(/<time[^>]*datetime="([^"]+)"[^>]*itemprop="dateModified"/i);
+  const lastUpdated = lastUpdatedMatch?.[1];
 
   // Extract main article content
   const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-  const articleHtml = articleMatch ? articleMatch[1] : html;
+  const articleHtml = articleMatch?.[1] ?? html;
 
   // Extract headings with their IDs
   const headings: Array<{ level: number; text: string; id: string }> = [];
@@ -469,15 +452,19 @@ function extractContentFromHtml(
     /<h([1-6])[^>]*class="[^"]*anchor[^"]*"[^>]*id="([^"]*)"[^>]*>([^<]*(?:<[^/][^>]*>[^<]*<\/[^>]+>)*[^<]*)/gi;
   let headingMatch;
   while ((headingMatch = headingRegex.exec(articleHtml)) !== null) {
-    const text = headingMatch[3]
+    const rawText = headingMatch[3];
+    if (!rawText) continue;
+    const text = rawText
       .replace(/<[^>]+>/g, "")
       .replace(/\u200B/g, "")
       .trim();
     if (text) {
       headings.push({
-        level: parseInt(headingMatch[1]),
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        level: parseInt(headingMatch[1]!),
         text,
-        id: headingMatch[2],
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        id: headingMatch[2]!,
       });
     }
   }
@@ -556,8 +543,10 @@ function extractContentFromHtml(
     for (const line of lines) {
       const headerMatch = line.match(/^(#{1,4})\s+(.+)$/);
       if (headerMatch) {
-        const level = headerMatch[1].length;
-        const headerText = headerMatch[2].toLowerCase();
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const level = headerMatch[1]!.length;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const headerText = headerMatch[2]!.toLowerCase();
 
         if (headerText.includes(sectionLower)) {
           inSection = true;
@@ -586,10 +575,7 @@ function extractContentFromHtml(
  * Fetch live documentation from docs.midnight.network
  * Takes advantage of SSG (Static Site Generation) to get pre-rendered content
  */
-export async function fetchDocs(input: {
-  path: string;
-  extractSection?: string;
-}) {
+export async function fetchDocs(input: { path: string; extractSection?: string }) {
   const { path, extractSection } = input;
 
   // Normalize path
@@ -630,12 +616,14 @@ export async function fetchDocs(input: {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, FETCH_TIMEOUT);
 
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "midnight-mcp/1.0 (Documentation Fetcher)",
+        "User-Agent": `midnight-mcp/${CURRENT_VERSION} (Documentation Fetcher)`,
         Accept: "text/html",
       },
     });
@@ -669,10 +657,7 @@ export async function fetchDocs(input: {
       };
     }
 
-    const { title, content, headings, lastUpdated } = extractContentFromHtml(
-      html,
-      extractSection
-    );
+    const { title, content, headings, lastUpdated } = extractContentFromHtml(html, extractSection);
 
     // Truncate if content is too long (for token efficiency)
     const MAX_CONTENT_LENGTH = 15000;
@@ -707,8 +692,7 @@ export async function fetchDocs(input: {
       return {
         error: `Failed to fetch: ${error.message}`,
         path: normalizedPath,
-        suggestion:
-          "Check your network connection or try midnight-search-docs for cached content.",
+        suggestion: "Check your network connection or try midnight-search-docs for cached content.",
       };
     }
     return {

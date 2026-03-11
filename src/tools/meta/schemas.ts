@@ -28,28 +28,20 @@ export const ListCategoryToolsInputSchema = z.object({
       "compound",
     ])
     .describe("Category to list tools for"),
-  includeSchemas: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe("Include input/output schemas"),
+  includeSchemas: z.boolean().optional().default(false).describe("Include input/output schemas"),
 });
 
 export const SuggestToolInputSchema = z.object({
   intent: z
     .string()
     .describe(
-      "What you want to accomplish (e.g., 'find example voting contract', 'check if my version is outdated', 'analyze my contract for security issues')"
+      "What you want to accomplish (e.g., 'find example voting contract', 'check if my version is outdated', 'analyze my contract for security issues')",
     ),
 });
 
 // Type exports
-export type ListToolCategoriesInput = z.infer<
-  typeof ListToolCategoriesInputSchema
->;
-export type ListCategoryToolsInput = z.infer<
-  typeof ListCategoryToolsInputSchema
->;
+export type ListToolCategoriesInput = z.infer<typeof ListToolCategoriesInputSchema>;
+export type ListCategoryToolsInput = z.infer<typeof ListCategoryToolsInputSchema>;
 export type SuggestToolInput = z.infer<typeof SuggestToolInputSchema>;
 
 // Category info type
@@ -63,13 +55,8 @@ export interface CategoryInfo {
 // Category descriptions with intent matching
 export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
   search: {
-    description:
-      "Semantic search across Midnight codebase - find code by meaning, not keywords",
-    useCases: [
-      "Find example implementations",
-      "Search for patterns",
-      "Discover relevant code",
-    ],
+    description: "Semantic search across Midnight codebase - find code by meaning, not keywords",
+    useCases: ["Find example implementations", "Search for patterns", "Discover relevant code"],
     intentKeywords: [
       // Core search verbs
       "find",
@@ -98,13 +85,8 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
     startWith: "midnight-search-compact",
   },
   analyze: {
-    description:
-      "Static analysis of Compact contracts - security, structure, patterns",
-    useCases: [
-      "Security audit",
-      "Code review",
-      "Understand contract structure",
-    ],
+    description: "Static analysis of Compact contracts - security, structure, patterns",
+    useCases: ["Security audit", "Code review", "Understand contract structure"],
     intentKeywords: [
       // Analysis verbs
       "analyze",
@@ -135,11 +117,7 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
   },
   repository: {
     description: "Access repository files, examples, and recent updates",
-    useCases: [
-      "Get specific files",
-      "List examples",
-      "Track repository changes",
-    ],
+    useCases: ["Get specific files", "List examples", "Track repository changes"],
     intentKeywords: [
       // File access
       "get file",
@@ -167,14 +145,8 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
     startWith: "midnight-list-examples",
   },
   versioning: {
-    description:
-      "Version management, breaking changes, and migration assistance",
-    useCases: [
-      "Check for updates",
-      "Plan upgrades",
-      "Compare versions",
-      "Get migration guides",
-    ],
+    description: "Version management, breaking changes, and migration assistance",
+    useCases: ["Check for updates", "Plan upgrades", "Compare versions", "Get migration guides"],
     intentKeywords: [
       // Version-related
       "version",
@@ -204,8 +176,7 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
     startWith: "midnight-upgrade-check",
   },
   generation: {
-    description:
-      "AI-powered code generation, review, and documentation (requires sampling)",
+    description: "AI-powered code generation, review, and documentation (requires sampling)",
     useCases: ["Generate contracts", "Review code", "Generate documentation"],
     intentKeywords: [
       // Creation verbs
@@ -263,8 +234,7 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
     startWith: "midnight-health-check",
   },
   meta: {
-    description:
-      "Tool discovery and navigation - find the right tool for your task",
+    description: "Tool discovery and navigation - find the right tool for your task",
     useCases: [
       "Browse available tools",
       "Find the right tool for a task",
@@ -284,13 +254,8 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
     startWith: "midnight-list-tool-categories",
   },
   compound: {
-    description:
-      "Multi-step operations in a single call - saves tokens and reduces latency",
-    useCases: [
-      "Full upgrade analysis",
-      "Get complete repo context",
-      "One-shot operations",
-    ],
+    description: "Multi-step operations in a single call - saves tokens and reduces latency",
+    useCases: ["Full upgrade analysis", "Get complete repo context", "One-shot operations"],
     intentKeywords: [
       // Completeness
       "everything",
@@ -338,8 +303,7 @@ export const INTENT_TO_TOOL: Array<{
       "starter",
     ],
     tool: "midnight-list-examples",
-    reason:
-      "Lists all example contracts including the beginner-friendly counter",
+    reason: "Lists all example contracts including the beginner-friendly counter",
   },
   {
     patterns: [
@@ -388,14 +352,7 @@ export const INTENT_TO_TOOL: Array<{
     reason: "Search for token-related implementations",
   },
   {
-    patterns: [
-      "nft",
-      "non-fungible",
-      "collectible",
-      "unique",
-      "ownership",
-      "deed",
-    ],
+    patterns: ["nft", "non-fungible", "collectible", "unique", "ownership", "deed"],
     tool: "midnight-search-compact",
     reason: "Search for NFT and non-fungible token patterns",
   },
@@ -405,15 +362,7 @@ export const INTENT_TO_TOOL: Array<{
     reason: "Search for auction and marketplace patterns",
   },
   {
-    patterns: [
-      "access control",
-      "permission",
-      "role",
-      "admin",
-      "owner",
-      "authorization",
-      "acl",
-    ],
+    patterns: ["access control", "permission", "role", "admin", "owner", "authorization", "acl"],
     tool: "midnight-search-compact",
     reason: "Search for access control and permission patterns",
   },
@@ -569,38 +518,19 @@ export const INTENT_TO_TOOL: Array<{
     reason: "AI-powered contract generation (requires sampling)",
   },
   {
-    patterns: [
-      "review",
-      "check my code",
-      "is this correct",
-      "feedback",
-      "improve my",
-      "fix my",
-    ],
+    patterns: ["review", "check my code", "is this correct", "feedback", "improve my", "fix my"],
     tool: "midnight-review-contract",
     reason: "AI-powered code review (requires sampling)",
   },
   {
-    patterns: [
-      "document my",
-      "add comments",
-      "explain my code",
-      "generate docs",
-    ],
+    patterns: ["document my", "add comments", "explain my code", "generate docs"],
     tool: "midnight-generate-documentation",
     reason: "AI-powered documentation generation (requires sampling)",
   },
 
   // Health & Debugging
   {
-    patterns: [
-      "not working",
-      "error",
-      "broken",
-      "failing",
-      "issue with server",
-      "api down",
-    ],
+    patterns: ["not working", "error", "broken", "failing", "issue with server", "api down"],
     tool: "midnight-health-check",
     reason: "Check server status and connectivity",
   },
@@ -615,27 +545,10 @@ export const INTENT_TO_TOOL: Array<{
     reason: "Get detailed server and API status information",
   },
   {
-    patterns: [
-      "mcp version",
-      "server version",
-      "what version am i using",
-      "installed version",
-    ],
+    patterns: ["mcp version", "server version", "what version am i using", "installed version"],
     tool: "midnight-check-version",
     reason: "Check the current MCP server version",
   },
-  {
-    patterns: [
-      "auto update",
-      "keep updated",
-      "automatic updates",
-      "stay current",
-      "update automatically",
-    ],
-    tool: "midnight-auto-update-config",
-    reason: "Configure automatic syntax updates",
-  },
-
   // Repository & Files
   {
     patterns: [
@@ -680,13 +593,7 @@ export const INTENT_TO_TOOL: Array<{
     reason: "Get version information for Midnight components",
   },
   {
-    patterns: [
-      "breaking changes",
-      "what broke",
-      "incompatible",
-      "api changes",
-      "deprecations",
-    ],
+    patterns: ["breaking changes", "what broke", "incompatible", "api changes", "deprecations"],
     tool: "midnight-check-breaking-changes",
     reason: "Check for breaking changes between versions",
   },
@@ -702,12 +609,7 @@ export const INTENT_TO_TOOL: Array<{
     reason: "Get step-by-step migration guidance",
   },
   {
-    patterns: [
-      "compare syntax",
-      "syntax diff",
-      "syntax between versions",
-      "syntax comparison",
-    ],
+    patterns: ["compare syntax", "syntax diff", "syntax between versions", "syntax comparison"],
     tool: "midnight-compare-syntax",
     reason: "Compare Compact syntax between two versions",
   },
@@ -728,13 +630,7 @@ export const INTENT_TO_TOOL: Array<{
 
   // Meta/Discovery (fallback patterns)
   {
-    patterns: [
-      "what tools",
-      "available tools",
-      "list tools",
-      "show tools",
-      "tool list",
-    ],
+    patterns: ["what tools", "available tools", "list tools", "show tools", "tool list"],
     tool: "midnight-list-tool-categories",
     reason: "Browse available tool categories",
   },

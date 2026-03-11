@@ -171,11 +171,7 @@ export class Cache<T> {
   /**
    * Get or set with a factory function
    */
-  async getOrSet(
-    key: string,
-    factory: () => Promise<T>,
-    ttl?: number
-  ): Promise<T> {
+  async getOrSet(key: string, factory: () => Promise<T>, ttl?: number): Promise<T> {
     const cached = this.get(key);
     if (cached !== undefined) {
       return cached;
@@ -193,10 +189,10 @@ export class Cache<T> {
         this.inFlight.delete(key);
         return value;
       },
-      (error) => {
+      (error: unknown) => {
         this.inFlight.delete(key);
         throw error;
-      }
+      },
     );
 
     this.inFlight.set(key, promise);
@@ -207,9 +203,7 @@ export class Cache<T> {
 /**
  * Create a cache key from multiple parts
  */
-export function createCacheKey(
-  ...parts: (string | number | boolean | undefined)[]
-): string {
+export function createCacheKey(...parts: (string | number | boolean | undefined)[]): string {
   return parts
     .filter((p) => p !== undefined)
     .map((p) => String(p))

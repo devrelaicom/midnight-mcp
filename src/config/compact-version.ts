@@ -103,9 +103,9 @@ export function getVersionInfo(): string {
  * Check if a version is within supported range
  */
 export function isVersionSupported(version: string): boolean {
-  const [major, minor] = version.split(".").map(Number);
-  const [minMajor, minMinor] = COMPACT_VERSION.min.split(".").map(Number);
-  const [maxMajor, maxMinor] = COMPACT_VERSION.max.split(".").map(Number);
+  const [major = 0, minor = 0] = version.split(".").map(Number);
+  const [minMajor = 0, minMinor = 0] = COMPACT_VERSION.min.split(".").map(Number);
+  const [maxMajor = 0, maxMinor = 0] = COMPACT_VERSION.max.split(".").map(Number);
 
   const versionNum = major * 100 + minor;
   const minNum = minMajor * 100 + minMinor;
@@ -129,8 +129,7 @@ export const BUILTIN_FUNCTIONS = {
     {
       name: "persistentHash",
       signature: "persistentHash<T>(value: T): Bytes<32>", // Signature inferred from examples
-      description:
-        "Poseidon hash that produces consistent results across calls",
+      description: "Poseidon hash that produces consistent results across calls",
     },
     {
       name: "persistentCommit",
@@ -145,8 +144,7 @@ export const BUILTIN_FUNCTIONS = {
     {
       name: "disclose",
       signature: "disclose(value: T): T",
-      description:
-        "Explicitly reveals a witness value (required in conditionals)",
+      description: "Explicitly reveals a witness value (required in conditionals)",
     },
     {
       name: "assert",
@@ -156,8 +154,7 @@ export const BUILTIN_FUNCTIONS = {
     {
       name: "default",
       signature: "default<T>(): T",
-      description:
-        "Returns default value for a type (0 for numbers, empty for collections)",
+      description: "Returns default value for a type (0 for numbers, empty for collections)",
     },
   ],
 
@@ -171,8 +168,7 @@ const pk = persistentHash<Vector<2, Bytes<32>>>([
   pad(32, "midnight:pk:"),
   sk
 ]);`,
-      description:
-        "Public key derivation is NOT a builtin - use persistentHash pattern",
+      description: "Public key derivation is NOT a builtin - use persistentHash pattern",
     },
     {
       name: "verify_signature",
@@ -187,8 +183,7 @@ witness signature_valid(): Boolean;`,
       wrongUsage: "random() // Does not exist in ZK circuits",
       correctPattern: `// Randomness must come from witnesses (prover-provided)
 witness get_random_value(): Field;`,
-      description:
-        "ZK circuits are deterministic - randomness must come from witnesses",
+      description: "ZK circuits are deterministic - randomness must come from witnesses",
     },
   ],
 };
@@ -387,8 +382,7 @@ export const LEDGER_TYPE_LIMITS: Record<string, LedgerADTOperations> = {
       },
       { method: ".resetToDefault()", works: true, note: "Reset to 0" },
     ],
-    typescriptAccess:
-      "Access counter value via `ledgerState.counter` in TypeScript SDK",
+    typescriptAccess: "Access counter value via `ledgerState.counter` in TypeScript SDK",
     note: "All Counter operations work in circuits. Use .read() to get value, NOT .value()",
   },
   Map: {
@@ -468,8 +462,7 @@ export const LEDGER_TYPE_LIMITS: Record<string, LedgerADTOperations> = {
       { method: ".insert(leaf)", works: true, note: "Adds leaf to tree" },
       { method: ".root()", works: false, note: "NOT available in circuits" },
     ],
-    typescriptAccess:
-      "Get root via `contractState.tree.root` in TypeScript SDK",
+    typescriptAccess: "Get root via `contractState.tree.root` in TypeScript SDK",
     pattern: `// To verify a merkle proof in circuit:
 witness get_merkle_root(): Bytes<32>;
 witness get_merkle_proof(leaf: Bytes<32>): Vector<32, Bytes<32>>;
@@ -550,8 +543,7 @@ export circuit my_circuit(param: Bytes<32>): [] {
 }`,
   },
   {
-    error:
-      "expected second argument of insert to have type Uint<64> but received Uint<0..N>",
+    error: "expected second argument of insert to have type Uint<64> but received Uint<0..N>",
     cause: "Arithmetic result has bounded type, needs cast back to target",
     fix: `Cast arithmetic results back to the target type:
 const new_balance = (current + amount) as Uint<64>;

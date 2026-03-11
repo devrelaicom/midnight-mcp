@@ -11,12 +11,7 @@ export { startServer, startHttpServer } from "./server.js";
 export { allTools } from "./tools/index.js";
 
 // Resource exports
-export {
-  allResources,
-  getDocumentation,
-  getCode,
-  getSchema,
-} from "./resources/index.js";
+export { allResources, getDocumentation, getCode, getSchema } from "./resources/index.js";
 
 // Prompt exports
 export { promptDefinitions, generatePrompt } from "./prompts/index.js";

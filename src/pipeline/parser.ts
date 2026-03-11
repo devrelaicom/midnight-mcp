@@ -99,7 +99,8 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
   for (const importRegex of importPatterns) {
     let importMatch;
     while ((importMatch = importRegex.exec(content)) !== null) {
-      imports.push(importMatch[1]);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      imports.push(importMatch[1]!);
     }
   }
 
@@ -108,10 +109,9 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
   let ledgerMatch;
   while ((ledgerMatch = ledgerRegex.exec(content)) !== null) {
     hasLedger = true;
-    const ledgerContent = ledgerMatch[1];
-    const startLine = content
-      .substring(0, ledgerMatch.index)
-      .split("\n").length;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const ledgerContent = ledgerMatch[1]!;
+    const startLine = content.substring(0, ledgerMatch.index).split("\n").length;
     const endLine = startLine + ledgerMatch[0].split("\n").length - 1;
 
     codeUnits.push({
@@ -131,27 +131,30 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
       const isPrivate = !!fieldMatch[1];
       codeUnits.push({
         type: "ledger",
-        name: fieldMatch[2],
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        name: fieldMatch[2]!,
         code: fieldMatch[0].trim(),
         startLine: startLine,
         endLine: startLine,
         isPublic: !isPrivate,
         isPrivate,
-        returnType: fieldMatch[3].trim(),
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        returnType: fieldMatch[3]!.trim(),
       });
     }
   }
 
   // Parse circuit definitions
-  const circuitRegex =
-    /(export\s+)?circuit\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*(\w+))?\s*\{/g;
+  const circuitRegex = /(export\s+)?circuit\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*(\w+))?\s*\{/g;
   let circuitMatch;
   while ((circuitMatch = circuitRegex.exec(content)) !== null) {
     hasCircuits = true;
     const isExport = !!circuitMatch[1];
-    const name = circuitMatch[2];
-    const params = circuitMatch[3];
-    const returnType = circuitMatch[4] || "Void";
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = circuitMatch[2]!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const params = circuitMatch[3]!;
+    const returnType = circuitMatch[4] ?? "Void";
 
     // Find the matching closing brace
     const startIndex = circuitMatch.index;
@@ -170,12 +173,12 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
     // Parse parameters
     const parameters = params
       .split(",")
-      .filter((p) => p.trim())
-      .map((p) => {
+      .filter((p: string) => p.trim())
+      .map((p: string) => {
         const parts = p.trim().split(":");
         return {
-          name: parts[0]?.trim() || "",
-          type: parts[1]?.trim() || "unknown",
+          name: parts[0]?.trim() ?? "",
+          type: parts[1]?.trim() ?? "unknown",
         };
       });
 
@@ -201,9 +204,11 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
   let witnessMatch;
   while ((witnessMatch = witnessRegex.exec(content)) !== null) {
     hasWitnesses = true;
-    const name = witnessMatch[1];
-    const params = witnessMatch[2];
-    const returnType = witnessMatch[3]?.trim() || "unknown";
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = witnessMatch[1]!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const params = witnessMatch[2]!;
+    const returnType = witnessMatch[3]?.trim() ?? "unknown";
 
     // Find the matching closing brace
     const startIndex = witnessMatch.index;
@@ -232,7 +237,7 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
       });
 
     codeUnits.push({
-      type: "witness",
+      type: "witness" as const,
       name,
       code: witnessCode,
       startLine,
@@ -249,7 +254,8 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
   let typeMatch;
   while ((typeMatch = typeRegex.exec(content)) !== null) {
     const isExport = !!typeMatch[1];
-    const name = typeMatch[2];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = typeMatch[2]!;
     const startLine = content.substring(0, typeMatch.index).split("\n").length;
 
     if (isExport) {
@@ -264,7 +270,8 @@ export function parseCompactFile(path: string, content: string): ParsedFile {
       endLine: startLine,
       isPublic: isExport,
       isPrivate: false,
-      returnType: typeMatch[3].trim(),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      returnType: typeMatch[3]!.trim(),
     });
   }
 
@@ -294,11 +301,11 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
   const exports: string[] = [];
 
   // Extract imports
-  const importRegex =
-    /import\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+["']([^"']+)["']/g;
+  const importRegex = /import\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+["']([^"']+)["']/g;
   let importMatch;
   while ((importMatch = importRegex.exec(content)) !== null) {
-    imports.push(importMatch[1]);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    imports.push(importMatch[1]!);
   }
 
   // Parse function declarations
@@ -308,10 +315,11 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
   while ((funcMatch = functionRegex.exec(content)) !== null) {
     const isExport = !!funcMatch[1];
     const isAsync = !!funcMatch[2];
-    const name = funcMatch[3];
-    const params = funcMatch[4];
-    const returnType =
-      funcMatch[5]?.trim() || (isAsync ? "Promise<void>" : "void");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = funcMatch[3]!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const params = funcMatch[4]!;
+    const returnType = funcMatch[5]?.trim() ?? (isAsync ? "Promise<void>" : "void");
 
     // Find the matching closing brace
     const startIndex = funcMatch.index;
@@ -330,12 +338,12 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
     // Parse parameters
     const parameters = params
       .split(",")
-      .filter((p) => p.trim())
-      .map((p) => {
+      .filter((p: string) => p.trim())
+      .map((p: string) => {
         const parts = p.trim().split(":");
         return {
-          name: parts[0]?.trim().replace(/\?$/, "") || "",
-          type: parts[1]?.trim() || "any",
+          name: parts[0]?.trim().replace(/\?$/, "") ?? "",
+          type: parts[1]?.trim() ?? "any",
         };
       });
 
@@ -363,7 +371,8 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
   while ((classMatch = classRegex.exec(content)) !== null) {
     const isExport = !!classMatch[1];
     const isAbstract = !!classMatch[2];
-    const name = classMatch[3];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = classMatch[3]!;
 
     // Find the matching closing brace
     const startIndex = classMatch.index;
@@ -384,7 +393,7 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
     }
 
     codeUnits.push({
-      type: "class",
+      type: "class" as const,
       name,
       code: classCode,
       startLine,
@@ -396,12 +405,12 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
   }
 
   // Parse interface declarations
-  const interfaceRegex =
-    /(export\s+)?interface\s+(\w+)(?:\s+extends\s+[^{]+)?\s*\{/g;
+  const interfaceRegex = /(export\s+)?interface\s+(\w+)(?:\s+extends\s+[^{]+)?\s*\{/g;
   let ifaceMatch;
   while ((ifaceMatch = interfaceRegex.exec(content)) !== null) {
     const isExport = !!ifaceMatch[1];
-    const name = ifaceMatch[2];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = ifaceMatch[2]!;
 
     // Find the matching closing brace
     const startIndex = ifaceMatch.index;
@@ -422,7 +431,7 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
     }
 
     codeUnits.push({
-      type: "interface",
+      type: "interface" as const,
       name,
       code: ifaceCode,
       startLine,
@@ -437,7 +446,8 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
   let typeMatch;
   while ((typeMatch = typeRegex.exec(content)) !== null) {
     const isExport = !!typeMatch[1];
-    const name = typeMatch[2];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = typeMatch[2]!;
     const startLine = content.substring(0, typeMatch.index).split("\n").length;
 
     if (isExport) {
@@ -452,7 +462,8 @@ export function parseTypeScriptFile(path: string, content: string): ParsedFile {
       endLine: startLine,
       isPublic: isExport,
       isPrivate: false,
-      returnType: typeMatch[3].trim(),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      returnType: typeMatch[3]!.trim(),
     });
   }
 
@@ -486,8 +497,10 @@ export function parseMarkdownFile(path: string, content: string): ParsedFile {
 
   while ((headingMatch = headingRegex.exec(content)) !== null) {
     headings.push({
-      level: headingMatch[1].length,
-      title: headingMatch[2],
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      level: headingMatch[1]!.length,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      title: headingMatch[2]!,
       index: headingMatch.index,
     });
   }
@@ -495,6 +508,7 @@ export function parseMarkdownFile(path: string, content: string): ParsedFile {
   // Create sections between headings
   for (let i = 0; i < headings.length; i++) {
     const heading = headings[i];
+    if (!heading) continue;
     const nextHeading = headings[i + 1];
     const startIndex = heading.index;
     const endIndex = nextHeading ? nextHeading.index : content.length;
