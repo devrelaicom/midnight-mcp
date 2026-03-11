@@ -4,6 +4,12 @@
  */
 
 import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
+import { zodInputSchema } from "../../utils/schema.js";
+import {
+  AnalyzeContractInputSchema,
+  ExplainCircuitInputSchema,
+  CompileContractInputSchema,
+} from "./schemas.js";
 import { analyzeContract, explainCircuit, compileContract } from "./handlers.js";
 
 // ============================================================================
@@ -263,20 +269,7 @@ USAGE GUIDANCE:
 • Call once per contract - results are deterministic
 • For security review, also use midnight-review-contract (requires sampling)
 • Run before making changes, not repeatedly during iteration`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        code: {
-          type: "string",
-          description: "Compact contract source code to analyze",
-        },
-        checkSecurity: {
-          type: "boolean",
-          description: "Run security analysis (default: true)",
-        },
-      },
-      required: ["code"],
-    },
+    inputSchema: zodInputSchema(AnalyzeContractInputSchema),
     outputSchema: analyzeContractOutputSchema,
     annotations: {
       readOnlyHint: true,
@@ -294,16 +287,7 @@ USAGE GUIDANCE:
 • Call once per circuit - explanations are deterministic
 • Provide complete circuit code including parameters and body
 • For full contract analysis, use midnight-analyze-contract first`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        circuitCode: {
-          type: "string",
-          description: "Circuit definition from Compact to explain",
-        },
-      },
-      required: ["circuitCode"],
-    },
+    inputSchema: zodInputSchema(ExplainCircuitInputSchema),
     outputSchema: explainCircuitOutputSchema,
     annotations: {
       readOnlyHint: true,
@@ -337,25 +321,7 @@ USAGE GUIDANCE:
 • Call after generating or modifying Compact code
 • Use skipZk=true for quick validation during development
 • Use fullCompile=true for final validation before deployment`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        code: {
-          type: "string",
-          description: "Compact contract source code to compile",
-        },
-        skipZk: {
-          type: "boolean",
-          description:
-            "Skip ZK circuit generation for faster syntax-only validation (default: true)",
-        },
-        fullCompile: {
-          type: "boolean",
-          description: "Perform full compilation including ZK generation (slower but complete)",
-        },
-      },
-      required: ["code"],
-    },
+    inputSchema: zodInputSchema(CompileContractInputSchema),
     outputSchema: compileContractOutputSchema,
     annotations: {
       readOnlyHint: true,

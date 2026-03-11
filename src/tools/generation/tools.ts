@@ -4,6 +4,12 @@
  */
 
 import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
+import { zodInputSchema } from "../../utils/schema.js";
+import {
+  GenerateContractInputSchema,
+  ReviewContractInputSchema,
+  DocumentContractInputSchema,
+} from "./schemas.js";
 import {
   handleGenerateContract,
   handleReviewContract,
@@ -120,25 +126,7 @@ EXAMPLE USAGE:
 "Create a token contract with private balances, mint/burn capabilities for admin, and transfer functionality between users"
 
 ⚠️ REQUIRES: Client with sampling capability (e.g., Claude Desktop)`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        requirements: {
-          type: "string",
-          description: "Natural language description of the contract requirements",
-        },
-        contractType: {
-          type: "string",
-          enum: ["counter", "token", "voting", "custom"],
-          description: "Type of contract to generate",
-        },
-        baseExample: {
-          type: "string",
-          description: "Example contract code to use as a base",
-        },
-      },
-      required: ["requirements"],
-    },
+    inputSchema: zodInputSchema(GenerateContractInputSchema),
     outputSchema: generateContractOutputSchema,
     annotations: {
       title: "Generate Compact Contract",
@@ -171,16 +159,7 @@ OUTPUT INCLUDES:
 • Improved code version if applicable
 
 ⚠️ REQUIRES: Client with sampling capability (e.g., Claude Desktop)`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        code: {
-          type: "string",
-          description: "Compact contract code to review",
-        },
-      },
-      required: ["code"],
-    },
+    inputSchema: zodInputSchema(ReviewContractInputSchema),
     outputSchema: reviewContractOutputSchema,
     annotations: {
       title: "Review Compact Contract",
@@ -212,21 +191,7 @@ MARKDOWN INCLUDES:
 • Security considerations
 
 ⚠️ REQUIRES: Client with sampling capability (e.g., Claude Desktop)`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        code: {
-          type: "string",
-          description: "Compact contract code to document",
-        },
-        format: {
-          type: "string",
-          enum: ["markdown", "jsdoc"],
-          description: "Documentation format (default: markdown)",
-        },
-      },
-      required: ["code"],
-    },
+    inputSchema: zodInputSchema(DocumentContractInputSchema),
     outputSchema: documentContractOutputSchema,
     annotations: {
       title: "Generate Contract Documentation",
