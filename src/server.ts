@@ -535,7 +535,7 @@ function registerToolHandlers(server: Server): void {
                   error: "Invalid tool arguments",
                   details:
                     validationError instanceof z.ZodError
-                      ? validationError.errors
+                      ? validationError.issues
                       : String(validationError),
                 }),
               },

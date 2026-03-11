@@ -12,7 +12,7 @@ This project extends the Midnight Network with additional developer tooling.
 
 ## Requirements
 
-- **Node.js 20+** (LTS recommended)
+- **Node.js 25.8.1** recommended, with compatibility tested on **24.14.0** and **25.8.1**
 
 Check your version: `node --version`
 

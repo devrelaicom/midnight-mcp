@@ -30,12 +30,12 @@ jobs:
     environment: CLOUDFLARE # Use the CLOUDFLARE environment for secrets
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "25.8.1"
           cache: "npm"
           cache-dependency-path: api/package-lock.json
 
@@ -75,7 +75,7 @@ jobs:
     if: failure()
     steps:
       - name: Create failure issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = `⚠️ Weekly Indexing Failed - ${new Date().toISOString().split('T')[0]}`;

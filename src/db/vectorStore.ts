@@ -1,4 +1,4 @@
-import { ChromaClient, Collection } from "chromadb";
+import { ChromaClient, Collection, type Where } from "chromadb";
 import { config, logger } from "../utils/index.js";
 import { embeddingGenerator } from "../pipeline/embeddings.js";
 
@@ -144,7 +144,7 @@ class VectorStore {
       const queryEmbedding = await embeddingGenerator.generateEmbedding(query);
 
       // Build where filter
-      const whereFilter: Record<string, unknown> = {};
+      const whereFilter: Record<string, string | boolean> = {};
       if (filter?.repository) {
         whereFilter.repository = filter.repository;
       }
@@ -158,10 +158,12 @@ class VectorStore {
         whereFilter.isPublic = filter.isPublic;
       }
 
+      const where = Object.keys(whereFilter).length > 0 ? (whereFilter as Where) : undefined;
+
       const results = await this.collection.query({
         queryEmbeddings: [queryEmbedding.embedding],
         nResults: limit,
-        where: Object.keys(whereFilter).length > 0 ? whereFilter : undefined,
+        where,
       });
 
       // Format results
@@ -174,10 +176,11 @@ class VectorStore {
           const id = ids[i];
           if (!id) continue;
           const metadata = metas[i] as CodeDocument["metadata"];
+          const distance = results.distances[0]?.[i];
           searchResults.push({
             id,
             content: docs[i] ?? "",
-            score: results.distances?.[0]?.[i] != null ? 1 - (results.distances[0][i] ?? 0) : 0,
+            score: distance != null ? 1 - distance : 0,
             metadata,
           });
         }
