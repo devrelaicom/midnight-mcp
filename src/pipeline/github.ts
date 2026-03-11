@@ -327,7 +327,7 @@ export class GitHubClient {
 
       const result = treeData.tree
         .filter((item) => item.type === "blob" && item.path)
-        .map((item) => item.path as string);
+        .map((item) => item.path);
 
       this.treeCache.set(cacheKey, result);
       return result;
