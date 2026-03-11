@@ -67,15 +67,10 @@ function validateFilePath(filePath: string): {
     "C:\\System32",
     "C:\\ProgramData",
   ];
-  const blockedPaths =
-    platform === "win32" ? blockedPathsWindows : blockedPathsUnix;
+  const blockedPaths = platform === "win32" ? blockedPathsWindows : blockedPathsUnix;
 
   const normalizedLower = normalized.toLowerCase();
-  if (
-    blockedPaths.some((blocked) =>
-      normalizedLower.startsWith(blocked.toLowerCase())
-    )
-  ) {
+  if (blockedPaths.some((blocked) => normalizedLower.startsWith(blocked.toLowerCase()))) {
     return {
       valid: false,
       error: "Cannot access system directories",
@@ -111,9 +106,7 @@ function isValidUtf8Text(content: string): boolean {
  * Extract the structure of a Compact contract (circuits, witnesses, ledger, etc.)
  * This helps agents understand what a contract does without parsing it themselves
  */
-export async function extractContractStructure(
-  input: ExtractContractStructureInput
-) {
+export async function extractContractStructure(input: ExtractContractStructureInput) {
   logger.debug("Extracting contract structure", {
     hasCode: !!input.code,
     filePath: input.filePath,
@@ -135,7 +128,9 @@ export async function extractContractStructure(
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       code = await readFile(pathValidation.normalizedPath!, "utf-8");
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       filename = basename(pathValidation.normalizedPath!);
 
       // Check for binary content
@@ -177,16 +172,15 @@ export async function extractContractStructure(
 
   // Extract pragma version (supports >=, >, <=, <, ==, ~; >=? and <=? are ordered
   // so that >= and <= are matched before > and <)
-  const pragmaMatch = code.match(
-    /pragma\s+language_version\s*(?:>=?|<=?|==|~)\s*([\d.]+)/
-  );
-  const languageVersion = pragmaMatch ? pragmaMatch[1] : null;
+  const pragmaMatch = code.match(/pragma\s+language_version\s*(?:>=?|<=?|==|~)\s*([\d.]+)/);
+  const languageVersion = pragmaMatch?.[1] ?? null;
 
   // Extract imports
   const imports: string[] = [];
   const importMatches = code.matchAll(/import\s+(\w+)|include\s+"([^"]+)"/g);
   for (const match of importMatches) {
-    imports.push(match[1] || match[2]);
+    const importName = match[1] ?? match[2] ?? "";
+    imports.push(importName);
   }
 
   // Extract exported circuits
@@ -210,13 +204,10 @@ export async function extractContractStructure(
     let stringChar = "";
 
     for (let i = 0; i < paramsStr.length; i++) {
-      const ch = paramsStr[i];
+      const ch = paramsStr[i] ?? "";
 
       // Handle string literals
-      if (
-        (ch === '"' || ch === "'") &&
-        (i === 0 || paramsStr[i - 1] !== "\\")
-      ) {
+      if ((ch === '"' || ch === "'") && (i === 0 || paramsStr[i - 1] !== "\\")) {
         if (!inString) {
           inString = true;
           stringChar = ch;
@@ -236,13 +227,7 @@ export async function extractContractStructure(
         else if (ch === ")") parenDepth = Math.max(0, parenDepth - 1);
       }
 
-      if (
-        ch === "," &&
-        !inString &&
-        angleDepth === 0 &&
-        squareDepth === 0 &&
-        parenDepth === 0
-      ) {
+      if (ch === "," && !inString && angleDepth === 0 && squareDepth === 0 && parenDepth === 0) {
         if (current.trim()) result.push(current.trim());
         current = "";
       } else {
@@ -260,7 +245,7 @@ export async function extractContractStructure(
 
   // Precompute a mapping from character index to 1-based line number to avoid
   // repeatedly scanning from the start of the string for each match.
-  const lineByIndex: number[] = new Array(code.length);
+  const lineByIndex: number[] = new Array<number>(code.length).fill(0);
   {
     let currentLine = 1;
     for (let i = 0; i < code.length; i++) {
@@ -273,9 +258,10 @@ export async function extractContractStructure(
 
   let circuitMatch;
   while ((circuitMatch = circuitStartPattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[circuitMatch.index];
+    const lineNum = lineByIndex[circuitMatch.index] ?? 0;
     const isExport = circuitMatch[1] === "export";
-    const name = circuitMatch[2];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const name = circuitMatch[2]!;
 
     // Manually extract params by finding matching closing parenthesis
     const startIdx = circuitMatch.index + circuitMatch[0].length;
@@ -292,7 +278,7 @@ export async function extractContractStructure(
     // Extract return type after ): until { or newline or ;
     const afterParams = code.substring(endIdx);
     const returnTypeMatch = afterParams.match(/^\s*:\s*([^{\n;]+)/);
-    const returnType = returnTypeMatch ? returnTypeMatch[1].trim() : "[]";
+    const returnType = returnTypeMatch?.[1]?.trim() ?? "[]";
 
     circuits.push({
       name,
@@ -314,10 +300,12 @@ export async function extractContractStructure(
 
   let witnessMatch;
   while ((witnessMatch = witnessPattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[witnessMatch.index];
+    const lineNum = lineByIndex[witnessMatch.index] ?? 0;
     witnesses.push({
-      name: witnessMatch[2],
-      type: witnessMatch[3].trim(),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      name: witnessMatch[2]!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      type: witnessMatch[3]!.trim(),
       isExport: witnessMatch[1] === "export",
       line: lineNum,
     });
@@ -334,10 +322,12 @@ export async function extractContractStructure(
 
   let ledgerMatch;
   while ((ledgerMatch = ledgerPattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[ledgerMatch.index];
+    const lineNum = lineByIndex[ledgerMatch.index] ?? 0;
     ledgerItems.push({
-      name: ledgerMatch[2],
-      type: ledgerMatch[3].trim(),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      name: ledgerMatch[2]!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      type: ledgerMatch[3]!.trim(),
       isExport: ledgerMatch[1] === "export",
       line: lineNum,
     });
@@ -353,10 +343,12 @@ export async function extractContractStructure(
 
   let typeMatch;
   while ((typeMatch = typePattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[typeMatch.index];
+    const lineNum = lineByIndex[typeMatch.index] ?? 0;
     types.push({
-      name: typeMatch[1],
-      definition: typeMatch[2].trim(),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      name: typeMatch[1]!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      definition: typeMatch[2]!.trim(),
       line: lineNum,
     });
   }
@@ -374,9 +366,8 @@ export async function extractContractStructure(
    */
   function extractBalancedBlock(
     source: string,
-    startIndex: number
+    startIndex: number,
   ): { body: string; endIndex: number } | null {
-    let depth = 0;
     const length = source.length;
     let i = startIndex;
 
@@ -384,7 +375,7 @@ export async function extractContractStructure(
       return null;
     }
 
-    depth = 1;
+    let depth = 1;
     i++;
     const bodyStart = i;
 
@@ -424,10 +415,7 @@ export async function extractContractStructure(
       // Handle block comments
       if (ch === "/" && next === "*") {
         i += 2;
-        while (
-          i < length &&
-          !(source[i] === "*" && i + 1 < length && source[i + 1] === "/")
-        ) {
+        while (i < length && !(source[i] === "*" && i + 1 < length && source[i + 1] === "/")) {
           i++;
         }
         if (i < length) {
@@ -462,7 +450,7 @@ export async function extractContractStructure(
 
   let structMatch;
   while ((structMatch = structPattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[structMatch.index];
+    const lineNum = lineByIndex[structMatch.index] ?? 0;
     const openingBraceIndex = code.indexOf("{", structMatch.index);
     if (openingBraceIndex === -1) {
       continue;
@@ -478,7 +466,8 @@ export async function extractContractStructure(
       .map((f) => f.trim())
       .filter((f) => f);
     structs.push({
-      name: structMatch[1],
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      name: structMatch[1]!,
       fields,
       line: lineNum,
     });
@@ -495,7 +484,7 @@ export async function extractContractStructure(
 
   let enumMatch;
   while ((enumMatch = enumStartPattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[enumMatch.index];
+    const lineNum = lineByIndex[enumMatch.index] ?? 0;
     const openingBraceIndex = code.indexOf("{", enumMatch.index);
     if (openingBraceIndex === -1) {
       continue;
@@ -511,7 +500,8 @@ export async function extractContractStructure(
       .map((v) => v.trim())
       .filter((v) => v);
     enums.push({
-      name: enumMatch[1],
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      name: enumMatch[1]!,
       variants,
       line: lineNum,
     });
@@ -606,15 +596,15 @@ export async function extractContractStructure(
     // Double check it's not preceded by export
     const before = code.substring(
       Math.max(0, unexportedEnumMatch.index - 10),
-      unexportedEnumMatch.index
+      unexportedEnumMatch.index,
     );
     if (!before.includes("export")) {
       const lineNum = lineByIndex[unexportedEnumMatch.index] || 1;
       potentialIssues.push({
         type: "unexported_enum",
         line: lineNum,
-        message: `Enum '${unexportedEnumMatch[1]}' is not exported - won't be accessible from TypeScript`,
-        suggestion: `Add 'export' keyword: 'export enum ${unexportedEnumMatch[1]} { ... }'`,
+        message: `Enum '${unexportedEnumMatch[1] ?? ""}' is not exported - won't be accessible from TypeScript`,
+        suggestion: `Add 'export' keyword: 'export enum ${unexportedEnumMatch[1] ?? ""} { ... }'`,
         severity: "warning",
       });
     }
@@ -644,7 +634,7 @@ export async function extractContractStructure(
     const beforeConst = code.substring(0, constMatch.index);
     const lastCircuitStart = Math.max(
       beforeConst.lastIndexOf("circuit "),
-      beforeConst.lastIndexOf("constructor {")
+      beforeConst.lastIndexOf("constructor {"),
     );
     const lastCloseBrace = beforeConst.lastIndexOf("}");
 
@@ -654,8 +644,8 @@ export async function extractContractStructure(
       potentialIssues.push({
         type: "module_level_const",
         line: lineNum,
-        message: `Module-level 'const ${constMatch[1]}' is not supported in Compact`,
-        suggestion: `Use 'pure circuit ${constMatch[1]}(): <type> { return <value>; }' instead`,
+        message: `Module-level 'const ${constMatch[1] ?? ""}' is not supported in Compact`,
+        suggestion: `Use 'pure circuit ${constMatch[1] ?? ""}(): <type> { return <value>; }' instead`,
         severity: "error",
       });
     }
@@ -663,8 +653,7 @@ export async function extractContractStructure(
 
   // 2. Detect standard library name collisions
   const hasStdlibImport =
-    imports.includes("CompactStandardLibrary") ||
-    code.includes("import CompactStandardLibrary");
+    imports.includes("CompactStandardLibrary") || code.includes("import CompactStandardLibrary");
 
   if (hasStdlibImport) {
     // Check circuits for name collisions
@@ -686,8 +675,9 @@ export async function extractContractStructure(
   const sealedPattern = /sealed\s+ledger\s+(\w+)\s*:/g;
   let sealedMatch;
   while ((sealedMatch = sealedPattern.exec(code)) !== null) {
-    const lineNum = lineByIndex[sealedMatch.index] || 1;
-    sealedFields.push({ name: sealedMatch[1], line: lineNum });
+    const lineNum = lineByIndex[sealedMatch.index] ?? 1;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    sealedFields.push({ name: sealedMatch[1]!, line: lineNum });
   }
 
   if (sealedFields.length > 0) {
@@ -699,19 +689,17 @@ export async function extractContractStructure(
         const circuitBodyMatch = code.match(
           new RegExp(
             `(?:export\\s+)?circuit\\s+${escapedCircuitName}\\s*\\([^)]*\\)\\s*:[^{]*\\{([\\s\\S]*?)\\n\\}`,
-            "m"
-          )
+            "m",
+          ),
         );
         if (circuitBodyMatch) {
-          const body = circuitBodyMatch[1];
+          const body = circuitBodyMatch[1] ?? "";
           for (const field of sealedFields) {
             // Check for assignment patterns: fieldName = or fieldName.method(
             const escapedFieldName = escapeRegex(field.name);
             if (
               new RegExp(`\\b${escapedFieldName}\\s*=`).test(body) ||
-              new RegExp(`\\b${escapedFieldName}\\s*\\.\\s*\\w+\\s*\\(`).test(
-                body
-              )
+              new RegExp(`\\b${escapedFieldName}\\s*\\.\\s*\\w+\\s*\\(`).test(body)
             ) {
               potentialIssues.push({
                 type: "sealed_export_conflict",
@@ -733,9 +721,7 @@ export async function extractContractStructure(
     if (!hasConstructor) {
       // Check if there's an initialize-like circuit trying to set sealed fields
       const initCircuit = circuits.find(
-        (c) =>
-          c.name.toLowerCase().includes("init") ||
-          c.name.toLowerCase() === "setup"
+        (c) => c.name.toLowerCase().includes("init") || c.name.toLowerCase() === "setup",
       );
       if (initCircuit && initCircuit.isExport) {
         potentialIssues.push({
@@ -755,15 +741,13 @@ export async function extractContractStructure(
     // burnAddress() returns Either<ZswapCoinPublicKey, ContractAddress>
     const burnAddressUsages = code.matchAll(/burnAddress\s*\(\s*\)/g);
     for (const usage of burnAddressUsages) {
+      const usageIdx = usage.index;
       // Check if it's being passed to a function or assigned
       const afterUsage = code.substring(
-        usage.index! + usage[0].length,
-        usage.index! + usage[0].length + 50
+        usageIdx + usage[0].length,
+        usageIdx + usage[0].length + 50,
       );
-      const beforeUsage = code.substring(
-        Math.max(0, usage.index! - 100),
-        usage.index!
-      );
+      const beforeUsage = code.substring(Math.max(0, usageIdx - 100), usageIdx);
 
       // If used in a context expecting ZswapCoinPublicKey (not .left or .right access)
       if (
@@ -773,7 +757,7 @@ export async function extractContractStructure(
       ) {
         // Check if it's in a function call or assignment that likely expects ZswapCoinPublicKey
         if (/\(\s*$/.test(beforeUsage) || /,\s*$/.test(beforeUsage)) {
-          const lineNum = lineByIndex[usage.index!] || 1;
+          const lineNum = lineByIndex[usageIdx] ?? 1;
           potentialIssues.push({
             type: "stdlib_type_mismatch",
             line: lineNum,
@@ -800,7 +784,7 @@ export async function extractContractStructure(
     const lineContent = beforeDiv.substring(lastLineStart);
     if (lineContent.includes("//")) continue;
 
-    const lineNum = lineByIndex[divMatch.index] || 1;
+    const lineNum = lineByIndex[divMatch.index] ?? 1;
     potentialIssues.push({
       type: "unsupported_division",
       line: lineNum,
@@ -815,13 +799,11 @@ export async function extractContractStructure(
   const counterValuePattern = /(\w+)\.value\s*\(/g;
   let counterMatch;
   while ((counterMatch = counterValuePattern.exec(code)) !== null) {
-    const varName = counterMatch[1];
+    const varName = counterMatch[1] ?? "";
     // Check if this variable is a Counter type
-    const counterLedger = ledgerItems.find(
-      (l) => l.name === varName && l.type === "Counter"
-    );
+    const counterLedger = ledgerItems.find((l) => l.name === varName && l.type === "Counter");
     if (counterLedger) {
-      const lineNum = lineByIndex[counterMatch.index] || 1;
+      const lineNum = lineByIndex[counterMatch.index] ?? 1;
       potentialIssues.push({
         type: "invalid_counter_access",
         line: lineNum,
@@ -833,32 +815,24 @@ export async function extractContractStructure(
   }
 
   // 8. Detect potential Uint overflow in multiplication (suggest Field casting)
-  const multiplyPattern =
-    /(\w+)\s*\*\s*(\w+)(?:\s*\+\s*\w+)?\s*(?:as\s+Uint|==)/g;
+  const multiplyPattern = /(\w+)\s*\*\s*(\w+)(?:\s*\+\s*\w+)?\s*(?:as\s+Uint|==)/g;
   let multMatch;
   while ((multMatch = multiplyPattern.exec(code)) !== null) {
     // Check if operands are likely Uint types and not already cast to Field
-    const beforeMult = code.substring(
-      Math.max(0, multMatch.index - 200),
-      multMatch.index
-    );
-    const afterMult = code.substring(
-      multMatch.index,
-      multMatch.index + multMatch[0].length + 50
-    );
+    const beforeMult = code.substring(Math.max(0, multMatch.index - 200), multMatch.index);
+    const afterMult = code.substring(multMatch.index, multMatch.index + multMatch[0].length + 50);
 
     // Skip if already casting to Field
-    if (afterMult.includes("as Field") || beforeMult.includes("as Field"))
-      continue;
+    if (afterMult.includes("as Field") || beforeMult.includes("as Field")) continue;
 
     // Check if this looks like a verification pattern (common in witness verification)
     if (/assert|==/.test(afterMult)) {
-      const lineNum = lineByIndex[multMatch.index] || 1;
+      const lineNum = lineByIndex[multMatch.index] ?? 1;
       potentialIssues.push({
         type: "potential_overflow",
         line: lineNum,
-        message: `Multiplication '${multMatch[1]} * ${multMatch[2]}' may overflow Uint bounds`,
-        suggestion: `Cast operands to Field for safe arithmetic: '(${multMatch[1]} as Field) * (${multMatch[2]} as Field)'`,
+        message: `Multiplication '${multMatch[1] ?? ""} * ${multMatch[2] ?? ""}' may overflow Uint bounds`,
+        suggestion: `Cast operands to Field for safe arithmetic: '(${multMatch[1] ?? ""} as Field) * (${multMatch[2] ?? ""} as Field)'`,
         severity: "warning",
       });
       break; // Only warn once
@@ -871,7 +845,7 @@ export async function extractContractStructure(
   const ifPattern = /if\s*\(([^)]+)\)/g;
   let ifMatch;
   while ((ifMatch = ifPattern.exec(code)) !== null) {
-    const condition = ifMatch[1];
+    const condition = ifMatch[1] ?? "";
     // Check if condition uses a witness value without disclose
     for (const witnessName of witnessNames) {
       if (
@@ -879,7 +853,7 @@ export async function extractContractStructure(
         !condition.includes(`disclose(${witnessName}`) &&
         !condition.includes("disclose(")
       ) {
-        const lineNum = lineByIndex[ifMatch.index] || 1;
+        const lineNum = lineByIndex[ifMatch.index] ?? 1;
         potentialIssues.push({
           type: "undisclosed_witness_conditional",
           line: lineNum,
@@ -895,18 +869,19 @@ export async function extractContractStructure(
   // 10. Detect constructor parameters assigned to ledger without disclose()
   // Constructor parameters are treated as witness values and need disclose() when written to ledger
   const constructorMatch = code.match(
-    /constructor\s*\(([^)]*)\)\s*\{([\s\S]*?)(?=\n\s*(?:export|circuit|witness|ledger|constructor|\}|$))/
+    /constructor\s*\(([^)]*)\)\s*\{([\s\S]*?)(?=\n\s*(?:export|circuit|witness|ledger|constructor|\}|$))/,
   );
   if (constructorMatch) {
-    const paramsStr = constructorMatch[1];
-    const constructorBody = constructorMatch[2];
+    const paramsStr = constructorMatch[1] ?? "";
+    const constructorBody = constructorMatch[2] ?? "";
 
     // Extract constructor parameter names
     const paramPattern = /(\w+)\s*:\s*[^,)]+/g;
     const constructorParams: string[] = [];
     let paramMatch;
     while ((paramMatch = paramPattern.exec(paramsStr)) !== null) {
-      constructorParams.push(paramMatch[1]);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      constructorParams.push(paramMatch[1]!);
     }
 
     // Check each parameter for direct assignment to ledger without disclose
@@ -916,19 +891,19 @@ export async function extractContractStructure(
       const escapedParam = escapeRegex(param);
       const assignmentPattern = new RegExp(
         `(\\w+)\\s*=\\s*(?!disclose\\s*\\()${escapedParam}\\b`,
-        "g"
+        "g",
       );
       let assignMatch;
       while ((assignMatch = assignmentPattern.exec(constructorBody)) !== null) {
-        const fieldName = assignMatch[1];
+        const fieldName = assignMatch[1] ?? "";
         // Check if the field is a ledger item
         const isLedgerField = ledgerItems.some((l) => l.name === fieldName);
         if (isLedgerField) {
           // Find the line number
           const beforeAssign = code.substring(
             0,
-            constructorMatch.index! +
-              constructorMatch[0].indexOf(assignMatch[0])
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            constructorMatch.index! + constructorMatch[0].indexOf(assignMatch[0]),
           );
           const lineNum = (beforeAssign.match(/\n/g) || []).length + 1;
           potentialIssues.push({

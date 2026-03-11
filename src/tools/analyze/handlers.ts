@@ -20,6 +20,7 @@ import type {
 /**
  * Analyze a Compact smart contract for structure, patterns, and potential issues
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function analyzeContract(input: AnalyzeContractInput) {
   logger.debug("Analyzing Compact contract");
 
@@ -40,15 +41,11 @@ export async function analyzeContract(input: AnalyzeContractInput) {
       // Check if private field is used in a public circuit without proper protection
       for (const circuit of circuits) {
         if (circuit.isPublic && circuit.code.includes(field.name)) {
-          if (
-            !circuit.code.includes("disclose") &&
-            !circuit.code.includes("commit")
-          ) {
+          if (!circuit.code.includes("disclose") && !circuit.code.includes("commit")) {
             findings.push({
               severity: "warning",
               message: `Private field '${field.name}' used in public circuit '${circuit.name}' without disclose/commit`,
-              suggestion:
-                "Consider using disclose() or commit() to properly handle private data",
+              suggestion: "Consider using disclose() or commit() to properly handle private data",
             });
           }
         }
@@ -68,8 +65,7 @@ export async function analyzeContract(input: AnalyzeContractInput) {
           findings.push({
             severity: "info",
             message: `Public circuit '${circuit.name}' modifies state without assertions`,
-            suggestion:
-              "Consider adding assertions to validate inputs and permissions",
+            suggestion: "Consider adding assertions to validate inputs and permissions",
           });
         }
       }
@@ -98,8 +94,7 @@ export async function analyzeContract(input: AnalyzeContractInput) {
       findings.push({
         severity: "info",
         message: "Standard library not imported",
-        suggestion:
-          "Consider adding 'import CompactStandardLibrary;' for common utilities",
+        suggestion: "Consider adding 'import CompactStandardLibrary;' for common utilities",
       });
     }
   }
@@ -153,6 +148,7 @@ export async function analyzeContract(input: AnalyzeContractInput) {
 /**
  * Explain what a specific circuit does in plain language
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function explainCircuit(input: ExplainCircuitInput) {
   logger.debug("Explaining circuit");
 
@@ -164,7 +160,7 @@ export async function explainCircuit(input: ExplainCircuitInput) {
       "No circuit definition found in the provided code",
       ErrorCodes.INVALID_INPUT,
       "Provide a complete circuit definition including the 'circuit' keyword. " +
-      "Example: export circuit myFunction(param: Field): [] { ... }"
+        "Example: export circuit myFunction(param: Field): [] { ... }",
     );
   }
 
@@ -182,9 +178,7 @@ export async function explainCircuit(input: ExplainCircuitInput) {
 
   if (circuit.code.includes("commit")) {
     operations.push("Creates cryptographic commitments (commit)");
-    zkImplications.push(
-      "Commitments allow hiding data while proving properties about it",
-    );
+    zkImplications.push("Commitments allow hiding data while proving properties about it");
   }
 
   if (circuit.code.includes("hash")) {
@@ -237,10 +231,7 @@ export async function explainCircuit(input: ExplainCircuitInput) {
 // Helper Functions
 // ============================================================================
 
-function buildCircuitExplanation(
-  circuit: CodeUnit,
-  operations: string[],
-): string {
+function buildCircuitExplanation(circuit: CodeUnit, operations: string[]): string {
   let explanation = `The circuit '${circuit.name}' is a `;
 
   if (circuit.isPublic) {
@@ -251,9 +242,7 @@ function buildCircuitExplanation(
 
   if (circuit.parameters && circuit.parameters.length > 0) {
     explanation += `It takes ${circuit.parameters.length} parameter(s): `;
-    explanation += circuit.parameters
-      .map((p) => `${p.name} (${p.type})`)
-      .join(", ");
+    explanation += circuit.parameters.map((p) => `${p.name} (${p.type})`).join(", ");
     explanation += ". ";
   }
 
@@ -275,15 +264,11 @@ function getPrivacyConsiderations(circuit: CodeUnit): string[] {
   const considerations: string[] = [];
 
   if (circuit.code.includes("disclose")) {
-    considerations.push(
-      "Uses disclose() - some private data will be revealed on-chain",
-    );
+    considerations.push("Uses disclose() - some private data will be revealed on-chain");
   }
 
   if (circuit.isPublic) {
-    considerations.push(
-      "Public circuit - anyone can call this and generate proofs",
-    );
+    considerations.push("Public circuit - anyone can call this and generate proofs");
   }
 
   if (circuit.code.includes("@private") || circuit.code.includes("witness")) {
@@ -293,9 +278,7 @@ function getPrivacyConsiderations(circuit: CodeUnit): string[] {
   }
 
   if (considerations.length === 0) {
-    considerations.push(
-      "No specific privacy concerns identified in this circuit",
-    );
+    considerations.push("No specific privacy concerns identified in this circuit");
   }
 
   return considerations;
@@ -304,17 +287,15 @@ function getPrivacyConsiderations(circuit: CodeUnit): string[] {
  * Compile a Compact smart contract using the hosted compiler service
  * Falls back to static analysis if the compiler service is unavailable
  */
-export async function compileContract(
-  input: CompileContractInput,
-): Promise<object> {
+export async function compileContract(input: CompileContractInput): Promise<object> {
   logger.info("Compiling Compact contract via hosted service", {
-    codeLength: input.code?.length ?? 0,
+    codeLength: input.code.length,
     skipZk: input.skipZk,
     fullCompile: input.fullCompile,
   });
 
   // Determine compilation mode
-  const skipZk = input.fullCompile ? false : (input.skipZk ?? true);
+  const skipZk = input.fullCompile ? false : input.skipZk;
 
   // Call the hosted compiler service
   const result = await compileWithService(input.code, {
@@ -340,10 +321,9 @@ export async function compileContract(
   } else {
     // Check if service is unavailable - fall back to static analysis
     if (!result.serviceAvailable) {
-      logger.warn(
-        "Compiler service unavailable, falling back to static analysis",
-        { error: result.error },
-      );
+      logger.warn("Compiler service unavailable, falling back to static analysis", {
+        error: result.error,
+      });
 
       // Run static analysis as fallback
       const staticResult = await analyzeContract({
@@ -352,7 +332,7 @@ export async function compileContract(
       });
 
       // Include security findings as warnings (without noisy prefix)
-      const securityWarnings = (staticResult.securityFindings || []).map(
+      const securityWarnings = staticResult.securityFindings.map(
         (f: SecurityFinding) => `[${f.severity}] ${f.message}`,
       );
 
@@ -376,30 +356,26 @@ export async function compileContract(
 
     // Compiler available but compilation failed — throw so the server's
     // catch block returns { isError: true } per our error handling convention.
-    const hint = result.error === "TIMEOUT"
-      ? "The contract may be too complex. Try simplifying or breaking it into smaller pieces."
-      : result.errorDetails?.line
-        ? `Check line ${result.errorDetails.line} for the issue.`
-        : undefined;
+    const hint =
+      result.error === "TIMEOUT"
+        ? "The contract may be too complex. Try simplifying or breaking it into smaller pieces."
+        : result.errorDetails?.line
+          ? `Check line ${result.errorDetails.line} for the issue.`
+          : undefined;
 
-    throw new MCPError(
-      result.message || "Compilation failed",
-      ErrorCodes.PARSE_ERROR,
-      hint,
-      {
-        compilerError: result.error,
-        validationType: "compiler",
-        serviceAvailable: result.serviceAvailable,
-        serviceUrl: getCompilerUrl(),
-        ...(result.errorDetails && {
-          location: {
-            line: result.errorDetails.line,
-            column: result.errorDetails.column,
-            errorType: result.errorDetails.errorType,
-          },
-        }),
-      },
-    );
+    throw new MCPError(result.message || "Compilation failed", ErrorCodes.PARSE_ERROR, hint, {
+      compilerError: result.error,
+      validationType: "compiler",
+      serviceAvailable: result.serviceAvailable,
+      serviceUrl: getCompilerUrl(),
+      ...(result.errorDetails && {
+        location: {
+          line: result.errorDetails.line,
+          column: result.errorDetails.column,
+          errorType: result.errorDetails.errorType,
+        },
+      }),
+    });
   }
 }
 
@@ -416,6 +392,6 @@ export async function getCompilerStatus(): Promise<object> {
     error: health.error,
     message: health.available
       ? `✅ Compiler service online (v${health.version})`
-      : `❌ Compiler service unavailable: ${health.error}`,
+      : `❌ Compiler service unavailable: ${health.error ?? "unknown error"}`,
   };
 }

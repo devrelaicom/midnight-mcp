@@ -3,10 +3,7 @@
  * MCP tool registration for AI-powered generation operations
  */
 
-import type {
-  ExtendedToolDefinition,
-  OutputSchema,
-} from "../../types/index.js";
+import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
 import {
   handleGenerateContract,
   handleReviewContract,
@@ -128,8 +125,7 @@ EXAMPLE USAGE:
       properties: {
         requirements: {
           type: "string",
-          description:
-            "Natural language description of the contract requirements",
+          description: "Natural language description of the contract requirements",
         },
         contractType: {
           type: "string",
@@ -277,12 +273,12 @@ export interface GenerationHandlerResult {
  */
 export const generationHandlers = {
   "midnight-generate-contract": handleGenerateContract as (
-    args: GenerateContractInput
+    args: GenerateContractInput,
   ) => Promise<GenerationHandlerResult>,
   "midnight-review-contract": handleReviewContract as (
-    args: ReviewContractInput
+    args: ReviewContractInput,
   ) => Promise<GenerationHandlerResult>,
   "midnight-document-contract": handleDocumentContract as (
-    args: DocumentContractInput
+    args: DocumentContractInput,
   ) => Promise<GenerationHandlerResult>,
 };

@@ -36,9 +36,7 @@ const CACHE_TTL = 60 * 1000; // 1 minute cache
 /**
  * Update rate limit info from API response headers
  */
-export function updateRateLimitFromHeaders(
-  headers: Record<string, string | undefined>
-): void {
+export function updateRateLimitFromHeaders(headers: Record<string, string | undefined>): void {
   const limit = parseInt(headers["x-ratelimit-limit"] || "5000", 10);
   const remaining = parseInt(headers["x-ratelimit-remaining"] || "5000", 10);
   const resetTimestamp = parseInt(headers["x-ratelimit-reset"] || "0", 10);
@@ -89,14 +87,11 @@ export function getRateLimitStatus(): RateLimitStatus {
 
   const percentUsed = cachedRateLimit.used / cachedRateLimit.limit;
   const isWarning = percentUsed >= WARNING_THRESHOLD;
-  const isLimited =
-    percentUsed >= CRITICAL_THRESHOLD || cachedRateLimit.remaining <= 10;
+  const isLimited = percentUsed >= CRITICAL_THRESHOLD || cachedRateLimit.remaining <= 10;
 
   let message: string;
   if (isLimited) {
-    const minutesUntilReset = Math.ceil(
-      (cachedRateLimit.reset.getTime() - Date.now()) / 60000
-    );
+    const minutesUntilReset = Math.ceil((cachedRateLimit.reset.getTime() - Date.now()) / 60000);
     message = `Rate limited! Resets in ${minutesUntilReset} minutes`;
   } else if (isWarning) {
     message = `Warning: ${cachedRateLimit.remaining} API calls remaining (${Math.round(percentUsed * 100)}% used)`;

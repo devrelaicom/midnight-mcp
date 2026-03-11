@@ -3,17 +3,8 @@
  * MCP tool registration for health-related operations
  */
 
-import type {
-  ExtendedToolDefinition,
-  OutputSchema,
-} from "../../types/index.js";
-import {
-  healthCheck,
-  getStatus,
-  checkVersion,
-  getAutoUpdateConfig,
-  getUpdateInstructions,
-} from "./handlers.js";
+import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
+import { healthCheck, getStatus, checkVersion, getUpdateInstructions } from "./handlers.js";
 
 // ============================================================================
 // Output Schemas
@@ -104,18 +95,6 @@ const checkVersionOutputSchema: OutputSchema = {
   },
 };
 
-const autoUpdateConfigOutputSchema: OutputSchema = {
-  type: "object" as const,
-  properties: {
-    instruction: { type: "string" },
-    platform: { type: "string" },
-    configPaths: { type: "object" },
-    searchAndReplace: { type: "object" },
-    agentInstructions: { type: "array", items: { type: "string" } },
-    postUpdateMessage: { type: "string" },
-  },
-};
-
 // ============================================================================
 // Tool Definitions
 // ============================================================================
@@ -181,25 +160,6 @@ export const healthTools: ExtendedToolDefinition[] = [
       category: "health",
     },
     handler: checkVersion,
-  },
-  {
-    name: "midnight-auto-update-config",
-    description:
-      "⚠️ DEPRECATED: Auto-update is NOT possible because AI agents run in sandboxed environments without access to local filesystems. " +
-      "Instead, tell users to manually update their config to use midnight-mcp@latest, then run: rm -rf ~/.npm/_npx && restart their editor. " +
-      "This tool only returns config file paths for reference.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {},
-    },
-    outputSchema: autoUpdateConfigOutputSchema,
-    annotations: {
-      readOnlyHint: true,
-      idempotentHint: true,
-      title: "🔧 Auto-Update Config",
-      category: "health",
-    },
-    handler: getAutoUpdateConfig,
   },
   {
     name: "midnight-get-update-instructions",

@@ -17,11 +17,7 @@ export {
 } from "./schemas.js";
 
 // Handlers
-export {
-  listToolCategories,
-  listCategoryTools,
-  suggestTool,
-} from "./handlers.js";
+export { listToolCategories, listCategoryTools, suggestTool } from "./handlers.js";
 
 // Tools
 export { metaTools } from "./tools.js";

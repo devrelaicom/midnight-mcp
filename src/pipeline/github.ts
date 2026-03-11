@@ -18,10 +18,7 @@ const RETRY_CONFIG = {
 /**
  * Retry wrapper with exponential backoff
  */
-async function withRetry<T>(
-  operation: () => Promise<T>,
-  operationName: string
-): Promise<T> {
+async function withRetry<T>(operation: () => Promise<T>, operationName: string): Promise<T> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
@@ -41,7 +38,7 @@ async function withRetry<T>(
 
       const delay = Math.min(
         RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt - 1),
-        RETRY_CONFIG.maxDelayMs
+        RETRY_CONFIG.maxDelayMs,
       );
 
       logger.warn(`${operationName} failed, retrying in ${delay}ms...`, {
@@ -53,7 +50,7 @@ async function withRetry<T>(
     }
   }
 
-  throw lastError;
+  throw lastError ?? new Error("Operation failed after retries");
 }
 
 /**
@@ -82,34 +79,26 @@ function isRetryableError(error: unknown): boolean {
  * Enhance error with more context
  */
 function enhanceError(error: unknown, operation: string): Error {
-  const originalMessage =
-    error instanceof Error ? error.message : String(error);
+  const originalMessage = error instanceof Error ? error.message : String(error);
 
   // Provide user-friendly error messages
-  if (
-    originalMessage.includes("rate limit") ||
-    originalMessage.includes("403")
-  ) {
+  if (originalMessage.includes("rate limit") || originalMessage.includes("403")) {
     return new Error(
       `GitHub API rate limit exceeded during ${operation}. ` +
-        `Add a GITHUB_TOKEN to your config to increase limits from 60 to 5000 requests/hour.`
+        `Add a GITHUB_TOKEN to your config to increase limits from 60 to 5000 requests/hour.`,
     );
   }
 
   if (originalMessage.includes("404")) {
     return new Error(
       `Resource not found during ${operation}. ` +
-        `Check that the repository/file exists and is accessible.`
+        `Check that the repository/file exists and is accessible.`,
     );
   }
 
-  if (
-    originalMessage.includes("timeout") ||
-    originalMessage.includes("network")
-  ) {
+  if (originalMessage.includes("timeout") || originalMessage.includes("network")) {
     return new Error(
-      `Network error during ${operation}. ` +
-        `Check your internet connection and try again.`
+      `Network error during ${operation}. ` + `Check your internet connection and try again.`,
     );
   }
 
@@ -207,10 +196,7 @@ export class GitHubClient {
   /**
    * Get repository information
    */
-  async getRepositoryInfo(
-    owner: string,
-    repo: string
-  ): Promise<RepositoryInfo> {
+  async getRepositoryInfo(owner: string, repo: string): Promise<RepositoryInfo> {
     const cacheKey = `repo:${owner}/${repo}`;
     const cached = this.repoInfoCache.get(cacheKey);
     if (cached) {
@@ -221,12 +207,12 @@ export class GitHubClient {
     try {
       const { data: repoData } = await withRetry(
         () => this.octokit.rest.repos.get({ owner, repo }),
-        `getRepositoryInfo(${owner}/${repo})`
+        `getRepositoryInfo(${owner}/${repo})`,
       );
 
       const { data: commits } = await withRetry(
         () => this.octokit.rest.repos.listCommits({ owner, repo, per_page: 1 }),
-        `getCommits(${owner}/${repo})`
+        `getCommits(${owner}/${repo})`,
       );
 
       const lastCommit = commits[0]
@@ -264,7 +250,7 @@ export class GitHubClient {
     owner: string,
     repo: string,
     path: string,
-    ref?: string
+    ref?: string,
   ): Promise<GitHubFile | null> {
     const cacheKey = `file:${owner}/${repo}/${path}@${ref || "main"}`;
     const cached = this.fileCache.get(cacheKey);
@@ -276,7 +262,7 @@ export class GitHubClient {
     try {
       const { data } = await withRetry(
         () => this.octokit.rest.repos.getContent({ owner, repo, path, ref }),
-        `getFileContent(${owner}/${repo}/${path})`
+        `getFileContent(${owner}/${repo}/${path})`,
       );
 
       if (Array.isArray(data) || data.type !== "file") {
@@ -309,11 +295,7 @@ export class GitHubClient {
   /**
    * Get repository tree (list of all files)
    */
-  async getRepositoryTree(
-    owner: string,
-    repo: string,
-    ref?: string
-  ): Promise<string[]> {
+  async getRepositoryTree(owner: string, repo: string, ref?: string): Promise<string[]> {
     const cacheKey = `tree:${owner}/${repo}@${ref || "main"}`;
     const cached = this.treeCache.get(cacheKey);
     if (cached) {
@@ -329,7 +311,7 @@ export class GitHubClient {
             repo,
             ref: `heads/${ref || "main"}`,
           }),
-        `getRef(${owner}/${repo})`
+        `getRef(${owner}/${repo})`,
       );
 
       const { data: treeData } = await withRetry(
@@ -340,12 +322,12 @@ export class GitHubClient {
             tree_sha: refData.object.sha,
             recursive: "true",
           }),
-        `getTree(${owner}/${repo})`
+        `getTree(${owner}/${repo})`,
       );
 
       const result = treeData.tree
         .filter((item) => item.type === "blob" && item.path)
-        .map((item) => item.path as string);
+        .map((item) => item.path);
 
       this.treeCache.set(cacheKey, result);
       return result;
@@ -364,11 +346,7 @@ export class GitHubClient {
    * The glob-to-regex conversion only handles **, *, and . characters.
    * This is safe because malicious patterns could only come from internal config.
    */
-  filterFilesByPatterns(
-    files: string[],
-    patterns: string[],
-    exclude: string[]
-  ): string[] {
+  filterFilesByPatterns(files: string[], patterns: string[], exclude: string[]): string[] {
     // Pre-compile glob patterns into RegExp objects
     const compilePattern = (pattern: string): RegExp => {
       const regexPattern = pattern
@@ -391,22 +369,14 @@ export class GitHubClient {
   /**
    * Fetch all files from a repository matching patterns
    */
-  async fetchRepositoryFiles(
-    repoConfig: RepositoryConfig
-  ): Promise<GitHubFile[]> {
+  async fetchRepositoryFiles(repoConfig: RepositoryConfig): Promise<GitHubFile[]> {
     const { owner, repo, branch, patterns, exclude } = repoConfig;
     logger.info(`Fetching files from ${owner}/${repo}...`);
 
     const allFiles = await this.getRepositoryTree(owner, repo, branch);
-    const filteredFiles = this.filterFilesByPatterns(
-      allFiles,
-      patterns,
-      exclude
-    );
+    const filteredFiles = this.filterFilesByPatterns(allFiles, patterns, exclude);
 
-    logger.info(
-      `Found ${filteredFiles.length} matching files in ${owner}/${repo}`
-    );
+    logger.info(`Found ${filteredFiles.length} matching files in ${owner}/${repo}`);
 
     const BATCH_SIZE = 5;
     const files: GitHubFile[] = [];
@@ -414,9 +384,7 @@ export class GitHubClient {
     for (let i = 0; i < filteredFiles.length; i += BATCH_SIZE) {
       const batch = filteredFiles.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
-        batch.map((filePath) =>
-          this.getFileContent(owner, repo, filePath, branch)
-        )
+        batch.map((filePath) => this.getFileContent(owner, repo, filePath, branch)),
       );
       for (const file of results) {
         if (file) {
@@ -435,15 +403,14 @@ export class GitHubClient {
     owner: string,
     repo: string,
     since?: string,
-    perPage = 30
+    perPage = 30,
   ): Promise<GitHubCommit[]> {
     try {
-      const params: Parameters<typeof this.octokit.rest.repos.listCommits>[0] =
-        {
-          owner,
-          repo,
-          per_page: perPage,
-        };
+      const params: Parameters<typeof this.octokit.rest.repos.listCommits>[0] = {
+        owner,
+        repo,
+        per_page: perPage,
+      };
 
       if (since) {
         params.since = since;
@@ -469,11 +436,7 @@ export class GitHubClient {
   /**
    * Get files changed in recent commits
    */
-  async getChangedFiles(
-    owner: string,
-    repo: string,
-    since: string
-  ): Promise<string[]> {
+  async getChangedFiles(owner: string, repo: string, since: string): Promise<string[]> {
     try {
       const commits = await this.getRecentCommits(owner, repo, since);
       const changedFiles = new Set<string>();
@@ -508,7 +471,7 @@ export class GitHubClient {
     query: string,
     owner?: string,
     repo?: string,
-    language?: string
+    language?: string,
   ): Promise<Array<{ path: string; repository: string; url: string }>> {
     try {
       let q = query;

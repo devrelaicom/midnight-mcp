@@ -7,17 +7,12 @@ import { z } from "zod";
 
 // Schema definitions
 export const GenerateContractInputSchema = z.object({
-  requirements: z
-    .string()
-    .describe("Natural language description of the contract requirements"),
+  requirements: z.string().describe("Natural language description of the contract requirements"),
   contractType: z
     .enum(["counter", "token", "voting", "custom"])
     .optional()
     .describe("Type of contract to generate"),
-  baseExample: z
-    .string()
-    .optional()
-    .describe("Example contract code to use as a base"),
+  baseExample: z.string().optional().describe("Example contract code to use as a base"),
 });
 
 export const ReviewContractInputSchema = z.object({

@@ -84,11 +84,7 @@ export {
 } from "./meta/index.js";
 
 // Re-export types
-export type {
-  ExtendedToolDefinition,
-  ToolAnnotations,
-  OutputSchema,
-} from "../types/index.js";
+export type { ExtendedToolDefinition, ToolAnnotations, OutputSchema } from "../types/index.js";
 
 // Combined tool list for MCP server
 import { searchTools } from "./search/index.js";

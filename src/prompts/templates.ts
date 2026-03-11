@@ -20,8 +20,7 @@ export interface PromptMessage {
 export const promptDefinitions: PromptDefinition[] = [
   {
     name: "midnight:create-contract",
-    description:
-      "Guided prompt for creating new Compact contracts with privacy considerations",
+    description: "Guided prompt for creating new Compact contracts with privacy considerations",
     arguments: [
       {
         name: "contractType",
@@ -35,16 +34,14 @@ export const promptDefinitions: PromptDefinition[] = [
       },
       {
         name: "complexity",
-        description:
-          "Expected complexity level (beginner, intermediate, advanced)",
+        description: "Expected complexity level (beginner, intermediate, advanced)",
         required: false,
       },
     ],
   },
   {
     name: "midnight:review-contract",
-    description:
-      "Security and best practices review prompt for existing contracts",
+    description: "Security and best practices review prompt for existing contracts",
     arguments: [
       {
         name: "contractCode",
@@ -53,21 +50,18 @@ export const promptDefinitions: PromptDefinition[] = [
       },
       {
         name: "focusAreas",
-        description:
-          "Specific areas to emphasize (security, performance, privacy, readability)",
+        description: "Specific areas to emphasize (security, performance, privacy, readability)",
         required: false,
       },
     ],
   },
   {
     name: "midnight:explain-concept",
-    description:
-      "Educational prompt for explaining Midnight concepts at various levels",
+    description: "Educational prompt for explaining Midnight concepts at various levels",
     arguments: [
       {
         name: "concept",
-        description:
-          "The concept to explain (zk-proofs, circuits, witnesses, ledger, etc.)",
+        description: "The concept to explain (zk-proofs, circuits, witnesses, ledger, etc.)",
         required: true,
       },
       {
@@ -79,8 +73,7 @@ export const promptDefinitions: PromptDefinition[] = [
   },
   {
     name: "midnight:compare-approaches",
-    description:
-      "Compare different implementation approaches for a given problem",
+    description: "Compare different implementation approaches for a given problem",
     arguments: [
       {
         name: "problem",
@@ -115,10 +108,7 @@ export const promptDefinitions: PromptDefinition[] = [
 /**
  * Generate prompt messages based on template and arguments
  */
-export function generatePrompt(
-  name: string,
-  args: Record<string, string>
-): PromptMessage[] {
+export function generatePrompt(name: string, args: Record<string, string>): PromptMessage[] {
   switch (name) {
     case "midnight:create-contract":
       return generateCreateContractPrompt(args);
@@ -143,9 +133,7 @@ export function generatePrompt(
   }
 }
 
-function generateCreateContractPrompt(
-  args: Record<string, string>
-): PromptMessage[] {
+function generateCreateContractPrompt(args: Record<string, string>): PromptMessage[] {
   const contractType = args.contractType || "custom";
   const privacyLevel = args.privacyLevel || "partial";
   const complexity = args.complexity || "intermediate";
@@ -247,9 +235,7 @@ Please provide:
   ];
 }
 
-function generateReviewContractPrompt(
-  args: Record<string, string>
-): PromptMessage[] {
+function generateReviewContractPrompt(args: Record<string, string>): PromptMessage[] {
   const contractCode = args.contractCode || "// No code provided";
   const focusAreas = args.focusAreas || "security, privacy, best practices";
 
@@ -331,9 +317,7 @@ Please provide specific line references and code suggestions where applicable.`,
   ];
 }
 
-function generateExplainConceptPrompt(
-  args: Record<string, string>
-): PromptMessage[] {
+function generateExplainConceptPrompt(args: Record<string, string>): PromptMessage[] {
   const concept = args.concept || "zero-knowledge proofs";
   const level = args.level || "intermediate";
 
@@ -342,8 +326,7 @@ function generateExplainConceptPrompt(
       "Explain like I'm new to blockchain and cryptography. Use analogies and avoid jargon.",
     intermediate:
       "I understand blockchain basics and some cryptography. Focus on practical applications.",
-    advanced:
-      "I have deep technical knowledge. Include implementation details and edge cases.",
+    advanced: "I have deep technical knowledge. Include implementation details and edge cases.",
   };
 
   return [
@@ -354,7 +337,7 @@ function generateExplainConceptPrompt(
         text: `Please explain the concept of **${concept}** in the context of Midnight blockchain.
 
 **My Level:** ${level}
-${levelDescriptions[level] || levelDescriptions.intermediate}
+${levelDescriptions[level] ?? levelDescriptions["intermediate"] ?? ""}
 
 Please cover:
 
@@ -382,9 +365,7 @@ Please cover:
   ];
 }
 
-function generateCompareApproachesPrompt(
-  args: Record<string, string>
-): PromptMessage[] {
+function generateCompareApproachesPrompt(args: Record<string, string>): PromptMessage[] {
   const problem = args.problem || "implementing a token contract";
   const approaches = args.approaches || "";
 
@@ -432,9 +413,7 @@ Please include code examples for each approach.`,
   ];
 }
 
-function generateDebugContractPrompt(
-  args: Record<string, string>
-): PromptMessage[] {
+function generateDebugContractPrompt(args: Record<string, string>): PromptMessage[] {
   const contractCode = args.contractCode || "// No code provided";
   const errorMessage = args.errorMessage || "Not specified";
 

@@ -4,7 +4,7 @@
  * can validate and apply defaults/refinements at runtime.
  */
 
-import type { ZodSchema } from "zod";
+import type { ZodType } from "zod";
 import { allTools } from "./index.js";
 import { logger } from "../utils/index.js";
 
@@ -44,7 +44,6 @@ import {
   HealthCheckInputSchema,
   GetStatusInputSchema,
   CheckVersionInputSchema,
-  AutoUpdateConfigInputSchema,
   GetUpdateInstructionsInputSchema,
 } from "./health/schemas.js";
 
@@ -62,7 +61,7 @@ import {
   SuggestToolInputSchema,
 } from "./meta/schemas.js";
 
-export const toolValidationSchemas: Record<string, ZodSchema> = {
+export const toolValidationSchemas: Record<string, ZodType> = {
   // Search tools
   "midnight-search-compact": SearchCompactInputSchema,
   "midnight-search-typescript": SearchTypeScriptInputSchema,
@@ -92,7 +91,6 @@ export const toolValidationSchemas: Record<string, ZodSchema> = {
   "midnight-health-check": HealthCheckInputSchema,
   "midnight-get-status": GetStatusInputSchema,
   "midnight-check-version": CheckVersionInputSchema,
-  "midnight-auto-update-config": AutoUpdateConfigInputSchema,
   "midnight-get-update-instructions": GetUpdateInstructionsInputSchema,
 
   // Generation tools

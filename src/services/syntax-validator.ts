@@ -88,10 +88,10 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
     const docsResult = await searchDocsHosted(
       `${adtName} ADT operations methods ledger`,
       ADT_SEARCH_LIMIT,
-      "reference"
+      "reference",
     );
 
-    if (!docsResult.results || docsResult.results.length === 0) {
+    if (docsResult.results.length === 0) {
       logger.debug(`No indexed docs found for ADT: ${adtName}`);
       return null;
     }
@@ -119,19 +119,16 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
         let match;
         while ((match = methodPattern.exec(content)) !== null) {
           const [, methodName, params, returnType, description] = match;
-          if (
-            methodName &&
-            !operations.some((op) => op.method === methodName)
-          ) {
+          if (methodName && !operations.some((op) => op.method === methodName)) {
             const descText = description?.trim() || "";
             // Detect if method is NOT available in circuits based on description
             const worksInCircuits =
               !/not available|not supported|not in circuits|typescript|sdk|off[-\s]?chain/i.test(
-                descText
+                descText,
               );
             operations.push({
               method: methodName,
-              signature: `(${params})${returnType ? `: ${returnType.trim()}` : ""}`,
+              signature: `(${params ?? ""})${returnType ? `: ${returnType.trim()}` : ""}`,
               description: descText,
               worksInCircuits,
               source: "indexed-docs",
@@ -140,21 +137,17 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
         }
 
         // Also look for inline method mentions
-        const inlinePattern =
-          /(?:method|operation|function)\s+`?(\w+)`?\s*\(([^)]*)\)/gi;
+        const inlinePattern = /(?:method|operation|function)\s+`?(\w+)`?\s*\(([^)]*)\)/gi;
         while ((match = inlinePattern.exec(content)) !== null) {
           const [, methodName, params] = match;
-          if (
-            methodName &&
-            !operations.some((op) => op.method === methodName)
-          ) {
+          if (methodName && !operations.some((op) => op.method === methodName)) {
             const worksInCircuits =
               !/not available|not supported|not in circuits|typescript|sdk|off[-\s]?chain/i.test(
-                content
+                content,
               );
             operations.push({
               method: methodName,
-              signature: `(${params})`,
+              signature: `(${params ?? ""})`,
               description: "Extracted from documentation",
               worksInCircuits,
               source: "indexed-docs",
@@ -169,10 +162,7 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
         content.length < MAX_NOTE_SOURCE_LENGTH
       ) {
         const cleanNote = content.replace(/\s+/g, " ").trim();
-        if (
-          cleanNote.length > NOTE_MIN_LENGTH &&
-          cleanNote.length < NOTE_MAX_LENGTH
-        ) {
+        if (cleanNote.length > NOTE_MIN_LENGTH && cleanNote.length < NOTE_MAX_LENGTH) {
           notes.push(cleanNote);
         }
       }
@@ -205,25 +195,16 @@ export async function searchADTInfo(adtName: string): Promise<ADTInfo | null> {
 /**
  * Search indexed docs for Compact language syntax patterns
  */
-export async function searchCompactSyntax(
-  topic: string
-): Promise<HostedSearchResponse | null> {
+export async function searchCompactSyntax(topic: string): Promise<HostedSearchResponse | null> {
   try {
     // Search both docs and code examples
     const [docsResult, codeResult] = await Promise.all([
-      searchDocsHosted(
-        `Compact ${topic} syntax`,
-        SYNTAX_SUBQUERY_LIMIT,
-        "reference"
-      ),
-      searchCompactHosted(`${topic}`, SYNTAX_SUBQUERY_LIMIT),
+      searchDocsHosted(`Compact ${topic} syntax`, SYNTAX_SUBQUERY_LIMIT, "reference"),
+      searchCompactHosted(topic, SYNTAX_SUBQUERY_LIMIT),
     ]);
 
     // Merge results, preferring docs for correctness
-    const mergedResults = [
-      ...(docsResult.results || []),
-      ...(codeResult.results || []),
-    ];
+    const mergedResults = [...docsResult.results, ...codeResult.results];
 
     return {
       results: mergedResults.slice(0, SYNTAX_RESULTS_LIMIT),
@@ -253,7 +234,7 @@ export async function validateADTOperations(
     method: string;
     works: boolean;
     note: string;
-  }>
+  }>,
 ): Promise<{
   validated: boolean;
   operations: ADTOperation[];
@@ -276,22 +257,16 @@ export async function validateADTOperations(
         worksInCircuits: op.works,
         source: "static-fallback",
       })),
-      discrepancies: [
-        "Could not validate against indexed docs - using static data",
-      ],
+      discrepancies: ["Could not validate against indexed docs - using static data"],
       enrichments: [],
     };
   }
 
   // Build merged operation list
   const operations: ADTOperation[] = [];
-  const indexedMethodNames = new Set(
-    indexedInfo.operations.map((op) => op.method.toLowerCase())
-  );
+  const indexedMethodNames = new Set(indexedInfo.operations.map((op) => op.method.toLowerCase()));
   const staticMethodNames = new Set(
-    staticOperations.map((op) =>
-      op.method.replace(/^\./, "").replace(/\(.*$/, "").toLowerCase()
-    )
+    staticOperations.map((op) => op.method.replace(/^\./, "").replace(/\(.*$/, "").toLowerCase()),
   );
 
   // Add indexed operations (source of truth)
@@ -304,29 +279,24 @@ export async function validateADTOperations(
         s.method.toLowerCase().includes(indexedOp.method.toLowerCase()) ||
         indexedOp.method
           .toLowerCase()
-          .includes(
-            s.method.replace(/^\./, "").replace(/\(.*$/, "").toLowerCase()
-          )
+          .includes(s.method.replace(/^\./, "").replace(/\(.*$/, "").toLowerCase()),
     );
 
     if (staticOp && !staticOp.works && indexedOp.worksInCircuits) {
       discrepancies.push(
-        `Static said ${staticOp.method} doesn't work, but indexed docs show it does`
+        `Static said ${staticOp.method} doesn't work, but indexed docs show it does`,
       );
     }
   }
 
   // Check for static methods not in indexed docs
   for (const staticOp of staticOperations) {
-    const methodName = staticOp.method
-      .replace(/^\./, "")
-      .replace(/\(.*$/, "")
-      .toLowerCase();
+    const methodName = staticOp.method.replace(/^\./, "").replace(/\(.*$/, "").toLowerCase();
 
     if (!indexedMethodNames.has(methodName)) {
       // Method in static but not indexed - might be wrong!
       discrepancies.push(
-        `Static references ${staticOp.method} but not found in indexed docs - may not exist`
+        `Static references ${staticOp.method} but not found in indexed docs - may not exist`,
       );
     }
   }
@@ -336,7 +306,7 @@ export async function validateADTOperations(
     const methodName = indexedOp.method.toLowerCase();
     if (!staticMethodNames.has(methodName)) {
       enrichments.push(
-        `Indexed docs show ${indexedOp.method} exists but was missing from static reference`
+        `Indexed docs show ${indexedOp.method} exists but was missing from static reference`,
       );
     }
   }
@@ -388,7 +358,7 @@ export async function enrichSyntaxReference(): Promise<{
     ADT_TYPES.map(async (adt) => ({
       type: adt,
       info: await searchADTInfo(adt),
-    }))
+    })),
   );
 
   const adtInfo: Record<string, ADTInfo | null> = {};
@@ -401,7 +371,7 @@ export async function enrichSyntaxReference(): Promise<{
     CRITICAL_DOC_TOPICS.map(async ({ topic, query }) => ({
       topic,
       result: await searchCompactSyntax(query),
-    }))
+    })),
   );
 
   const syntaxPatterns: Record<string, HostedSearchResponse | null> = {};
@@ -427,7 +397,7 @@ export async function verifyClaimAgainstDocs(claim: string): Promise<{
   try {
     const results = await searchDocsHosted(claim, SYNTAX_SUBQUERY_LIMIT, "all");
 
-    if (!results.results || results.results.length === 0) {
+    if (results.results.length === 0) {
       return {
         verified: false,
         evidence: ["No matching documentation found"],
@@ -438,10 +408,7 @@ export async function verifyClaimAgainstDocs(claim: string): Promise<{
     const evidence: string[] = [];
     for (const result of results.results.slice(0, MAX_EVIDENCE_ITEMS)) {
       const snippet =
-        (result.content || result.code || "").slice(
-          0,
-          EVIDENCE_SNIPPET_LENGTH
-        ) + "...";
+        (result.content || result.code || "").slice(0, EVIDENCE_SNIPPET_LENGTH) + "...";
       evidence.push(`[${result.source.filePath}]: ${snippet}`);
     }
 
@@ -485,7 +452,7 @@ export async function validateBuiltinFunctions(
     name: string;
     signature: string;
     description: string;
-  }>
+  }>,
 ): Promise<StaticDataValidation> {
   const discrepancies: string[] = [];
   const enrichments: string[] = [];
@@ -493,25 +460,21 @@ export async function validateBuiltinFunctions(
   // Search for each builtin
   const results = await Promise.all(
     staticBuiltins.map(async (builtin) => {
-      const searchResult = await searchCompactSyntax(
-        `${builtin.name} function builtin`
-      );
-      return { builtin, found: (searchResult?.results?.length || 0) > 0 };
-    })
+      const searchResult = await searchCompactSyntax(`${builtin.name} function builtin`);
+      return { builtin, found: (searchResult?.results.length ?? 0) > 0 };
+    }),
   );
 
   for (const { builtin, found } of results) {
     if (!found) {
       discrepancies.push(
-        `Builtin "${builtin.name}" not found in indexed docs - may not exist or have different name`
+        `Builtin "${builtin.name}" not found in indexed docs - may not exist or have different name`,
       );
     }
   }
 
   // Search for builtins we might be missing
-  const allBuiltinsSearch = await searchCompactSyntax(
-    "builtin function stdlib standard library"
-  );
+  const allBuiltinsSearch = await searchCompactSyntax("builtin function stdlib standard library");
   if (allBuiltinsSearch?.results) {
     const knownNames = new Set(staticBuiltins.map((b) => b.name.toLowerCase()));
     for (const result of allBuiltinsSearch.results) {
@@ -520,9 +483,10 @@ export async function validateBuiltinFunctions(
       const funcPattern = /\b(export\s+)?function\s+(\w+)/gi;
       let match;
       while ((match = funcPattern.exec(content)) !== null) {
-        const funcName = match[2].toLowerCase();
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const funcName = match[2]!.toLowerCase();
         if (!knownNames.has(funcName) && funcName.length > 2) {
-          enrichments.push(`Indexed docs mention "${match[2]}" function`);
+          enrichments.push(`Indexed docs mention "${match[2] ?? ""}" function`);
         }
       }
     }
@@ -547,15 +511,13 @@ export async function validateTypeCompatibility(
     works: boolean;
     fix?: string;
     note?: string;
-  }>
+  }>,
 ): Promise<StaticDataValidation> {
   const discrepancies: string[] = [];
   const enrichments: string[] = [];
 
   // Search for type casting and compatibility info
-  const typeSearch = await searchCompactSyntax(
-    "type cast Field Uint Bytes conversion compatible"
-  );
+  const typeSearch = await searchCompactSyntax("type cast Field Uint Bytes conversion compatible");
 
   if (typeSearch?.results) {
     for (const result of typeSearch.results) {
@@ -564,9 +526,7 @@ export async function validateTypeCompatibility(
       // Check for any rules that contradict our static data
       for (const rule of staticRules) {
         // Use regex to properly extract types with generics (e.g., "Uint<64> == Uint<64>")
-        const typeMatch = rule.types.match(
-          /^\s*(.+?)\s*(?:==|=|<=|>=|<|>|[+*])\s*(.+?)\s*$/
-        );
+        const typeMatch = rule.types.match(/^\s*(.+?)\s*(?:==|=|<=|>=|<|>|[+*])\s*(.+?)\s*$/);
         const typeA = typeMatch?.[1]?.trim().toLowerCase();
         const typeB = typeMatch?.[2]?.trim().toLowerCase();
 
@@ -579,7 +539,7 @@ export async function validateTypeCompatibility(
           ) {
             if (!rule.works) {
               discrepancies.push(
-                `Static says "${rule.types}" doesn't work, but docs suggest compatibility`
+                `Static says "${rule.types}" doesn't work, but docs suggest compatibility`,
               );
             }
           }
@@ -602,7 +562,7 @@ export async function validateTypeCompatibility(
  * Validate common errors against indexed docs
  */
 export async function validateCommonErrors(
-  staticErrors: Array<{ error: string; cause: string; fix: string }>
+  staticErrors: Array<{ error: string; cause: string; fix: string }>,
 ): Promise<StaticDataValidation> {
   const discrepancies: string[] = [];
   const enrichments: string[] = [];
@@ -611,25 +571,23 @@ export async function validateCommonErrors(
   const errorSearch = await searchDocsHosted(
     "error compile compilation failure parse",
     ADT_SEARCH_LIMIT,
-    "all"
+    "all",
   );
 
-  if (errorSearch?.results) {
-    const knownErrors = new Set(
-      staticErrors.map((e) => e.error.toLowerCase().slice(0, 30))
-    );
+  const knownErrors = new Set(staticErrors.map((e) => e.error.toLowerCase().slice(0, 30)));
 
-    for (const result of errorSearch.results) {
-      const content = result.content || result.code || "";
+  for (const result of errorSearch.results) {
+    const content = result.content || result.code || "";
 
-      // Look for error patterns we don't have documented
-      const errorPattern = /(?:error|Error):\s*["']?([^"'\n]+)["']?/g;
-      let match;
-      while ((match = errorPattern.exec(content)) !== null) {
-        const errorMsg = match[1].toLowerCase().slice(0, 30);
-        if (!knownErrors.has(errorMsg) && errorMsg.length > 10) {
-          enrichments.push(`Docs mention error: "${match[1].slice(0, 50)}..."`);
-        }
+    // Look for error patterns we don't have documented
+    const errorPattern = /(?:error|Error):\s*["']?([^"'\n]+)["']?/g;
+    let match;
+    while ((match = errorPattern.exec(content)) !== null) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const errorMsg = match[1]!.toLowerCase().slice(0, 30);
+      if (!knownErrors.has(errorMsg) && errorMsg.length > 10) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        enrichments.push(`Docs mention error: "${match[1]!.slice(0, 50)}..."`);
       }
     }
   }
@@ -651,8 +609,7 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
   {
     pattern: /ledger\s*\{/,
     name: "ledger-block",
-    message:
-      "Deprecated: Use 'export ledger field: Type;' instead of ledger { } block",
+    message: "Deprecated: Use 'export ledger field: Type;' instead of ledger { } block",
     since: "0.16",
   },
   {
@@ -676,8 +633,7 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
   {
     pattern: /::\w+/,
     name: "rust-enum-syntax",
-    message:
-      "Rust-style :: enum access doesn't work, use dot notation (Choice.rock)",
+    message: "Rust-style :: enum access doesn't work, use dot notation (Choice.rock)",
     since: "always",
   },
   {
@@ -699,7 +655,7 @@ export const DEPRECATED_SYNTAX_PATTERNS = [
  * Scan code for deprecated patterns
  */
 export function scanForDeprecatedPatterns(
-  code: string
+  code: string,
 ): Array<{ pattern: string; message: string; lineNumber?: number }> {
   const issues: Array<{
     pattern: string;
@@ -710,7 +666,8 @@ export function scanForDeprecatedPatterns(
 
   for (const { pattern, name, message } of DEPRECATED_SYNTAX_PATTERNS) {
     for (let i = 0; i < lines.length; i++) {
-      if (pattern.test(lines[i])) {
+      const line = lines[i];
+      if (line && pattern.test(line)) {
         issues.push({
           pattern: name,
           message,
@@ -762,31 +719,23 @@ export async function validateAllStaticData(staticData: {
   const results: Record<string, StaticDataValidation> = {};
 
   // Run all validations in parallel
-  const [builtinResult, typeResult, errorResult, adtResults] =
-    await Promise.all([
-      staticData.builtinFunctions
-        ? validateBuiltinFunctions(staticData.builtinFunctions)
-        : Promise.resolve(null),
-      staticData.typeCompatibility
-        ? validateTypeCompatibility(staticData.typeCompatibility)
-        : Promise.resolve(null),
-      staticData.commonErrors
-        ? validateCommonErrors(staticData.commonErrors)
-        : Promise.resolve(null),
-      staticData.ledgerTypeLimits
-        ? Promise.all(
-            Object.entries(staticData.ledgerTypeLimits).map(
-              async ([name, data]) => ({
-                name,
-                result: await validateADTOperations(
-                  name,
-                  data.circuitOperations
-                ),
-              })
-            )
-          )
-        : Promise.resolve([]),
-    ]);
+  const [builtinResult, typeResult, errorResult, adtResults] = await Promise.all([
+    staticData.builtinFunctions
+      ? validateBuiltinFunctions(staticData.builtinFunctions)
+      : Promise.resolve(null),
+    staticData.typeCompatibility
+      ? validateTypeCompatibility(staticData.typeCompatibility)
+      : Promise.resolve(null),
+    staticData.commonErrors ? validateCommonErrors(staticData.commonErrors) : Promise.resolve(null),
+    staticData.ledgerTypeLimits
+      ? Promise.all(
+          Object.entries(staticData.ledgerTypeLimits).map(async ([name, data]) => ({
+            name,
+            result: await validateADTOperations(name, data.circuitOperations),
+          })),
+        )
+      : Promise.resolve([]),
+  ]);
 
   if (builtinResult) results.builtinFunctions = builtinResult;
   if (typeResult) results.typeCompatibility = typeResult;
@@ -805,9 +754,7 @@ export async function validateAllStaticData(staticData: {
   }
 
   // Calculate overall stats
-  const allDiscrepancies = Object.values(results).flatMap(
-    (r) => r.discrepancies
-  );
+  const allDiscrepancies = Object.values(results).flatMap((r) => r.discrepancies);
   const allEnrichments = Object.values(results).flatMap((r) => r.enrichments);
 
   return {

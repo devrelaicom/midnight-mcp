@@ -7,7 +7,7 @@ const isDev = process.env.NODE_ENV === "development";
 export default defineConfig({
   entry: ["src/bin.ts", "src/index.ts"],
   format: ["esm"],
-  target: "node20",
+  target: "node24",
   clean: true,
   sourcemap: true,
   dts: true,

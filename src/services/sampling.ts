@@ -9,11 +9,7 @@
  */
 
 import { logger } from "../utils/index.js";
-import type {
-  SamplingRequest,
-  SamplingResponse,
-  ModelPreferences,
-} from "../types/index.js";
+import type { SamplingRequest, SamplingResponse, ModelPreferences } from "../types/index.js";
 
 // Type for the sampling callback
 type SamplingCallback = (request: SamplingRequest) => Promise<SamplingResponse>;
@@ -70,12 +66,10 @@ export async function requestCompletion(
     maxTokens?: number;
     temperature?: number;
     modelPreferences?: ModelPreferences;
-  } = {}
+  } = {},
 ): Promise<string> {
   if (!samplingCallback || samplingFailedPermanently) {
-    throw new Error(
-      "Sampling not available - client does not support this capability"
-    );
+    throw new Error("Sampling not available - client does not support this capability");
   }
 
   const request: SamplingRequest = {
@@ -101,6 +95,7 @@ export async function requestCompletion(
   try {
     const response = await samplingCallback(request);
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (response.content.type !== "text") {
       throw new Error("Unexpected response content type");
     }
@@ -116,12 +111,12 @@ export async function requestCompletion(
       errorStr.includes("not supported")
     ) {
       logger.warn(
-        "Client does not support sampling/createMessage, disabling sampling for this session"
+        "Client does not support sampling/createMessage, disabling sampling for this session",
       );
       markSamplingFailed();
       throw new Error(
         "Sampling not supported by this client - use Claude Desktop for this feature",
-        { cause: error }
+        { cause: error },
       );
     }
 
@@ -137,7 +132,7 @@ export async function generateContract(
   options: {
     baseExample?: string;
     contractType?: "counter" | "token" | "voting" | "custom";
-  } = {}
+  } = {},
 ): Promise<{
   code: string;
   explanation: string;
@@ -198,19 +193,16 @@ ${requirements}
 Contract type: ${options.contractType || "custom"}`;
 
   try {
-    const code = await requestCompletion(
-      [{ role: "user", content: userPrompt }],
-      {
-        systemPrompt,
-        maxTokens: 4096,
-        temperature: 0.3, // Lower temperature for code generation
-        modelPreferences: {
-          hints: [{ name: "claude-3-sonnet" }],
-          intelligencePriority: 0.9,
-          speedPriority: 0.3,
-        },
-      }
-    );
+    const code = await requestCompletion([{ role: "user", content: userPrompt }], {
+      systemPrompt,
+      maxTokens: 4096,
+      temperature: 0.3, // Lower temperature for code generation
+      modelPreferences: {
+        hints: [{ name: "claude-3-sonnet" }],
+        intelligencePriority: 0.9,
+        speedPriority: 0.3,
+      },
+    });
 
     // Extract code from markdown if wrapped
     const extractedCode = code.includes("```")
@@ -232,11 +224,10 @@ ${extractedCode}
         },
       ],
       {
-        systemPrompt:
-          "You are a Compact contract documentation expert. Be concise.",
+        systemPrompt: "You are a Compact contract documentation expert. Be concise.",
         maxTokens: 256,
         temperature: 0.5,
-      }
+      },
     );
 
     return {
@@ -273,8 +264,7 @@ export async function reviewContract(code: string): Promise<{
       issues: [
         {
           severity: "info",
-          message:
-            "This feature requires a client that supports the sampling capability",
+          message: "This feature requires a client that supports the sampling capability",
         },
       ],
     };
@@ -327,25 +317,27 @@ Respond in JSON format:
         systemPrompt,
         maxTokens: 4096,
         temperature: 0.2,
-      }
+      },
     );
 
     // Parse JSON response with error handling
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
+        const parsed: Record<string, unknown> = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
         // Validate expected structure
         return {
-          summary:
-            typeof parsed.summary === "string"
-              ? parsed.summary
-              : "Review complete",
-          issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+          summary: typeof parsed["summary"] === "string" ? parsed["summary"] : "Review complete",
+          issues: Array.isArray(parsed["issues"])
+            ? (parsed["issues"] as Array<{
+                severity: "error" | "warning" | "info";
+                line?: number;
+                message: string;
+                suggestion?: string;
+              }>)
+            : [],
           improvedCode:
-            typeof parsed.improvedCode === "string"
-              ? parsed.improvedCode
-              : undefined,
+            typeof parsed["improvedCode"] === "string" ? parsed["improvedCode"] : undefined,
         };
       } catch (parseError) {
         logger.warn("Failed to parse JSON from LLM response", {
@@ -381,7 +373,7 @@ Respond in JSON format:
  */
 export async function generateDocumentation(
   code: string,
-  format: "markdown" | "jsdoc" = "markdown"
+  format: "markdown" | "jsdoc" = "markdown",
 ): Promise<string> {
   if (!isSamplingAvailable()) {
     return "Documentation generation requires sampling capability";
@@ -416,7 +408,7 @@ Add documentation comments above each:
         systemPrompt,
         maxTokens: 4096,
         temperature: 0.5,
-      }
+      },
     );
   } catch (error: unknown) {
     logger.error("Documentation generation failed", { error: String(error) });

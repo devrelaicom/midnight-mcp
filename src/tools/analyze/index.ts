@@ -15,12 +15,7 @@ export {
 } from "./schemas.js";
 
 // Handlers
-export {
-  analyzeContract,
-  explainCircuit,
-  compileContract,
-  getCompilerStatus,
-} from "./handlers.js";
+export { analyzeContract, explainCircuit, compileContract, getCompilerStatus } from "./handlers.js";
 
 // Tools
 export { analyzeTools } from "./tools.js";

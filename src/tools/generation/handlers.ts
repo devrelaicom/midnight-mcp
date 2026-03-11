@@ -46,10 +46,7 @@ export async function handleReviewContract(args: ReviewContractInput) {
  * Generate documentation for a Compact contract
  */
 export async function handleDocumentContract(args: DocumentContractInput) {
-  const documentation = await generateDocumentation(
-    args.code,
-    args.format || "markdown"
-  );
+  const documentation = await generateDocumentation(args.code, args.format || "markdown");
 
   return {
     documentation,

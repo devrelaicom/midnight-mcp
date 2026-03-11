@@ -14,8 +14,7 @@ import { logger } from "../utils/logger.js";
 // =============================================================================
 
 const COMPILER_API_URL =
-  process.env.COMPACT_COMPILER_URL ||
-  "https://compact-playground.up.railway.app";
+  process.env.COMPACT_COMPILER_URL || "https://compact-playground.up.railway.app";
 
 const COMPILER_TIMEOUT = 30000; // 30 seconds
 const MAX_CODE_SIZE = 100 * 1024; // 100 KB
@@ -107,7 +106,9 @@ export async function checkCompilerHealth(): Promise<{
   error?: string;
 }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 5000);
 
   try {
     const response = await fetch(`${COMPILER_API_URL}/health`, {
@@ -132,8 +133,7 @@ export async function checkCompilerHealth(): Promise<{
       error: `Health check failed: ${response.status}`,
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     logger.warn("Compiler service health check failed", {
       error: errorMessage,
     });
@@ -173,7 +173,9 @@ export async function compileContract(
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), COMPILER_TIMEOUT);
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, COMPILER_TIMEOUT);
 
   try {
     const requestBody: CompileRequest = {
@@ -217,11 +219,7 @@ export async function compileContract(
     const rawResult: unknown = await response.json();
 
     // Runtime validation of compiler response
-    if (
-      typeof rawResult !== "object" ||
-      rawResult === null ||
-      !("success" in rawResult)
-    ) {
+    if (typeof rawResult !== "object" || rawResult === null || !("success" in rawResult)) {
       logger.error("Compiler API returned unexpected response format", {
         response: JSON.stringify(rawResult).slice(0, 200),
       });
@@ -237,10 +235,7 @@ export async function compileContract(
 
     if (result.success) {
       // Handle both detailed output object and simple string output
-      const outputInfo =
-        typeof result.output === "object" && result.output !== null
-          ? result.output
-          : {};
+      const outputInfo = typeof result.output === "object" ? result.output : {};
 
       logger.info("Compilation successful", {
         compilerVersion: result.compilerVersion,
@@ -250,17 +245,14 @@ export async function compileContract(
       });
 
       const version = result.compilerVersion || "unknown";
-      const execTime = result.executionTime
-        ? ` in ${result.executionTime}ms`
-        : "";
+      const execTime = result.executionTime ? ` in ${result.executionTime}ms` : "";
 
       return {
         success: true,
         compilerVersion: version,
         message: `✅ Compilation successful (Compiler v${version})${execTime}`,
         circuits: (outputInfo as { circuits?: string[] }).circuits || [],
-        ledgerFields:
-          (outputInfo as { ledgerFields?: string[] }).ledgerFields || [],
+        ledgerFields: (outputInfo as { ledgerFields?: string[] }).ledgerFields || [],
         exports: (outputInfo as { exports?: string[] }).exports || [],
         warnings: result.warnings || [],
         serviceAvailable: true,
@@ -278,8 +270,7 @@ export async function compileContract(
       });
 
       // Build a readable error message
-      let errorMessage =
-        result.output || result.message || result.error || "Compilation failed";
+      let errorMessage = result.output || result.message || result.error || "Compilation failed";
 
       if (firstError) {
         errorMessage = `Line ${firstError.line}:${firstError.column} - ${firstError.message}`;
@@ -301,8 +292,7 @@ export async function compileContract(
       };
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
     // Check if it was a timeout/abort
     if (error instanceof Error && error.name === "AbortError") {

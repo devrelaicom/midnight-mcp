@@ -49,11 +49,7 @@ export class ReleaseTracker {
   /**
    * Get all releases for a repository
    */
-  async getReleases(
-    owner: string,
-    repo: string,
-    limit = 20
-  ): Promise<Release[]> {
+  async getReleases(owner: string, repo: string, limit = 20): Promise<Release[]> {
     try {
       const { data } = await this.octokit.rest.repos.listReleases({
         owner,
@@ -84,11 +80,7 @@ export class ReleaseTracker {
   /**
    * Parse a release body to extract structured changelog info
    */
-  parseChangelog(
-    releaseBody: string,
-    version: string,
-    date: string
-  ): ChangelogEntry {
+  parseChangelog(releaseBody: string, version: string, date: string): ChangelogEntry {
     const changes: ChangelogEntry["changes"] = {
       breaking: [],
       features: [],
@@ -168,9 +160,7 @@ export class ReleaseTracker {
     const latestRelease = releases[0] || null;
     const latestStableRelease = releases.find((r) => !r.isPrerelease) || null;
 
-    const changelog = releases.map((r) =>
-      this.parseChangelog(r.body, r.tag, r.publishedAt)
-    );
+    const changelog = releases.map((r) => this.parseChangelog(r.body, r.tag, r.publishedAt));
 
     const info: VersionInfo = {
       repository: repoKey,
@@ -191,7 +181,7 @@ export class ReleaseTracker {
   async getBreakingChangesSince(
     owner: string,
     repo: string,
-    sinceVersion: string
+    sinceVersion: string,
   ): Promise<string[]> {
     const info = await this.getVersionInfo(owner, repo);
     const breakingChanges: string[] = [];
@@ -211,7 +201,7 @@ export class ReleaseTracker {
   async isOutdated(
     owner: string,
     repo: string,
-    currentVersion: string
+    currentVersion: string,
   ): Promise<{
     isOutdated: boolean;
     latestVersion: string | null;
@@ -219,8 +209,7 @@ export class ReleaseTracker {
     hasBreakingChanges: boolean;
   }> {
     const info = await this.getVersionInfo(owner, repo);
-    const latestVersion =
-      info.latestStableRelease?.tag || info.latestRelease?.tag || null;
+    const latestVersion = info.latestStableRelease?.tag || info.latestRelease?.tag || null;
 
     if (!latestVersion) {
       return {
@@ -231,17 +220,10 @@ export class ReleaseTracker {
       };
     }
 
-    const releaseIndex = info.recentReleases.findIndex(
-      (r) => r.tag === currentVersion
-    );
-    const versionsBehind =
-      releaseIndex === -1 ? info.recentReleases.length : releaseIndex;
+    const releaseIndex = info.recentReleases.findIndex((r) => r.tag === currentVersion);
+    const versionsBehind = releaseIndex === -1 ? info.recentReleases.length : releaseIndex;
 
-    const breakingChanges = await this.getBreakingChangesSince(
-      owner,
-      repo,
-      currentVersion
-    );
+    const breakingChanges = await this.getBreakingChangesSince(owner, repo, currentVersion);
 
     return {
       isOutdated: currentVersion !== latestVersion,
@@ -258,7 +240,7 @@ export class ReleaseTracker {
     owner: string,
     repo: string,
     fromVersion: string,
-    toVersion?: string
+    toVersion?: string,
   ): Promise<{
     from: string;
     to: string;
@@ -268,11 +250,7 @@ export class ReleaseTracker {
     migrationSteps: string[];
   }> {
     const info = await this.getVersionInfo(owner, repo);
-    const to =
-      toVersion ||
-      info.latestStableRelease?.tag ||
-      info.latestRelease?.tag ||
-      fromVersion;
+    const to = toVersion || info.latestStableRelease?.tag || info.latestRelease?.tag || fromVersion;
 
     const result = {
       from: fromVersion,
@@ -303,9 +281,7 @@ export class ReleaseTracker {
     }
 
     // Generate migration steps from breaking changes
-    result.migrationSteps = result.breakingChanges.map(
-      (change) => `Review and update: ${change}`
-    );
+    result.migrationSteps = result.breakingChanges.map((change) => `Review and update: ${change}`);
 
     return result;
   }
@@ -318,7 +294,7 @@ export class ReleaseTracker {
 
     if (versionInfo.latestRelease) {
       parts.push(
-        `Latest version: ${versionInfo.latestRelease.tag} (${versionInfo.latestRelease.publishedAt.split("T")[0]})`
+        `Latest version: ${versionInfo.latestRelease.tag} (${versionInfo.latestRelease.publishedAt.split("T")[0] ?? ""})`,
       );
     }
 
@@ -329,14 +305,10 @@ export class ReleaseTracker {
       parts.push(`Latest stable: ${versionInfo.latestStableRelease.tag}`);
     }
 
-    const recentBreaking = versionInfo.changelog
-      .slice(0, 3)
-      .flatMap((c) => c.changes.breaking);
+    const recentBreaking = versionInfo.changelog.slice(0, 3).flatMap((c) => c.changes.breaking);
 
     if (recentBreaking.length > 0) {
-      parts.push(
-        `Recent breaking changes:\n${recentBreaking.map((b) => `  - ${b}`).join("\n")}`
-      );
+      parts.push(`Recent breaking changes:\n${recentBreaking.map((b) => `  - ${b}`).join("\n")}`);
     }
 
     return parts.join("\n");
@@ -350,7 +322,7 @@ export class ReleaseTracker {
     owner: string,
     repo: string,
     filePath: string,
-    version: string
+    version: string,
   ): Promise<{ content: string; version: string } | null> {
     try {
       const { data } = await this.octokit.rest.repos.getContent({
@@ -371,12 +343,9 @@ export class ReleaseTracker {
 
       return { content, version };
     } catch (error: unknown) {
-      logger.warn(
-        `Failed to fetch ${filePath} at ${version} from ${owner}/${repo}`,
-        {
-          error: String(error),
-        }
-      );
+      logger.warn(`Failed to fetch ${filePath} at ${version} from ${owner}/${repo}`, {
+        error: String(error),
+      });
       return null;
     }
   }
@@ -390,7 +359,7 @@ export class ReleaseTracker {
     repo: string,
     filePath: string,
     oldVersion: string,
-    newVersion: string
+    newVersion: string,
   ): Promise<{
     oldVersion: string;
     newVersion: string;
@@ -418,16 +387,14 @@ export class ReleaseTracker {
    */
   async getLatestSyntaxReference(
     owner: string,
-    repo: string
+    repo: string,
   ): Promise<{
     version: string;
     syntaxFiles: Array<{ path: string; content: string }>;
   } | null> {
     const versionInfo = await this.getVersionInfo(owner, repo);
     const version =
-      versionInfo.latestStableRelease?.tag ||
-      versionInfo.latestRelease?.tag ||
-      "main";
+      versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag || "main";
 
     // Key files that define Compact syntax
     const syntaxFilePaths = [

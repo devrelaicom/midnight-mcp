@@ -18,7 +18,7 @@ export class MCPError extends Error {
     message: string,
     code: string,
     suggestion?: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "MCPError";
@@ -110,8 +110,7 @@ export const SelfCorrectionHints = {
     alternatives: {
       "midnight-generate-contract":
         "Use midnight-search-compact to find similar contracts as templates",
-      "midnight-review-contract":
-        "Use midnight-analyze-contract for static analysis",
+      "midnight-review-contract": "Use midnight-analyze-contract for static analysis",
       "midnight-document-contract": "Manual documentation or inline comments",
     },
   }),
@@ -136,6 +135,41 @@ export function createUserError(error: unknown, context?: string): MCPError {
   const message = error instanceof Error ? error.message : String(error);
   const ctx = context ? ` while ${context}` : "";
 
+  // Check structured error properties first (more reliable than message matching)
+  if (error instanceof Error) {
+    const statusCode = (error as Error & { status?: number }).status;
+    const errorCode = (error as Error & { code?: string }).code;
+
+    // HTTP status-based classification
+    if (statusCode === 403 || statusCode === 429) {
+      return new MCPError(
+        `GitHub API rate limit exceeded${ctx}`,
+        ErrorCodes.RATE_LIMIT,
+        "Add GITHUB_TOKEN to your config to increase limits from 60 to 5000 requests/hour. " +
+          "Get a token at https://github.com/settings/tokens",
+      );
+    }
+
+    if (statusCode === 404) {
+      return new MCPError(
+        `Resource not found${ctx}`,
+        ErrorCodes.NOT_FOUND,
+        "Check that the repository, file, or version exists and is publicly accessible.",
+      );
+    }
+
+    // Node.js error code classification
+    if (errorCode === "ECONNREFUSED" || errorCode === "ETIMEDOUT" || errorCode === "ENOTFOUND") {
+      return new MCPError(
+        `Network error${ctx}`,
+        ErrorCodes.NETWORK,
+        "Check your internet connection and try again. If the problem persists, " +
+          "the service may be temporarily unavailable.",
+      );
+    }
+  }
+
+  // Fallback: message substring matching
   // Rate limit errors
   if (
     message.includes("rate limit") ||
@@ -146,7 +180,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
       `GitHub API rate limit exceeded${ctx}`,
       ErrorCodes.RATE_LIMIT,
       "Add GITHUB_TOKEN to your config to increase limits from 60 to 5000 requests/hour. " +
-        "Get a token at https://github.com/settings/tokens"
+        "Get a token at https://github.com/settings/tokens",
     );
   }
 
@@ -155,7 +189,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
     return new MCPError(
       `Resource not found${ctx}`,
       ErrorCodes.NOT_FOUND,
-      "Check that the repository, file, or version exists and is publicly accessible."
+      "Check that the repository, file, or version exists and is publicly accessible.",
     );
   }
 
@@ -170,7 +204,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
       `Network error${ctx}`,
       ErrorCodes.NETWORK,
       "Check your internet connection and try again. If the problem persists, " +
-        "the service may be temporarily unavailable."
+        "the service may be temporarily unavailable.",
     );
   }
 
@@ -180,7 +214,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
       `ChromaDB is not available${ctx}`,
       ErrorCodes.CHROMADB_UNAVAILABLE,
       "ChromaDB is optional. Without it, search uses keyword matching instead of semantic search. " +
-        "To enable semantic search, run: docker run -d -p 8000:8000 chromadb/chroma"
+        "To enable semantic search, run: docker run -d -p 8000:8000 chromadb/chroma",
     );
   }
 
@@ -190,7 +224,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
       `OpenAI API error${ctx}`,
       ErrorCodes.OPENAI_UNAVAILABLE,
       "OpenAI is optional. Without it, search uses keyword matching. " +
-        "To enable semantic search, add OPENAI_API_KEY to your config."
+        "To enable semantic search, add OPENAI_API_KEY to your config.",
     );
   }
 
@@ -198,7 +232,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
   return new MCPError(
     `An error occurred${ctx}`,
     "UNKNOWN_ERROR",
-    "If this problem persists, please report it at https://github.com/Olanetsoft/midnight-mcp/issues"
+    "If this problem persists, please report it at https://github.com/Olanetsoft/midnight-mcp/issues",
   );
 }
 
@@ -213,7 +247,7 @@ export function createErrorResponse(
     suggestion?: string;
     details?: string[];
     hint?: string;
-  }
+  },
 ): {
   error: string;
   code: string;
@@ -235,23 +269,23 @@ export function createErrorResponse(
  */
 export function formatErrorResponse(
   error: unknown,
-  context?: string
+  context?: string,
 ): {
   error: string;
   code: string;
   suggestion?: string;
 } {
-  const mcpError =
-    error instanceof MCPError ? error : createUserError(error, context);
+  const mcpError = error instanceof MCPError ? error : createUserError(error, context);
   return mcpError.toJSON();
 }
 
 /**
  * Wrap a function with error handling
  */
-export function withErrorHandling<
-  T extends (...args: unknown[]) => Promise<unknown>,
->(fn: T, context: string): T {
+export function withErrorHandling<T extends (...args: unknown[]) => Promise<unknown>>(
+  fn: T,
+  context: string,
+): T {
   return (async (...args: Parameters<T>) => {
     try {
       return await fn(...args);
