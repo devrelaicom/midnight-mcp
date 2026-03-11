@@ -9,6 +9,13 @@ import type {
   ToolAnnotations,
   ToolCategory,
 } from "../../types/index.js";
+import { zodInputSchema } from "../../utils/schema.js";
+import {
+  SearchCompactInputSchema,
+  SearchTypeScriptInputSchema,
+  SearchDocsInputSchema,
+  FetchDocsInputSchema,
+} from "./schemas.js";
 import { searchCompact, searchTypeScript, searchDocs, fetchDocs } from "./handlers.js";
 
 // ============================================================================
@@ -85,28 +92,7 @@ USAGE GUIDANCE:
 • Call at most 2 times per question - if first search doesn't help, try different keywords
 • For comprehensive results, combine with midnight-search-docs
 • Use specific terms like "ledger", "circuit", "witness" for better matches`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        query: {
-          type: "string",
-          description: "Natural language search query for Compact code",
-        },
-        limit: {
-          type: "number",
-          description: "Maximum results to return (default: 10)",
-        },
-        filter: {
-          type: "object",
-          properties: {
-            repository: { type: "string" },
-            isPublic: { type: "boolean" },
-          },
-          description: "Optional filters",
-        },
-      },
-      required: ["query"],
-    },
+    inputSchema: zodInputSchema(SearchCompactInputSchema),
     outputSchema: searchResultSchema,
     annotations: {
       ...searchToolAnnotations,
@@ -122,24 +108,7 @@ USAGE GUIDANCE:
 • Call at most 2 times per question - refine keywords rather than repeating
 • For contract code, use midnight-search-compact instead
 • Include "type" or "interface" in query for type definitions`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        query: {
-          type: "string",
-          description: "Search query for TypeScript SDK code",
-        },
-        includeTypes: {
-          type: "boolean",
-          description: "Include type definitions (default: true)",
-        },
-        limit: {
-          type: "number",
-          description: "Maximum results to return (default: 10)",
-        },
-      },
-      required: ["query"],
-    },
+    inputSchema: zodInputSchema(SearchTypeScriptInputSchema),
     outputSchema: searchResultSchema,
     annotations: {
       ...searchToolAnnotations,
@@ -155,25 +124,7 @@ USAGE GUIDANCE:
 • Call at most 2 times per question - use different keywords if first search fails
 • For code examples, combine with midnight-search-compact or midnight-search-typescript
 • Use category filter to narrow results (guides, api, concepts)`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        query: {
-          type: "string",
-          description: "Documentation search query",
-        },
-        category: {
-          type: "string",
-          enum: ["guides", "api", "concepts", "all"],
-          description: "Filter by documentation category (default: all)",
-        },
-        limit: {
-          type: "number",
-          description: "Maximum results to return (default: 10)",
-        },
-      },
-      required: ["query"],
-    },
+    inputSchema: zodInputSchema(SearchDocsInputSchema),
     outputSchema: searchResultSchema,
     annotations: {
       ...searchToolAnnotations,
@@ -204,21 +155,7 @@ USAGE GUIDANCE:
 • Use extractSection to get only a specific heading (e.g., "Developer questions")
 • Prefer midnight-search-docs for discovery, use this for known pages
 • Content is truncated at 15KB for token efficiency`,
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        path: {
-          type: "string",
-          description:
-            "Documentation page path (e.g., '/develop/faq', '/getting-started/installation')",
-        },
-        extractSection: {
-          type: "string",
-          description: "Optional: Extract only a specific section by heading text",
-        },
-      },
-      required: ["path"],
-    },
+    inputSchema: zodInputSchema(FetchDocsInputSchema),
     outputSchema: {
       type: "object",
       properties: {

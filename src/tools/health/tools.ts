@@ -4,6 +4,13 @@
  */
 
 import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
+import { zodInputSchema } from "../../utils/schema.js";
+import {
+  HealthCheckInputSchema,
+  GetStatusInputSchema,
+  CheckVersionInputSchema,
+  GetUpdateInstructionsInputSchema,
+} from "./schemas.js";
 import { healthCheck, getStatus, checkVersion, getUpdateInstructions } from "./handlers.js";
 
 // ============================================================================
@@ -104,17 +111,7 @@ export const healthTools: ExtendedToolDefinition[] = [
     name: "midnight-health-check",
     description:
       "Check the health status of the Midnight MCP server. Returns server status, API connectivity, and resource availability.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        detailed: {
-          type: "boolean",
-          description:
-            "Include detailed checks including GitHub API and vector store status (slower)",
-          default: false,
-        },
-      },
-    },
+    inputSchema: zodInputSchema(HealthCheckInputSchema),
     outputSchema: healthCheckOutputSchema,
     annotations: {
       readOnlyHint: true,
@@ -128,10 +125,7 @@ export const healthTools: ExtendedToolDefinition[] = [
     name: "midnight-get-status",
     description:
       "Get current server status including rate limits and cache statistics. Quick status check without external API calls.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {},
-    },
+    inputSchema: zodInputSchema(GetStatusInputSchema),
     outputSchema: getStatusOutputSchema,
     annotations: {
       readOnlyHint: true,
@@ -147,10 +141,7 @@ export const healthTools: ExtendedToolDefinition[] = [
       "🔄 Check if you're running the latest version of midnight-mcp. " +
       "Compares your installed version against npm registry and provides update instructions if outdated. " +
       "Use this if tools seem missing or you want to ensure you have the latest features.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {},
-    },
+    inputSchema: zodInputSchema(CheckVersionInputSchema),
     outputSchema: checkVersionOutputSchema,
     annotations: {
       readOnlyHint: true,
@@ -167,23 +158,7 @@ export const healthTools: ExtendedToolDefinition[] = [
       "📋 Get detailed, platform-specific instructions for updating Midnight MCP to the latest version. " +
       "Provides step-by-step guidance including config file locations, commands to run, and troubleshooting tips. " +
       "Use this when a user needs help updating or is having issues with outdated versions.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        platform: {
-          type: "string",
-          enum: ["auto", "mac", "windows", "linux"],
-          description: "Target platform (auto-detects if not specified)",
-          default: "auto",
-        },
-        editor: {
-          type: "string",
-          enum: ["auto", "claude-desktop", "cursor", "vscode", "windsurf"],
-          description: "Target editor (defaults to Claude Desktop)",
-          default: "auto",
-        },
-      },
-    },
+    inputSchema: zodInputSchema(GetUpdateInstructionsInputSchema),
     outputSchema: {
       type: "object" as const,
       properties: {

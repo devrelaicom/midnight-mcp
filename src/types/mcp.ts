@@ -116,6 +116,7 @@ export interface ExtendedToolDefinition {
     type: "object";
     properties: Record<string, unknown>;
     required?: string[];
+    [key: string]: unknown;
   };
   outputSchema?: OutputSchema;
   annotations?: ToolAnnotations;

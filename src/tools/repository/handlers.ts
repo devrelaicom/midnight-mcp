@@ -45,7 +45,7 @@ import type {
 } from "./schemas.js";
 
 // Re-export validation handlers from validation.ts
-export { extractContractStructure } from "./validation.js";
+export { extractContractStructure } from "./validation/index.js";
 
 /**
  * Resolve repository name alias to owner/repo

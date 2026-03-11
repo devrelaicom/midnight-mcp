@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { extractContractStructure } from "../src/tools/repository/validation.js";
+import { extractContractStructure } from "../src/tools/repository/validation/index.js";
 import { EMBEDDED_DOCS } from "../src/resources/content/docs-content.js";
 
 // Extract the compact reference doc at module level for all tests

@@ -136,45 +136,30 @@ export function createUserError(error: unknown, context?: string): MCPError {
   const ctx = context ? ` while ${context}` : "";
 
   // Check structured error properties first (more reliable than message matching)
+  // Walk the error.cause chain to find structured properties on wrapped errors
   if (error instanceof Error) {
-    const statusCode = (error as Error & { status?: number }).status;
-    const errorCode = (error as Error & { code?: string }).code;
-
-    // HTTP status-based classification
-    if (statusCode === 403 || statusCode === 429) {
-      return new MCPError(
-        `GitHub API rate limit exceeded${ctx}`,
-        ErrorCodes.RATE_LIMIT,
-        "Add GITHUB_TOKEN to your config to increase limits from 60 to 5000 requests/hour. " +
-          "Get a token at https://github.com/settings/tokens",
-      );
-    }
-
-    if (statusCode === 404) {
-      return new MCPError(
-        `Resource not found${ctx}`,
-        ErrorCodes.NOT_FOUND,
-        "Check that the repository, file, or version exists and is publicly accessible.",
-      );
-    }
-
-    // Node.js error code classification
-    if (errorCode === "ECONNREFUSED" || errorCode === "ETIMEDOUT" || errorCode === "ENOTFOUND") {
-      return new MCPError(
-        `Network error${ctx}`,
-        ErrorCodes.NETWORK,
-        "Check your internet connection and try again. If the problem persists, " +
-          "the service may be temporarily unavailable.",
-      );
+    const structured = classifyByStructuredProperties(error);
+    if (structured) {
+      return structured.toMCPError(ctx);
     }
   }
 
-  // Fallback: message substring matching
+  // Check for known JS error types
+  if (error instanceof TypeError || error instanceof SyntaxError) {
+    return new MCPError(
+      `Parse error${ctx}: ${message}`,
+      ErrorCodes.PARSE_ERROR,
+      "Check the input format and try again.",
+    );
+  }
+
+  // Fallback: message substring matching (tightened patterns to reduce false positives)
   // Rate limit errors
   if (
     message.includes("rate limit") ||
-    message.includes("403") ||
-    message.includes("API rate limit")
+    message.includes("API rate limit") ||
+    message.includes("403 Forbidden") ||
+    /\bstatus\s*403\b/.test(message)
   ) {
     return new MCPError(
       `GitHub API rate limit exceeded${ctx}`,
@@ -185,7 +170,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
   }
 
   // Not found errors
-  if (message.includes("404") || message.includes("Not Found")) {
+  if (/\b404\b/.test(message) || message.includes("Not Found")) {
     return new MCPError(
       `Resource not found${ctx}`,
       ErrorCodes.NOT_FOUND,
@@ -193,11 +178,13 @@ export function createUserError(error: unknown, context?: string): MCPError {
     );
   }
 
-  // Network errors
+  // Network errors (tightened: require "network error" or "NetworkError", not just "network")
   if (
-    message.includes("network") ||
+    /\bnetwork\s*error\b/i.test(message) ||
+    message.includes("NetworkError") ||
     message.includes("ECONNREFUSED") ||
     message.includes("ETIMEDOUT") ||
+    message.includes("ENOTFOUND") ||
     message.includes("timeout")
   ) {
     return new MCPError(
@@ -208,8 +195,13 @@ export function createUserError(error: unknown, context?: string): MCPError {
     );
   }
 
-  // ChromaDB errors
-  if (message.includes("chroma") || message.includes("8000")) {
+  // ChromaDB errors (tightened: require "chroma" or connection-refused on port 8000)
+  if (
+    /\bchroma\b/i.test(message) ||
+    message.includes(":8000") ||
+    message.includes("localhost:8000") ||
+    (message.includes("ECONNREFUSED") && message.includes("8000"))
+  ) {
     return new MCPError(
       `ChromaDB is not available${ctx}`,
       ErrorCodes.CHROMADB_UNAVAILABLE,
@@ -219,7 +211,7 @@ export function createUserError(error: unknown, context?: string): MCPError {
   }
 
   // OpenAI errors
-  if (message.includes("openai") || message.includes("embedding")) {
+  if (/\bopenai\b/i.test(message) || message.includes("embedding")) {
     return new MCPError(
       `OpenAI API error${ctx}`,
       ErrorCodes.OPENAI_UNAVAILABLE,
@@ -234,6 +226,75 @@ export function createUserError(error: unknown, context?: string): MCPError {
     "UNKNOWN_ERROR",
     "If this problem persists, please report it at https://github.com/Olanetsoft/midnight-mcp/issues",
   );
+}
+
+/**
+ * Classification result from structured error property inspection.
+ * Avoids creating MCPError until we know the context suffix.
+ */
+interface ErrorClassification {
+  toMCPError(ctx: string): MCPError;
+}
+
+/**
+ * Walk an error (and its .cause chain) looking for structured HTTP status
+ * codes or Node.js error codes. Returns a classification if found, or null
+ * to fall through to message-based matching.
+ */
+function classifyByStructuredProperties(error: Error): ErrorClassification | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let current: any = error;
+  const seen = new Set<unknown>();
+
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+
+    const statusCode =
+      (current as Error & { status?: number; statusCode?: number }).status ??
+      (current as Error & { statusCode?: number }).statusCode;
+    const errorCode = (current as Error & { code?: string }).code;
+
+    // HTTP status-based classification
+    if (statusCode === 403 || statusCode === 429) {
+      return {
+        toMCPError: (ctx) =>
+          new MCPError(
+            `GitHub API rate limit exceeded${ctx}`,
+            ErrorCodes.RATE_LIMIT,
+            "Add GITHUB_TOKEN to your config to increase limits from 60 to 5000 requests/hour. " +
+              "Get a token at https://github.com/settings/tokens",
+          ),
+      };
+    }
+
+    if (statusCode === 404) {
+      return {
+        toMCPError: (ctx) =>
+          new MCPError(
+            `Resource not found${ctx}`,
+            ErrorCodes.NOT_FOUND,
+            "Check that the repository, file, or version exists and is publicly accessible.",
+          ),
+      };
+    }
+
+    // Node.js error code classification
+    if (errorCode === "ECONNREFUSED" || errorCode === "ETIMEDOUT" || errorCode === "ENOTFOUND") {
+      return {
+        toMCPError: (ctx) =>
+          new MCPError(
+            `Network error${ctx}`,
+            ErrorCodes.NETWORK,
+            "Check your internet connection and try again. If the problem persists, " +
+              "the service may be temporarily unavailable.",
+          ),
+      };
+    }
+
+    current = current.cause;
+  }
+
+  return null;
 }
 
 /**
