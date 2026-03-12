@@ -13,10 +13,4 @@ export type {
   DiffResult,
 } from "./playground.js";
 
-export {
-  isSamplingAvailable,
-  registerSamplingCallback,
-  generateContract,
-  reviewContract,
-  generateDocumentation,
-} from "./sampling.js";
+export { registerSamplingCallback } from "./sampling.js";
