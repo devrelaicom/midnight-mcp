@@ -376,8 +376,8 @@ export const INTENT_TO_TOOL: Array<{
       "convention",
       "best practice",
     ],
-    tool: "midnight-get-latest-syntax",
-    reason: "Get authoritative syntax reference to avoid mistakes",
+    tool: "midnight-fetch-docs",
+    reason: "Fetch Compact syntax reference from latest documentation",
   },
   {
     patterns: [
@@ -516,8 +516,8 @@ export const INTENT_TO_TOOL: Array<{
       "version number",
       "compact version",
     ],
-    tool: "midnight-get-version-info",
-    reason: "Get version information for Midnight components",
+    tool: "midnight-check-version",
+    reason: "Check the current MCP server version",
   },
   {
     patterns: ["breaking changes", "what broke", "incompatible", "api changes", "deprecations"],
@@ -532,8 +532,8 @@ export const INTENT_TO_TOOL: Array<{
       "migration path",
       "move to new version",
     ],
-    tool: "midnight-get-migration-guide",
-    reason: "Get step-by-step migration guidance",
+    tool: "midnight-upgrade-check",
+    reason: "Get complete upgrade analysis including migration guidance",
   },
   {
     patterns: ["compare syntax", "syntax diff", "syntax between versions", "syntax comparison"],

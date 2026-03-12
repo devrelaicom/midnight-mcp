@@ -573,7 +573,6 @@ List tools within a specific category.
     description: string;
     title: string;
     isCompound: boolean;
-    requiresSampling: boolean;
   }>;
   suggestion: string;
 }

@@ -279,18 +279,6 @@ describe("suggestTool", () => {
   });
 
   describe("version and migration matches", () => {
-    it("should match migration guide intents", async () => {
-      const result = await suggestTool({
-        intent: "how to migrate to new version",
-      });
-
-      expect(
-        result.suggestions.some(
-          (s) => s.tool === "midnight-get-migration-guide"
-        )
-      ).toBe(true);
-    });
-
     it("should match syntax comparison intents", async () => {
       const result = await suggestTool({
         intent: "compare syntax between versions",

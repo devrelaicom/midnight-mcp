@@ -121,7 +121,7 @@ USAGE GUIDANCE:
   {
     name: "midnight-upgrade-check",
     description:
-      "🚀 COMPOUND TOOL: Complete upgrade analysis in ONE call. Combines version check + breaking changes + migration guide. Use this instead of calling midnight-get-version-info, midnight-check-breaking-changes, and midnight-get-migration-guide separately. Saves ~60% tokens.",
+      "🚀 COMPOUND TOOL: Complete upgrade analysis in ONE call. Combines version check + breaking changes + migration guide. Saves ~60% tokens compared to calling individual tools.",
     inputSchema: zodInputSchema(UpgradeCheckInputSchema),
     outputSchema: {
       type: "object" as const,
