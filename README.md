@@ -8,8 +8,6 @@
 
 MCP server that gives AI assistants access to Midnight blockchain—search contracts, analyze code, and explore documentation.
 
-This project extends the Midnight Network with additional developer tooling.
-
 ## Requirements
 
 - **Node.js 25.8.1** recommended, with compatibility tested on **24.14.0** and **25.8.1**
@@ -106,18 +104,17 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ## What's Included
 
-### 29 Tools
+### 23 Tools
 
-| Category          | Tools                                                                                                                             | Description                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **Search**        | `search-compact`, `search-typescript`, `search-docs`, `fetch-docs`                                                                | Semantic search + live docs fetching             |
-| **Analysis**      | `analyze-contract`, `explain-circuit`, `extract-contract-structure`, `compile-contract`                                           | Static analysis + real compilation               |
-| **Repository**    | `get-file`, `list-examples`, `get-latest-updates`                                                                                 | Access files and examples                        |
-| **Versioning**    | `get-version-info`, `check-breaking-changes`, `get-migration-guide`, `get-file-at-version`, `compare-syntax`, `get-latest-syntax` | Version tracking and migration                   |
-| **AI Generation** | `generate-contract`, `review-contract`, `document-contract`                                                                       | AI-powered code generation _(requires sampling)_ |
-| **Compound**      | `upgrade-check`, `get-repo-context`                                                                                               | Multi-step operations _(saves 50-70% tokens)_    |
-| **Health**        | `health-check`, `get-status`, `check-version`                                                                                     | Server status and version checking               |
-| **Discovery**     | `list-tool-categories`, `list-category-tools`, `suggest-tool`                                                                     | Explore available tools and get recommendations  |
+| Category       | Tools                                                                                                          | Description                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Search**     | `search-compact`, `search-typescript`, `search-docs`, `fetch-docs`                                             | Semantic search + live docs fetching          |
+| **Analysis**   | `analyze-contract`, `compile-contract`                                                                         | Static analysis + real compilation            |
+| **Code Tools** | `format-contract`, `diff-contracts`                                                                            | Format code + semantic diffing                |
+| **Repository** | `get-file`, `list-examples`, `get-latest-updates`, `check-breaking-changes`, `get-file-at-version`, `compare-syntax` | Access files and track version changes   |
+| **Compound**   | `upgrade-check`, `get-repo-context`                                                                            | Multi-step operations _(saves 50-70% tokens)_ |
+| **Health**     | `health-check`, `get-status`, `check-version`, `get-update-instructions`                                       | Server status and version checking            |
+| **Discovery**  | `list-tool-categories`, `list-category-tools`, `suggest-tool`                                                  | Explore available tools and get recommendations |
 
 All tools are prefixed with `midnight-` (e.g., `midnight-search-compact`).
 
@@ -137,47 +134,22 @@ This catches semantic errors that static analysis misses (sealed fields, disclos
 
 ### MCP Capabilities
 
-| Capability      | Feature                                         |
-| --------------- | ----------------------------------------------- |
-| **Tools**       | 29 tools with `listChanged` notifications       |
-| **Resources**   | 9 embedded resources with subscription support  |
-| **Prompts**     | 5 workflow prompts                              |
-| **Logging**     | Client-controllable log level                   |
-| **Completions** | Autocomplete for prompt arguments               |
-| **Progress**    | Real-time progress for compound tools           |
-| **Sampling**    | AI-powered generation (when client supports it) |
+| Capability    | Feature                                        |
+| ------------- | ---------------------------------------------- |
+| **Tools**     | 23 tools with `listChanged` notifications      |
+| **Resources** | 5 embedded resources with subscription support |
+| **Logging**   | Client-controllable log level                  |
+| **Progress**  | Real-time progress for compound tools          |
 
-### 9 Embedded Resources
+### 5 Embedded Resources
 
 Quick references available offline:
 
-- Compact syntax guide (v0.16-0.18)
-- SDK API reference
-- OpenZeppelin contracts
+- Compact syntax guide
 - Tokenomics overview
-- Wallet integration
-- Common errors & solutions
-
-### Static Analysis
-
-`extract-contract-structure` catches common mistakes before compilation:
-
-| Check                     | Severity | Description                                             |
-| ------------------------- | -------- | ------------------------------------------------------- |
-| `deprecated_ledger_block` | P0       | Catches `ledger { }` → use `export ledger field: Type;` |
-| `invalid_void_type`       | P0       | Catches `Void` → use `[]` (empty tuple)                 |
-| `invalid_pragma_format`   | P0       | Catches old pragma → use `>= 0.16 && <= 0.18`           |
-| `unexported_enum`         | P1       | Enums need `export` for TypeScript access               |
-| `module_level_const`      | P0       | Use `pure circuit` instead                              |
-| + 10 more checks          | P1-P2    | Overflow, division, assertions, etc.                    |
-
-### 5 Prompts
-
-- `create-contract` — Generate new contracts
-- `review-contract` — Security and code review
-- `explain-concept` — Learn Midnight concepts
-- `compare-approaches` — Compare implementation patterns
-- `debug-contract` — Troubleshoot issues
+- Compact AST schema
+- Transaction schema
+- ZK proof schema
 
 ---
 

@@ -1,6 +1,8 @@
 # Midnight MCP Video Walkthrough Script
 
-**Duration:** ~20-25 minutes  
+> **Note:** This script was written for an earlier version of midnight-mcp that included AI generation tools, prompts, and more embedded resources. The current version focuses on compile, analyze (AST), format, diff, search, and health tools. This script is kept for reference but is not current.
+
+**Duration:** ~20-25 minutes
 **Target Audience:** Developers interested in Midnight blockchain, MCP ecosystem, AI-assisted development
 
 ---
