@@ -20,52 +20,10 @@ export const documentationResources: ResourceDefinition[] = [
     mimeType: "text/markdown",
   },
   {
-    uri: "midnight://docs/sdk-api",
-    name: "TypeScript SDK API",
-    description: "TypeScript SDK API reference with type signatures and usage examples",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/openzeppelin",
-    name: "OpenZeppelin Contracts for Compact",
-    description: "Official OpenZeppelin library - tokens, access control, security patterns",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/openzeppelin/token",
-    name: "OpenZeppelin FungibleToken",
-    description: "Privacy-preserving token standard for Midnight",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/openzeppelin/access",
-    name: "OpenZeppelin Access Control",
-    description: "Ownable, roles, and access control patterns",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/openzeppelin/security",
-    name: "OpenZeppelin Security",
-    description: "Pausable and security patterns",
-    mimeType: "text/markdown",
-  },
-  {
     uri: "midnight://docs/tokenomics",
     name: "Tokenomics Summary",
     description:
       "Curated summary: NIGHT token, DUST resource, block rewards, Glacier Drop distribution",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/wallet-integration",
-    name: "Wallet Integration Guide",
-    description: "DApp Connector API for Midnight Lace wallet - React hooks, TypeScript types",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/common-errors",
-    name: "Common Errors & Solutions",
-    description: "Troubleshooting guide: compiler errors, SDK errors, deployment issues with fixes",
     mimeType: "text/markdown",
   },
 ];

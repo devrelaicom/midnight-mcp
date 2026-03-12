@@ -9,16 +9,11 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
   ListResourceTemplatesRequestSchema,
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
   SetLevelRequestSchema,
   LoggingLevel,
-  CompleteRequestSchema,
-  ErrorCode,
-  McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type Response } from "express";
 import { randomUUID } from "crypto";
@@ -35,8 +30,7 @@ import {
 import { toolValidationSchemas } from "./tools/validation.js";
 import { vectorStore } from "./db/index.js";
 import { allTools } from "./tools/index.js";
-import { allResources, getDocumentation, getCode, getSchema } from "./resources/index.js";
-import { promptDefinitions, generatePrompt } from "./prompts/index.js";
+import { allResources, getDocumentation, getSchema } from "./resources/index.js";
 import { registerSamplingCallback } from "./services/index.js";
 import type { ResourceTemplate, SamplingRequest, SamplingResponse } from "./types/index.js";
 
@@ -153,26 +147,11 @@ export function clearSubscriptions(server?: Server): void {
 // Resource templates for parameterized resources (RFC 6570 URI Templates)
 const resourceTemplates: ResourceTemplate[] = [
   {
-    uriTemplate: "midnight://code/{owner}/{repo}/{path}",
-    name: "Repository Code",
-    title: "📄 Repository Code Files",
-    description:
-      "Access code files from any Midnight repository by specifying owner, repo, and file path",
-    mimeType: "text/plain",
-  },
-  {
     uriTemplate: "midnight://docs/{section}/{topic}",
     name: "Documentation",
     title: "📚 Documentation Sections",
     description: "Access documentation by section (guides, api, concepts) and topic",
     mimeType: "text/markdown",
-  },
-  {
-    uriTemplate: "midnight://examples/{category}/{name}",
-    name: "Example Contracts",
-    title: "📝 Example Contracts",
-    description: "Access example contracts by category (counter, bboard, token, voting) and name",
-    mimeType: "text/x-compact",
   },
   {
     uriTemplate: "midnight://schema/{type}",
@@ -335,11 +314,7 @@ export function createServer(): Server {
         subscribe: true,
         listChanged: true,
       },
-      prompts: {
-        listChanged: true,
-      },
       logging: {},
-      completions: {},
     },
   });
 
@@ -353,17 +328,11 @@ export function createServer(): Server {
   // Register resource handlers
   registerResourceHandlers(server);
 
-  // Register prompt handlers
-  registerPromptHandlers(server);
-
   // Register subscription handlers
   registerSubscriptionHandlers(server);
 
   // Register logging handler
   registerLoggingHandler(server);
-
-  // Register completions handler
-  registerCompletionsHandler(server);
 
   // Setup sampling callback if available
   setupSampling(server);
@@ -389,76 +358,6 @@ function registerLoggingHandler(server: Server): void {
       server,
     );
     return {};
-  });
-}
-
-// Completion suggestions for prompt arguments
-const COMPLETION_VALUES: Record<string, Record<string, string[]>> = {
-  "midnight:create-contract": {
-    contractType: ["token", "voting", "credential", "auction", "escrow", "custom"],
-    privacyLevel: ["full", "partial", "public"],
-    complexity: ["beginner", "intermediate", "advanced"],
-  },
-  "midnight:review-contract": {
-    focusAreas: ["security", "performance", "privacy", "readability", "gas-optimization"],
-  },
-  "midnight:explain-concept": {
-    concept: [
-      "zk-proofs",
-      "circuits",
-      "witnesses",
-      "ledger",
-      "state-management",
-      "privacy-model",
-      "token-transfers",
-      "merkle-trees",
-    ],
-    level: ["beginner", "intermediate", "advanced"],
-  },
-  "midnight:compare-approaches": {
-    approaches: ["token-standards", "state-management", "privacy-patterns", "circuit-design"],
-  },
-  "midnight:debug-contract": {
-    errorType: ["compilation", "runtime", "logic", "privacy-leak", "state-corruption"],
-  },
-};
-
-/**
- * Register completions handler for argument autocompletion
- */
-function registerCompletionsHandler(server: Server): void {
-  server.setRequestHandler(CompleteRequestSchema, (request) => {
-    const { ref, argument } = request.params;
-
-    if (ref.type !== "ref/prompt") {
-      return { completion: { values: [], hasMore: false } };
-    }
-
-    const promptName = ref.name;
-    const argName = argument.name;
-    const currentValue = argument.value.toLowerCase() || "";
-
-    // Get completion values for this prompt/argument
-    const promptCompletions = COMPLETION_VALUES[promptName];
-    if (!promptCompletions) {
-      return { completion: { values: [], hasMore: false } };
-    }
-
-    const argValues = promptCompletions[argName];
-    if (!argValues) {
-      return { completion: { values: [], hasMore: false } };
-    }
-
-    // Filter by current input
-    const filtered = argValues.filter((v) => v.toLowerCase().includes(currentValue));
-
-    return {
-      completion: {
-        values: filtered.slice(0, 20),
-        total: filtered.length,
-        hasMore: filtered.length > 20,
-      },
-    };
   });
 }
 
@@ -672,9 +571,6 @@ function registerResourceHandlers(server: Server): void {
       if (uri.startsWith("midnight://docs/")) {
         content = await getDocumentation(uri);
         mimeType = "text/markdown";
-      } else if (uri.startsWith("midnight://code/")) {
-        content = await getCode(uri);
-        mimeType = "text/x-compact";
       } else if (uri.startsWith("midnight://schema/")) {
         const schema = getSchema(uri);
         content = schema ? JSON.stringify(schema, null, 2) : null;
@@ -682,7 +578,7 @@ function registerResourceHandlers(server: Server): void {
       }
 
       if (!content) {
-        const resourceTypes = ["midnight://docs/", "midnight://code/", "midnight://schema/"];
+        const resourceTypes = ["midnight://docs/", "midnight://schema/"];
         const validPrefix = resourceTypes.find((p) => uri.startsWith(p));
 
         // Try to suggest correct URI for common mistakes
@@ -693,21 +589,14 @@ function registerResourceHandlers(server: Server): void {
         // Handle common URI mistakes
         if (uri.includes("://resources/")) {
           const resourceName = uri.split("://resources/").pop() || "";
-          // Suggest the correct prefix based on content type
           if (
-            resourceName.includes("template") ||
-            resourceName.includes("pattern") ||
-            resourceName.includes("example")
-          ) {
-            suggestion = `Try: midnight://code/templates/${resourceName} or midnight://code/examples/${resourceName} or midnight://code/patterns/${resourceName}`;
-          } else if (
             resourceName.includes("doc") ||
             resourceName.includes("reference") ||
             resourceName.includes("guide")
           ) {
             suggestion = `Try: midnight://docs/${resourceName}`;
           } else {
-            suggestion = `'midnight://resources/' is not valid. Use: midnight://docs/, midnight://code/, or midnight://schema/`;
+            suggestion = `'midnight://resources/' is not valid. Use: midnight://docs/ or midnight://schema/`;
           }
         }
 
@@ -753,44 +642,6 @@ function registerResourceHandlers(server: Server): void {
 }
 
 /**
- * Register prompt handlers
- */
-function registerPromptHandlers(server: Server): void {
-  // List available prompts
-  server.setRequestHandler(ListPromptsRequestSchema, () => {
-    logger.debug("Listing prompts");
-    return {
-      prompts: promptDefinitions.map((prompt) => ({
-        name: prompt.name,
-        description: prompt.description,
-        arguments: prompt.arguments,
-      })),
-    };
-  });
-
-  // Get prompt content
-  server.setRequestHandler(GetPromptRequestSchema, (request) => {
-    const { name, arguments: args } = request.params;
-    logger.info(`Prompt requested: ${name}`, { args });
-
-    const prompt = promptDefinitions.find((p) => p.name === name);
-    if (!prompt) {
-      throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${name}`);
-    }
-
-    const messages = generatePrompt(name, args || {});
-
-    return {
-      description: prompt.description,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    };
-  });
-}
-
-/**
  * Register resource subscription handlers
  */
 function registerSubscriptionHandlers(server: Server): void {
@@ -800,7 +651,7 @@ function registerSubscriptionHandlers(server: Server): void {
     logger.info(`Subscribing to resource: ${uri}`);
 
     // Validate that the URI is a valid resource
-    const validPrefixes = ["midnight://docs/", "midnight://code/", "midnight://schema/"];
+    const validPrefixes = ["midnight://docs/", "midnight://schema/"];
     const isValid = validPrefixes.some((prefix) => uri.startsWith(prefix));
 
     if (!isValid) {

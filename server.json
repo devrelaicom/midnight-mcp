@@ -10,9 +10,9 @@
     "stdio",
     "http"
   ],
-  "tools": 28,
-  "resources": 9,
-  "prompts": 5,
+  "tools": 23,
+  "resources": 5,
+  "prompts": 0,
   "keywords": [
     "midnight",
     "blockchain",
@@ -25,7 +25,6 @@
   ],
   "categories": [
     "blockchain",
-    "developer-tools",
-    "code-generation"
+    "developer-tools"
   ]
 }

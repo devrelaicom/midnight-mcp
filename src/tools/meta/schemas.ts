@@ -17,16 +17,7 @@ export const ListToolCategoriesInputSchema = z.object({
 
 export const ListCategoryToolsInputSchema = z.object({
   category: z
-    .enum([
-      "search",
-      "analyze",
-      "repository",
-      "versioning",
-      "generation",
-      "health",
-      "meta",
-      "compound",
-    ])
+    .enum(["search", "analyze", "repository", "versioning", "health", "meta", "compound"])
     .describe("Category to list tools for"),
   includeSchemas: z.boolean().optional().default(false).describe("Include input/output schemas"),
 });
@@ -179,35 +170,6 @@ export const CATEGORY_INFO: Record<ToolCategory, CategoryInfo> = {
       "reference",
     ],
     startWith: "midnight-upgrade-check",
-  },
-  generation: {
-    description: "AI-powered code generation, review, and documentation (requires sampling)",
-    useCases: ["Generate contracts", "Review code", "Generate documentation"],
-    intentKeywords: [
-      // Creation verbs
-      "generate",
-      "create",
-      "write",
-      "build",
-      "make",
-      "scaffold",
-      "boilerplate",
-      // AI-specific
-      "ai",
-      "help me write",
-      "draft",
-      "produce",
-      // Documentation
-      "document",
-      "documentation",
-      "explain code",
-      "comment",
-      // Review
-      "improve",
-      "suggest fix",
-      "refactor",
-    ],
-    startWith: "midnight-generate-contract",
   },
   health: {
     description: "Server health checks and status monitoring",
@@ -388,21 +350,6 @@ export const INTENT_TO_TOOL: Array<{
     tool: "midnight-analyze-contract",
     reason: "Performs security analysis on your contract code",
   },
-  {
-    patterns: [
-      "circuit",
-      "zk",
-      "zero knowledge",
-      "proof",
-      "privacy",
-      "private",
-      "witness",
-      "constraint",
-    ],
-    tool: "midnight-explain-circuit",
-    reason: "Explains circuit logic and ZK implications",
-  },
-
   // Version & Upgrade
   {
     patterns: [
@@ -506,31 +453,6 @@ export const INTENT_TO_TOOL: Array<{
     ],
     tool: "midnight-fetch-docs",
     reason: "Fetch live documentation directly from docs.midnight.network",
-  },
-
-  // Code Generation
-  {
-    patterns: [
-      "generate",
-      "create contract",
-      "write contract",
-      "new contract",
-      "scaffold",
-      "template",
-      "boilerplate",
-    ],
-    tool: "midnight-generate-contract",
-    reason: "AI-powered contract generation (requires sampling)",
-  },
-  {
-    patterns: ["review", "check my code", "is this correct", "feedback", "improve my", "fix my"],
-    tool: "midnight-review-contract",
-    reason: "AI-powered code review (requires sampling)",
-  },
-  {
-    patterns: ["document my", "add comments", "explain my code", "generate docs"],
-    tool: "midnight-generate-documentation",
-    reason: "AI-powered documentation generation (requires sampling)",
   },
 
   // Health & Debugging

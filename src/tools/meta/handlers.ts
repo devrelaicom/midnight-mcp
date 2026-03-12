@@ -16,7 +16,6 @@ import { searchTools } from "../search/index.js";
 import { analyzeTools } from "../analyze/index.js";
 import { repositoryTools } from "../repository/index.js";
 import { healthTools } from "../health/index.js";
-import { generationTools } from "../generation/index.js";
 import { formatTools } from "../format/index.js";
 import { diffTools } from "../diff/index.js";
 
@@ -41,7 +40,6 @@ function getToolsByCategory(): Map<ToolCategory, ExtendedToolDefinition[]> {
     ...diffTools,
     ...repositoryTools,
     ...healthTools,
-    ...generationTools,
     ..._metaTools,
   ];
 
@@ -115,7 +113,7 @@ export async function listCategoryTools(input: ListCategoryToolsInput) {
       description: t.description.split("\n")[0], // First line only
       title: t.annotations?.title || t.name,
       isCompound: t.annotations?.category === "compound",
-      requiresSampling: t.annotations?.longRunningHint && t.annotations.category === "generation",
+      requiresSampling: false,
       ...(input.includeSchemas && {
         inputSchema: t.inputSchema,
         outputSchema: t.outputSchema,
@@ -134,8 +132,6 @@ function generateCategorySuggestion(category: ToolCategory): string {
       return "🚀 Compound tools save 50-70% tokens. Use midnight-upgrade-check or midnight-get-repo-context for efficient operations.";
     case "search":
       return "💡 Search tools use semantic matching - describe what you want in natural language.";
-    case "generation":
-      return "⚠️ Generation tools require sampling capability. They use the client's LLM for AI-powered operations.";
     case "versioning":
       return "📦 For version checks, prefer midnight-upgrade-check (compound) over individual version tools.";
     case "analyze":

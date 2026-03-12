@@ -5,12 +5,8 @@
 
 import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
 import { zodInputSchema } from "../../utils/schema.js";
-import {
-  AnalyzeContractInputSchema,
-  ExplainCircuitInputSchema,
-  CompileContractInputSchema,
-} from "./schemas.js";
-import { analyzeContract, explainCircuit, compileContract } from "./handlers.js";
+import { AnalyzeContractInputSchema, CompileContractInputSchema } from "./schemas.js";
+import { analyzeContract, compileContract } from "./handlers.js";
 
 // ============================================================================
 // Output Schemas
@@ -114,47 +110,6 @@ const analyzeContractOutputSchema: OutputSchema = {
   description: "Detailed contract analysis with security findings",
 };
 
-const explainCircuitOutputSchema: OutputSchema = {
-  type: "object",
-  properties: {
-    circuitName: { type: "string", description: "Circuit name" },
-    isPublic: { type: "boolean", description: "Whether it's exported" },
-    parameters: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          type: { type: "string" },
-        },
-      },
-      description: "Circuit parameters",
-    },
-    returnType: { type: "string", description: "Return type" },
-    explanation: {
-      type: "string",
-      description: "Plain language explanation",
-    },
-    operations: {
-      type: "array",
-      items: { type: "string" },
-      description: "Operations performed by the circuit",
-    },
-    zkImplications: {
-      type: "array",
-      items: { type: "string" },
-      description: "Zero-knowledge proof implications",
-    },
-    privacyConsiderations: {
-      type: "array",
-      items: { type: "string" },
-      description: "Privacy-related considerations",
-    },
-  },
-  required: ["circuitName", "explanation", "zkImplications", "privacyConsiderations"],
-  description: "Detailed circuit explanation with privacy analysis",
-};
-
 const compileContractOutputSchema: OutputSchema = {
   type: "object",
   properties: {
@@ -210,8 +165,7 @@ Use this for: understanding structure, pre-compilation checks, circuit discovery
 
 USAGE GUIDANCE:
 • Call once per contract - results are deterministic
-• Use mode='deep' to also get compilation results
-• For security review, also use midnight-review-contract (requires sampling)`,
+• Use mode='deep' to also get compilation results`,
     inputSchema: zodInputSchema(AnalyzeContractInputSchema),
     outputSchema: analyzeContractOutputSchema,
     annotations: {
@@ -221,24 +175,6 @@ USAGE GUIDANCE:
       category: "analyze",
     },
     handler: analyzeContract,
-  },
-  {
-    name: "midnight-explain-circuit",
-    description: `Explain what a specific Compact circuit does in plain language, including its zero-knowledge proof implications and privacy considerations.
-
-USAGE GUIDANCE:
-• Call once per circuit - explanations are deterministic
-• Provide complete circuit code including parameters and body
-• For full contract analysis, use midnight-analyze-contract first`,
-    inputSchema: zodInputSchema(ExplainCircuitInputSchema),
-    outputSchema: explainCircuitOutputSchema,
-    annotations: {
-      readOnlyHint: true,
-      idempotentHint: true,
-      title: "Explain Circuit",
-      category: "analyze",
-    },
-    handler: explainCircuit,
   },
   {
     name: "midnight-compile-contract",
