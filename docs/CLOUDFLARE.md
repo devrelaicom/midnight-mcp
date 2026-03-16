@@ -21,13 +21,16 @@ The hosted API for midnight-mcp runs on Cloudflare Workers with Vectorize for ve
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Cloudflare Workers API                         │
-│         midnight-mcp-api.midnightmcp.workers.dev            │
+│         midnight-mcp-api.midnightmcp.workers.dev           │
 │                                                             │
 │  Endpoints:                                                 │
-│  - POST /v1/search/compact    (Compact code)                │
-│  - POST /v1/search/typescript (TypeScript SDK)              │
-│  - POST /v1/search/docs       (Documentation)               │
-│  - GET  /health               (Health check)                │
+│  - POST /v1/search/compact    (Compact code)               │
+│  - POST /v1/search/typescript (TypeScript SDK)             │
+│  - POST /v1/search/docs       (Documentation)              │
+│  - POST /v1/search/           (General, with filter)       │
+│  - GET  /                     (Health check)               │
+│  - GET  /v1/stats/*           (Statistics)                 │
+│  - GET  /dashboard/*          (Metrics dashboard)          │
 └─────────────────────────────────────────────────────────────┘
                             │
               ┌─────────────┴─────────────┐
@@ -58,7 +61,7 @@ The hosted API for midnight-mcp runs on Cloudflare Workers with Vectorize for ve
 Serverless API handling search requests:
 
 - **Runtime**: Cloudflare Workers (V8 isolates)
-- **Framework**: Hono (lightweight, fast)
+- **Framework**: Hono
 - **Cold start**: ~0ms (no cold starts)
 - **Limits**: 100k requests/day (free tier)
 
@@ -73,18 +76,27 @@ Native vector database on Cloudflare:
 
 ### Indexed Content
 
-24 repositories indexed (~26,000 documents):
+102 repositories indexed (~26,000 documents). See `api/README.md` for the full breakdown by category.
 
-| Category            | Repositories                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| Core Language & SDK | compact, midnight-js, midnight-wallet, midnight-dapp-connector-api                  |
-| Infrastructure      | midnight-node, midnight-indexer, midnight-ledger, midnight-zk                       |
-| Documentation       | midnight-docs (blog + API ref), midnight-improvement-proposals                      |
-| Examples            | example-counter, example-bboard, example-dex, midnight-awesome-dapps, create-mn-app |
-| ZK & Cryptography   | halo2, midnight-trusted-setup                                                       |
-| Developer Tools     | compact-tree-sitter, compact-zed, setup-compact-action, midnight-node-docker        |
-| Community           | contributor-hub, night-token-distribution                                           |
-| Third-Party         | OpenZeppelin/compact-contracts                                                      |
+### API Structure
+
+```
+api/src/
+├── index.ts           # Hono app setup and route registration
+├── routes/
+│   ├── search.ts      # Search endpoints (/v1/search/*)
+│   ├── stats.ts       # Statistics endpoints (/v1/stats/*)
+│   ├── dashboard.ts   # Metrics dashboard (/dashboard/*)
+│   └── oauth.ts       # OAuth flows (/.well-known/*, /oauth/*)
+├── middleware/
+│   ├── auth.ts        # Authentication middleware
+│   └── rate-limit.ts  # Rate limiting
+├── services/
+│   ├── embeddings.ts  # OpenAI embedding generation
+│   └── vectorize.ts   # Cloudflare Vectorize integration
+├── utils/             # Search and validation utilities
+└── templates/         # Dashboard HTML templates
+```
 
 ## Deployment
 
@@ -173,7 +185,17 @@ Search TypeScript SDK code.
 
 Search documentation.
 
-### GET /health
+### POST /v1/search/
+
+General search with optional language filter.
+
+```bash
+curl -X POST https://midnight-mcp-api.midnightmcp.workers.dev/v1/search/ \
+  -H "Content-Type: application/json" \
+  -d '{"query": "token transfer", "limit": 5, "filter": {"language": "compact"}}'
+```
+
+### GET /
 
 Health check endpoint.
 

@@ -3,10 +3,7 @@
  * Business logic for meta/discovery MCP tools
  */
 
-import type {
-  ExtendedToolDefinition,
-  ToolCategory,
-} from "../../types/index.js";
+import type { ExtendedToolDefinition, ToolCategory } from "../../types/index.js";
 import type {
   ListToolCategoriesInput,
   ListCategoryToolsInput,
@@ -19,7 +16,8 @@ import { searchTools } from "../search/index.js";
 import { analyzeTools } from "../analyze/index.js";
 import { repositoryTools } from "../repository/index.js";
 import { healthTools } from "../health/index.js";
-import { generationTools } from "../generation/index.js";
+import { formatTools } from "../format/index.js";
+import { diffTools } from "../diff/index.js";
 
 // Late-bound import for metaTools to avoid circular dependency
 let _metaTools: ExtendedToolDefinition[] = [];
@@ -38,9 +36,10 @@ function getToolsByCategory(): Map<ToolCategory, ExtendedToolDefinition[]> {
   const allTools = [
     ...searchTools,
     ...analyzeTools,
+    ...formatTools,
+    ...diffTools,
     ...repositoryTools,
     ...healthTools,
-    ...generationTools,
     ..._metaTools,
   ];
 
@@ -51,6 +50,7 @@ function getToolsByCategory(): Map<ToolCategory, ExtendedToolDefinition[]> {
     if (!byCategory.has(category)) {
       byCategory.set(category, []);
     }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     byCategory.get(category)!.push(tool);
   }
 
@@ -61,6 +61,7 @@ function getToolsByCategory(): Map<ToolCategory, ExtendedToolDefinition[]> {
  * List available tool categories
  * Use this first to understand what's available before drilling into specific tools
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function listToolCategories(_input: ListToolCategoriesInput) {
   const toolsByCategory = getToolsByCategory();
 
@@ -74,10 +75,7 @@ export async function listToolCategories(_input: ListToolCategoriesInput) {
   // Filter out empty categories
   const nonEmptyCategories = categories.filter((c) => c.toolCount > 0);
 
-  const totalTools = nonEmptyCategories.reduce(
-    (sum, c) => sum + c.toolCount,
-    0
-  );
+  const totalTools = nonEmptyCategories.reduce((sum, c) => sum + c.toolCount, 0);
 
   return {
     categories: nonEmptyCategories,
@@ -92,6 +90,7 @@ export async function listToolCategories(_input: ListToolCategoriesInput) {
  * List tools within a specific category
  * Progressive disclosure: drill into a category to see its tools
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function listCategoryTools(input: ListCategoryToolsInput) {
   const toolsByCategory = getToolsByCategory();
   const tools = toolsByCategory.get(input.category) || [];
@@ -100,8 +99,7 @@ export async function listCategoryTools(input: ListCategoryToolsInput) {
     return {
       error: `Unknown or empty category: ${input.category}`,
       availableCategories: Object.keys(CATEGORY_INFO),
-      suggestion:
-        "Use midnight-list-tool-categories to see available categories.",
+      suggestion: "Use midnight-list-tool-categories to see available categories.",
     };
   }
 
@@ -115,9 +113,7 @@ export async function listCategoryTools(input: ListCategoryToolsInput) {
       description: t.description.split("\n")[0], // First line only
       title: t.annotations?.title || t.name,
       isCompound: t.annotations?.category === "compound",
-      requiresSampling:
-        t.annotations?.longRunningHint &&
-        t.annotations?.category === "generation",
+      requiresSampling: false,
       ...(input.includeSchemas && {
         inputSchema: t.inputSchema,
         outputSchema: t.outputSchema,
@@ -136,14 +132,12 @@ function generateCategorySuggestion(category: ToolCategory): string {
       return "🚀 Compound tools save 50-70% tokens. Use midnight-upgrade-check or midnight-get-repo-context for efficient operations.";
     case "search":
       return "💡 Search tools use semantic matching - describe what you want in natural language.";
-    case "generation":
-      return "⚠️ Generation tools require sampling capability. They use the client's LLM for AI-powered operations.";
     case "versioning":
       return "📦 For version checks, prefer midnight-upgrade-check (compound) over individual version tools.";
     case "analyze":
       return "🔍 Analyze tools work on Compact code. Provide the contract source code directly.";
     default:
-      return `Use these tools for ${CATEGORY_INFO[category]?.useCases[0] || "related operations"}.`;
+      return `Use these tools for ${CATEGORY_INFO[category].useCases[0] ?? "related operations"}.`;
   }
 }
 
@@ -151,6 +145,7 @@ function generateCategorySuggestion(category: ToolCategory): string {
  * Suggest the best tool based on user intent
  * Matches intent against patterns and category keywords
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function suggestTool(input: SuggestToolInput) {
   const intentLower = input.intent.toLowerCase();
 
@@ -163,18 +158,13 @@ export async function suggestTool(input: SuggestToolInput) {
   }> = [];
 
   for (const mapping of INTENT_TO_TOOL) {
-    const matchedPatterns = mapping.patterns.filter((p) =>
-      intentLower.includes(p.toLowerCase())
-    );
+    const matchedPatterns = mapping.patterns.filter((p) => intentLower.includes(p.toLowerCase()));
     const matchCount = matchedPatterns.length;
 
     if (matchCount > 0) {
       // Calculate match score: count * 10 + sum of matched pattern lengths
       // This prefers more specific (longer) patterns when counts are equal
-      const patternLengthScore = matchedPatterns.reduce(
-        (sum, p) => sum + p.length,
-        0
-      );
+      const patternLengthScore = matchedPatterns.reduce((sum, p) => sum + p.length, 0);
       const matchScore = matchCount * 10 + patternLengthScore;
 
       matchedTools.push({
@@ -196,7 +186,7 @@ export async function suggestTool(input: SuggestToolInput) {
 
   for (const [category, info] of Object.entries(CATEGORY_INFO)) {
     const matchCount = info.intentKeywords.filter((k) =>
-      intentLower.includes(k.toLowerCase())
+      intentLower.includes(k.toLowerCase()),
     ).length;
 
     if (matchCount > 0 && info.startWith) {
@@ -212,8 +202,7 @@ export async function suggestTool(input: SuggestToolInput) {
   // Sort by confidence first, then by match score (higher is better)
   const confidenceOrder = { high: 0, medium: 1, low: 2 };
   matchedTools.sort((a, b) => {
-    const confDiff =
-      confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
+    const confDiff = confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
     if (confDiff !== 0) return confDiff;
     // Higher match score = better, so sort descending
     return b.matchScore - a.matchScore;
@@ -226,8 +215,7 @@ export async function suggestTool(input: SuggestToolInput) {
       suggestions: [],
       fallback: {
         tool: "midnight-list-tool-categories",
-        reason:
-          "No specific match found. Start by exploring available tool categories.",
+        reason: "No specific match found. Start by exploring available tool categories.",
       },
       tip: "Try rephrasing your intent with keywords like: search, analyze, generate, upgrade, version, security, example",
     };

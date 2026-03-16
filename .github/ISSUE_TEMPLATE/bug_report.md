@@ -28,7 +28,7 @@ Paste any error messages here
 **Environment:**
 
 - OS: [e.g., macOS 14.0]
-- Node.js version: [e.g., 20.11.0]
+- Node.js version: [e.g., 25.8.1]
 - midnight-mcp version: [e.g., 0.0.2]
 - Client: [e.g., Claude Desktop, MCP Inspector]
 

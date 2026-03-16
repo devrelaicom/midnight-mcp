@@ -61,19 +61,13 @@ export {
   getHostedApiStats,
   trackToolCall,
 } from "./hosted-api.js";
-export type {
-  HostedSearchResult,
-  HostedSearchResponse,
-  HostedSearchFilter,
-} from "./hosted-api.js";
+export type { HostedSearchResult, HostedSearchResponse, HostedSearchFilter } from "./hosted-api.js";
 
 // Output serialization (YAML default, JSON optional)
-export {
-  serialize,
-  setOutputFormat,
-  isJsonOutput,
-  getOutputMimeType,
-} from "./serializer.js";
+export { serialize, setOutputFormat, isJsonOutput, getOutputMimeType } from "./serializer.js";
+
+// Schema conversion utilities
+export { zodInputSchema } from "./schema.js";
 
 // Shared version constant
 export { CURRENT_VERSION } from "./version.js";

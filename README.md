@@ -8,11 +8,9 @@
 
 MCP server that gives AI assistants access to Midnight blockchain—search contracts, analyze code, and explore documentation.
 
-This project extends the Midnight Network with additional developer tooling.
-
 ## Requirements
 
-- **Node.js 20+** (LTS recommended)
+- **Node.js 25.8.1** recommended, with compatibility tested on **24.14.0** and **25.8.1**
 
 Check your version: `node --version`
 
@@ -106,18 +104,17 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ## What's Included
 
-### 29 Tools
+### 23 Tools
 
-| Category          | Tools                                                                                                                             | Description                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **Search**        | `search-compact`, `search-typescript`, `search-docs`, `fetch-docs`                                                                | Semantic search + live docs fetching             |
-| **Analysis**      | `analyze-contract`, `explain-circuit`, `extract-contract-structure`, `compile-contract`                                           | Static analysis + real compilation               |
-| **Repository**    | `get-file`, `list-examples`, `get-latest-updates`                                                                                 | Access files and examples                        |
-| **Versioning**    | `get-version-info`, `check-breaking-changes`, `get-migration-guide`, `get-file-at-version`, `compare-syntax`, `get-latest-syntax` | Version tracking and migration                   |
-| **AI Generation** | `generate-contract`, `review-contract`, `document-contract`                                                                       | AI-powered code generation _(requires sampling)_ |
-| **Compound**      | `upgrade-check`, `get-repo-context`                                                                                               | Multi-step operations _(saves 50-70% tokens)_    |
-| **Health**        | `health-check`, `get-status`, `check-version`                                                                                     | Server status and version checking               |
-| **Discovery**     | `list-tool-categories`, `list-category-tools`, `suggest-tool`                                                                     | Explore available tools and get recommendations  |
+| Category       | Tools                                                                                                          | Description                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Search**     | `search-compact`, `search-typescript`, `search-docs`, `fetch-docs`                                             | Semantic search + live docs fetching          |
+| **Analysis**   | `analyze-contract`, `compile-contract`                                                                         | Static analysis + real compilation            |
+| **Code Tools** | `format-contract`, `diff-contracts`                                                                            | Format code + semantic diffing                |
+| **Repository** | `get-file`, `list-examples`, `get-latest-updates`, `check-breaking-changes`, `get-file-at-version`, `compare-syntax` | Access files and track version changes   |
+| **Compound**   | `upgrade-check`, `get-repo-context`                                                                            | Multi-step operations _(saves 50-70% tokens)_ |
+| **Health**     | `health-check`, `get-status`, `check-version`, `get-update-instructions`                                       | Server status and version checking            |
+| **Discovery**  | `list-tool-categories`, `list-category-tools`, `suggest-tool`                                                  | Explore available tools and get recommendations |
 
 All tools are prefixed with `midnight-` (e.g., `midnight-search-compact`).
 
@@ -137,47 +134,22 @@ This catches semantic errors that static analysis misses (sealed fields, disclos
 
 ### MCP Capabilities
 
-| Capability      | Feature                                         |
-| --------------- | ----------------------------------------------- |
-| **Tools**       | 29 tools with `listChanged` notifications       |
-| **Resources**   | 9 embedded resources with subscription support  |
-| **Prompts**     | 5 workflow prompts                              |
-| **Logging**     | Client-controllable log level                   |
-| **Completions** | Autocomplete for prompt arguments               |
-| **Progress**    | Real-time progress for compound tools           |
-| **Sampling**    | AI-powered generation (when client supports it) |
+| Capability    | Feature                                        |
+| ------------- | ---------------------------------------------- |
+| **Tools**     | 23 tools with `listChanged` notifications      |
+| **Resources** | 5 embedded resources with subscription support |
+| **Logging**   | Client-controllable log level                  |
+| **Progress**  | Real-time progress for compound tools          |
 
-### 9 Embedded Resources
+### 5 Embedded Resources
 
 Quick references available offline:
 
-- Compact syntax guide (v0.16-0.18)
-- SDK API reference
-- OpenZeppelin contracts
+- Compact syntax guide
 - Tokenomics overview
-- Wallet integration
-- Common errors & solutions
-
-### Static Analysis
-
-`extract-contract-structure` catches common mistakes before compilation:
-
-| Check                     | Severity | Description                                             |
-| ------------------------- | -------- | ------------------------------------------------------- |
-| `deprecated_ledger_block` | P0       | Catches `ledger { }` → use `export ledger field: Type;` |
-| `invalid_void_type`       | P0       | Catches `Void` → use `[]` (empty tuple)                 |
-| `invalid_pragma_format`   | P0       | Catches old pragma → use `>= 0.16 && <= 0.18`           |
-| `unexported_enum`         | P1       | Enums need `export` for TypeScript access               |
-| `module_level_const`      | P0       | Use `pure circuit` instead                              |
-| + 10 more checks          | P1-P2    | Overflow, division, assertions, etc.                    |
-
-### 5 Prompts
-
-- `create-contract` — Generate new contracts
-- `review-contract` — Security and code review
-- `explain-concept` — Learn Midnight concepts
-- `compare-approaches` — Compare implementation patterns
-- `debug-contract` — Troubleshoot issues
+- Compact AST schema
+- Transaction schema
+- ZK proof schema
 
 ---
 
@@ -263,6 +235,61 @@ Requires ChromaDB (`docker run -d -p 8000:8000 chromadb/chroma`) and OpenAI API 
 ### GitHub Token
 
 Add `"GITHUB_TOKEN": "ghp_..."` for higher GitHub API rate limits (60 → 5000 requests/hour).
+
+### Environment Variables
+
+| Variable             | Required | Default                 | Description                                          |
+| -------------------- | -------- | ----------------------- | ---------------------------------------------------- |
+| `GITHUB_TOKEN`       | No       | -                       | GitHub PAT for higher rate limits                    |
+| `OPENAI_API_KEY`     | No       | -                       | Required for local mode                              |
+| `CHROMA_URL`         | No       | `http://localhost:8000` | ChromaDB endpoint (local mode)                       |
+| `MIDNIGHT_LOCAL`     | No       | `false`                 | Enable local mode                                    |
+| `MIDNIGHT_API_URL`   | No       | _(production URL)_      | Override the hosted API endpoint                     |
+| `LOG_LEVEL`          | No       | `info`                  | Logging verbosity (`debug`, `info`, `warn`, `error`) |
+| `MIDNIGHT_TELEMETRY` | No       | _(enabled)_             | Set to `false` or `0` to disable telemetry           |
+| `DO_NOT_TRACK`       | No       | -                       | Set to `1` to disable telemetry (standard)           |
+
+---
+
+## Troubleshooting
+
+### Graceful Degradation
+
+The server is designed to keep working when backend services are unavailable:
+
+| Service unavailable | Behavior                                              |
+| ------------------- | ----------------------------------------------------- |
+| Hosted API down     | Falls back to local mode if configured                |
+| Compiler service    | Falls back to static analysis                         |
+| OpenAI API key      | Search tools disabled                                 |
+| ChromaDB            | Search returns empty results                          |
+| GitHub token        | Works with 60 req/hr anonymous limit (vs 5000 with token) |
+
+### Stale npx Cache
+
+If you're not seeing the latest version after upgrading:
+
+```bash
+rm -rf ~/.npm/_npx
+```
+
+Then restart your editor. Using `midnight-mcp@latest` in your config prevents this for future updates.
+
+### Server Won't Start
+
+- Check your Node.js version: `node --version` (requires 24.14.0+)
+- If using nvm, see the [nvm setup](#requirements) in Requirements
+
+### Search Returns Empty Results
+
+- Run `midnight-health-check` to check service status
+- If `hostedApi: false`: the hosted API may be temporarily unavailable, or a firewall/proxy is blocking outbound requests
+- If using local mode: ensure ChromaDB is running and `OPENAI_API_KEY` is set
+
+### Repository Tools Failing
+
+- Usually caused by GitHub API rate limiting (60 requests/hour without a token)
+- Add a `GITHUB_TOKEN` to your MCP config to increase to 5000 requests/hour
 
 ---
 

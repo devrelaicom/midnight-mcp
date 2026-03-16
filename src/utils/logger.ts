@@ -7,11 +7,19 @@ type LogFormat = "text" | "json";
 type MCPLogCallback = (
   level: "debug" | "info" | "notice" | "warning" | "error",
   logger: string,
-  data: unknown
+  data: unknown,
 ) => void;
 
 // Global MCP log callback (set by server)
 let mcpLogCallback: MCPLogCallback | null = null;
+
+/**
+ * Reset all module-level mutable state to initial values.
+ * Used for test isolation.
+ */
+export function resetLoggerState(): void {
+  mcpLogCallback = null;
+}
 
 /**
  * Set the MCP log callback to send logs to the client
@@ -43,7 +51,7 @@ class Logger {
   constructor(
     level: LogLevel = "info",
     format: LogFormat = "text",
-    service: string = "midnight-mcp"
+    service: string = "midnight-mcp",
   ) {
     this.level = level;
     this.format = format;
@@ -68,21 +76,13 @@ class Logger {
     return LOG_LEVELS[level] >= LOG_LEVELS[this.level];
   }
 
-  private formatTextMessage(
-    level: LogLevel,
-    message: string,
-    meta?: object
-  ): string {
+  private formatTextMessage(level: LogLevel, message: string, meta?: object): string {
     const timestamp = new Date().toISOString();
     const metaStr = meta ? ` ${JSON.stringify(meta)}` : "";
     return `[${timestamp}] [${level.toUpperCase()}] ${message}${metaStr}`;
   }
 
-  private formatJsonMessage(
-    level: LogLevel,
-    message: string,
-    meta?: object
-  ): string {
+  private formatJsonMessage(level: LogLevel, message: string, meta?: object): string {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -97,11 +97,7 @@ class Logger {
     return JSON.stringify(entry);
   }
 
-  private formatMessage(
-    level: LogLevel,
-    message: string,
-    meta?: object
-  ): string {
+  private formatMessage(level: LogLevel, message: string, meta?: object): string {
     if (this.format === "json") {
       return this.formatJsonMessage(level, message, meta);
     }
@@ -178,7 +174,6 @@ class ChildLogger {
 }
 
 // Determine log format from environment
-const logFormat: LogFormat =
-  process.env.LOG_FORMAT === "json" ? "json" : "text";
+const logFormat: LogFormat = process.env.LOG_FORMAT === "json" ? "json" : "text";
 
 export const logger = new Logger(config.logLevel, logFormat);

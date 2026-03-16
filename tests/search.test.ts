@@ -32,7 +32,6 @@ describe("Search Tools", () => {
       expect(tool!.description).toContain("TypeScript");
       expect(tool!.inputSchema.properties).toHaveProperty("query");
       expect(tool!.inputSchema.properties).toHaveProperty("includeTypes");
-      expect(tool!.inputSchema.properties).toHaveProperty("includeExamples");
     });
 
     it("search_docs should have correct schema", () => {

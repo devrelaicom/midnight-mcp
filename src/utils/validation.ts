@@ -41,10 +41,7 @@ export interface ValidationResult {
 /**
  * Sanitize a string by removing dangerous patterns
  */
-export function sanitizeString(
-  input: string,
-  maxLength: number = MAX_LENGTHS.generic
-): string {
+export function sanitizeString(input: string, maxLength: number = MAX_LENGTHS.generic): string {
   if (!input || typeof input !== "string") {
     return "";
   }
@@ -103,9 +100,7 @@ export function validateQuery(query: unknown): ValidationResult {
   }
 
   if (query.length !== sanitized.length) {
-    warnings.push(
-      "Query was sanitized to remove potentially dangerous characters"
-    );
+    warnings.push("Query was sanitized to remove potentially dangerous characters");
   }
 
   return {
@@ -261,7 +256,7 @@ export function validateRef(ref: unknown): ValidationResult {
  */
 export function validateNumber(
   value: unknown,
-  options: { min?: number; max?: number; defaultValue: number }
+  options: { min?: number; max?: number; defaultValue: number },
 ): { isValid: boolean; value: number; error?: string } {
   const { min = 1, max = 100, defaultValue } = options;
 
@@ -295,7 +290,7 @@ export function validateNumber(
  */
 export function validateToolArgs<T extends Record<string, unknown>>(
   args: T,
-  validators: Partial<Record<keyof T, (value: unknown) => ValidationResult>>
+  validators: Partial<Record<keyof T, (value: unknown) => ValidationResult>>,
 ): {
   isValid: boolean;
   sanitized: Partial<T>;
@@ -308,17 +303,14 @@ export function validateToolArgs<T extends Record<string, unknown>>(
 
   for (const [key, validator] of Object.entries(validators)) {
     if (validator && key in args) {
-      const result = (validator as (value: unknown) => ValidationResult)(
-        args[key]
-      );
+      const result = (validator as (value: unknown) => ValidationResult)(args[key]);
 
       if (!result.isValid) {
         errors.push(`${key}: ${result.errors.join(", ")}`);
       }
 
       warnings.push(...result.warnings.map((w) => `${key}: ${w}`));
-      (sanitized as Record<string, unknown>)[key] =
-        result.sanitized || args[key];
+      (sanitized as Record<string, unknown>)[key] = result.sanitized || args[key];
     }
   }
 

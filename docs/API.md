@@ -58,6 +58,24 @@ Search documentation.
 // Output: same as search-compact
 ```
 
+#### midnight-fetch-docs
+
+Live fetch from docs.midnight.network (SSG pages).
+
+```typescript
+// Input
+{
+  url: string;        // URL or path on docs.midnight.network
+}
+
+// Output
+{
+  content: string;
+  url: string;
+  title: string;
+}
+```
+
 ---
 
 ### Analysis Tools
@@ -97,30 +115,6 @@ Static analysis of Compact contracts.
     witnessCount: number;
     complexity: "low" | "medium" | "high";
   };
-}
-```
-
-#### midnight-explain-circuit
-
-Explain circuit logic.
-
-```typescript
-// Input
-{
-  circuitCode: string;
-  verbosity?: "brief" | "detailed";
-}
-
-// Output
-{
-  summary: string;
-  explanation: string;
-  zkImplications: {
-    publicInputs: string[];
-    privateInputs: string[];
-    proofGenerated: string;
-  };
-  stateChanges: Array<{ field: string; change: string }>;
 }
 ```
 
@@ -167,7 +161,7 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
   serviceUrl: string;
 }
 
-// Output (fallback - when compiler unavailable)
+// Output (fallback — when compiler unavailable)
 {
   success: true;
   message: "Static analysis completed (compiler service unavailable)";
@@ -184,71 +178,61 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
 
 ---
 
-### AI-Powered Tools
+### Code Tools
 
-These tools require a client with MCP Sampling support (e.g., Claude Desktop).
+#### midnight-format-contract
 
-#### midnight-generate-contract
-
-Generate Compact contracts from natural language requirements.
+Format Compact contract code using the official formatter.
 
 ```typescript
 // Input
 {
-  requirements: string;  // Natural language description
-  contractType?: "counter" | "token" | "voting" | "custom";
-  baseExample?: string;  // Example code to base on
+  code: string;      // Contract source to format
+  version?: string;  // Compiler version (default: latest)
 }
 
 // Output
 {
-  code: string;           // Generated Compact code
-  explanation: string;    // What the contract does
-  warnings: string[];     // Any caveats
-  samplingAvailable: boolean;
+  success: boolean;
+  formatted: string;  // Formatted contract source code
+  changed: boolean;   // Whether the code was changed
+  diff?: string;      // Diff showing formatting changes
 }
 ```
 
-#### midnight-review-contract
+#### midnight-diff-contracts
 
-AI-powered security review of contracts.
-
-```typescript
-// Input
-{
-  code: string;  // Contract to review
-}
-
-// Output
-{
-  summary: string;
-  issues: Array<{
-    severity: "error" | "warning" | "info";
-    line?: number;
-    message: string;
-    suggestion?: string;
-  }>;
-  improvedCode?: string;
-  samplingAvailable: boolean;
-}
-```
-
-#### midnight-document-contract
-
-Generate documentation for contracts.
+Compare two versions of a Compact contract and show semantic differences.
 
 ```typescript
 // Input
 {
-  code: string;
-  format?: "markdown" | "jsdoc";
+  original: string;  // Original contract source
+  modified: string;  // Modified contract source
 }
 
 // Output
 {
-  documentation: string;
-  format: string;
-  samplingAvailable: boolean;
+  hasChanges: boolean;
+  circuits: {
+    added: string[];
+    removed: string[];
+    modified: Array<{ name: string; changes: string[] }>;
+  };
+  ledger: {
+    added: string[];
+    removed: string[];
+    modified: Array<{ name: string; changes: string[] }>;
+  };
+  pragma: {
+    before: string;
+    after: string;
+    changed: boolean;
+  };
+  imports: {
+    added: string[];
+    removed: string[];
+  };
 }
 ```
 
@@ -326,28 +310,6 @@ Recent commits across repos.
 }
 ```
 
-#### midnight-get-version-info
-
-Get latest version info.
-
-```typescript
-// Input
-{
-  repo: string;
-}
-
-// Output
-{
-  repository: string;
-  latestVersion: string;
-  latestStableVersion: string;
-  publishedAt: string | null;
-  releaseNotes: string | null;
-  recentReleases: Array<{ version: string; date: string; isPrerelease: boolean }>;
-  recentBreakingChanges: string[];
-}
-```
-
 #### midnight-check-breaking-changes
 
 Check for breaking changes.
@@ -368,30 +330,6 @@ Check for breaking changes.
   hasBreakingChanges: boolean;
   breakingChanges: string[];
   recommendation: string;
-}
-```
-
-#### midnight-get-migration-guide
-
-Migration guide between versions.
-
-```typescript
-// Input
-{
-  repo: string;
-  fromVersion: string;
-  toVersion?: string;    // Default: latest
-}
-
-// Output
-{
-  from: string;
-  to: string;
-  breakingChanges: string[];
-  deprecations: string[];
-  newFeatures: string[];
-  migrationSteps: string[];
-  migrationDifficulty: string;
 }
 ```
 
@@ -435,69 +373,11 @@ Diff file between versions.
 }
 ```
 
-#### midnight-get-latest-syntax
-
-Get syntax reference.
-
-```typescript
-// Input
-{
-  repo?: string;         // Default: "compact"
-}
-
-// Output
-{
-  version: string;
-  syntaxFiles: Array<{ path: string; content: string }>;
-}
-```
-
-#### midnight-health-check
-
-Server health status.
-
-```typescript
-// Input: none
-
-// Output
-{
-  status: "healthy" | "degraded" | "unhealthy";
-  mode: "hosted" | "local";
-  services: {
-    github: boolean;
-    vectorStore: boolean;
-    hostedApi: boolean;
-  }
-}
-```
-
-#### midnight-get-status
-
-Rate limits and stats.
-
-```typescript
-// Input: none
-
-// Output
-{
-  githubRateLimit: {
-    remaining: number;
-    limit: number;
-    reset: string;
-  }
-  cacheStats: {
-    hits: number;
-    misses: number;
-  }
-  mode: "hosted" | "local";
-}
-```
-
 ---
 
 ### Compound Tools
 
-> ⚡ Compound tools combine multiple operations into a single call, reducing token usage by 50-70%.
+> Compound tools combine multiple operations into a single call, reducing token usage by 50-70%.
 
 #### midnight-upgrade-check
 
@@ -563,9 +443,92 @@ Everything needed to start working with a repository (combines version-info + sy
 
 ---
 
+### Health Tools
+
+#### midnight-health-check
+
+Server health status with optional detailed checks.
+
+```typescript
+// Input
+{
+  detailed?: boolean;    // Run external service checks (default: false)
+}
+
+// Output
+{
+  status: "healthy" | "degraded" | "unhealthy";
+  mode: "hosted" | "local";
+  services: {
+    github: boolean;
+    vectorStore: boolean;
+    hostedApi: boolean;
+  }
+}
+```
+
+#### midnight-get-status
+
+Rate limits and stats (no external calls).
+
+```typescript
+// Input: none
+
+// Output
+{
+  githubRateLimit: {
+    remaining: number;
+    limit: number;
+    reset: string;
+  }
+  cacheStats: {
+    hits: number;
+    misses: number;
+  }
+  mode: "hosted" | "local";
+}
+```
+
+#### midnight-check-version
+
+Check if running the latest version.
+
+```typescript
+// Input: none
+
+// Output
+{
+  currentVersion: string;
+  latestVersion: string;
+  isLatest: boolean;
+  updateAvailable: boolean;
+}
+```
+
+#### midnight-get-update-instructions
+
+Platform-specific update instructions.
+
+```typescript
+// Input
+{
+  platform?: "mac" | "windows" | "linux";
+  editor?: "claude-desktop" | "cursor" | "vscode" | "windsurf";
+}
+
+// Output
+{
+  instructions: string;
+  platform: string;
+  editor: string;
+}
+```
+
+---
+
 ### Discovery Tools
 
-> 📋 Discovery tools help AI agents explore available capabilities progressively.
+> Discovery tools help AI agents explore available capabilities progressively.
 
 #### midnight-list-tool-categories
 
@@ -597,7 +560,7 @@ List tools within a specific category.
 ```typescript
 // Input
 {
-  category: "search" | "analyze" | "repository" | "versioning" | "generation" | "health" | "compound";
+  category: "search" | "analyze" | "code" | "repository" | "health" | "compound";
   includeSchemas?: boolean;  // Default: false
 }
 
@@ -610,9 +573,28 @@ List tools within a specific category.
     description: string;
     title: string;
     isCompound: boolean;
-    requiresSampling: boolean;
   }>;
   suggestion: string;
+}
+```
+
+#### midnight-suggest-tool
+
+Smart tool discovery via natural language.
+
+```typescript
+// Input
+{
+  intent: string;       // What the user wants to do
+}
+
+// Output
+{
+  suggested: Array<{
+    name: string;
+    description: string;
+    relevance: string;
+  }>;
 }
 ```
 
@@ -622,77 +604,20 @@ List tools within a specific category.
 
 Access via `resources/read` with URI.
 
-| URI                                           | Content                    |
-| --------------------------------------------- | -------------------------- |
-| `midnight://docs/compact-reference`           | Compact language reference |
-| `midnight://docs/sdk-api`                     | TypeScript SDK API         |
-| `midnight://docs/concepts/zero-knowledge`     | ZK proofs in Midnight      |
-| `midnight://docs/concepts/shielded-state`     | Shielded vs unshielded     |
-| `midnight://docs/concepts/witnesses`          | Witness functions          |
-| `midnight://docs/concepts/kachina`            | Kachina protocol           |
-| `midnight://code/examples/counter`            | Counter contract           |
-| `midnight://code/examples/bboard`             | Bulletin board DApp        |
-| `midnight://code/patterns/state-management`   | State patterns             |
-| `midnight://code/patterns/access-control`     | Access control patterns    |
-| `midnight://code/patterns/privacy-preserving` | Privacy patterns           |
-| `midnight://code/templates/token`             | Token template             |
-| `midnight://code/templates/voting`            | Voting template            |
-| `midnight://schema/compact-ast`               | Compact AST schema         |
-| `midnight://schema/transaction`               | Transaction schema         |
-| `midnight://schema/proof`                     | Proof schema               |
+### Documentation (2)
 
----
+| URI                                 | Content                  |
+| ----------------------------------- | ------------------------ |
+| `midnight://docs/compact-reference` | Compact language reference |
+| `midnight://docs/tokenomics`        | Tokenomics (NIGHT, DUST, rewards) |
 
-## Prompts
+### Schemas (3)
 
-### midnight-create-contract
-
-```typescript
-{
-  name: string;
-  purpose: string;
-  features?: string[];
-  hasPrivateState?: boolean;
-}
-```
-
-### midnight-review-contract
-
-```typescript
-{
-  code: string;
-  focusAreas?: string[];
-}
-```
-
-### midnight-explain-concept
-
-```typescript
-{
-  concept: string;
-  audienceLevel?: "beginner" | "intermediate" | "advanced";
-}
-```
-
-### midnight-compare-approaches
-
-```typescript
-{
-  goal: string;
-  approaches?: string[];
-}
-```
-
-### midnight-debug-contract
-
-```typescript
-{
-  code: string;
-  error?: string;
-  expectedBehavior?: string;
-  actualBehavior?: string;
-}
-```
+| URI                              | Content             |
+| -------------------------------- | ------------------- |
+| `midnight://schema/compact-ast`  | Compact AST schema  |
+| `midnight://schema/transaction`  | Transaction schema  |
+| `midnight://schema/proof`        | Proof schema        |
 
 ---
 

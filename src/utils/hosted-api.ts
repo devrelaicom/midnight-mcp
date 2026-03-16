@@ -4,6 +4,7 @@
  */
 
 import { config, logger } from "./index.js";
+import { CURRENT_VERSION } from "./version.js";
 
 const API_TIMEOUT = 15000; // 15 seconds (increased from 10s for reliability)
 const MAX_RETRIES = 2; // Retry up to 2 times (3 total attempts)
@@ -20,7 +21,7 @@ const RETRY_DELAY_MS = 1000; // 1 second base delay
 function getActionableErrorMessage(
   status: number,
   endpoint: string,
-  serverMessage?: string
+  serverMessage?: string,
 ): string {
   const baseMessages: Record<number, string> = {
     400: `Bad request to ${endpoint}. Check your query parameters are valid.`,
@@ -50,10 +51,7 @@ function getActionableErrorMessage(
 /**
  * Parse error response from the hosted API
  */
-async function parseApiError(
-  response: Response,
-  endpoint: string
-): Promise<Error> {
+async function parseApiError(response: Response, endpoint: string): Promise<Error> {
   let serverMessage: string | undefined;
 
   try {
@@ -66,11 +64,7 @@ async function parseApiError(
     // JSON parsing failed, that's okay
   }
 
-  const actionableMessage = getActionableErrorMessage(
-    response.status,
-    endpoint,
-    serverMessage
-  );
+  const actionableMessage = getActionableErrorMessage(response.status, endpoint, serverMessage);
 
   return new Error(actionableMessage);
 }
@@ -136,23 +130,21 @@ function sleep(ms: number): Promise<void> {
 /**
  * Make a single request attempt to the hosted API
  */
-async function makeRequest<T>(
-  url: string,
-  endpoint: string,
-  options: RequestInit
-): Promise<T> {
+async function makeRequest<T>(url: string, endpoint: string, options: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT);
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, API_TIMEOUT);
 
   try {
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
-      headers: {
+      headers: new Headers({
         "Content-Type": "application/json",
-        "User-Agent": "midnight-mcp",
-        ...options.headers,
-      },
+        "User-Agent": `midnight-mcp/${CURRENT_VERSION}`,
+        ...Object.fromEntries(new Headers(options.headers).entries()),
+      }),
     });
 
     if (!response.ok) {
@@ -162,10 +154,9 @@ async function makeRequest<T>(
     return (await response.json()) as T;
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
-        `Request to ${endpoint} timed out after ${API_TIMEOUT / 1000}s.`,
-        { cause: error }
-      );
+      throw new Error(`Request to ${endpoint} timed out after ${API_TIMEOUT / 1000}s.`, {
+        cause: error,
+      });
     }
     throw error;
   } finally {
@@ -176,10 +167,7 @@ async function makeRequest<T>(
 /**
  * Make a request to the hosted API with automatic retry on transient failures
  */
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${config.hostedApiUrl}${endpoint}`;
   let lastError: Error | null = null;
 
@@ -207,7 +195,7 @@ async function apiRequest<T>(
       const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
       logger.debug(
         `Retrying hosted API request in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
-        { endpoint }
+        { endpoint },
       );
       await sleep(delay);
     }
@@ -225,14 +213,14 @@ async function apiRequest<T>(
       throw new Error(
         `Request to ${endpoint} timed out after ${MAX_RETRIES + 1} attempts. ` +
           `The hosted service may be slow or unavailable. ` +
-          `Try a simpler query or set MIDNIGHT_LOCAL=true for local search.`
+          `Try a simpler query or set MIDNIGHT_LOCAL=true for local search.`,
       );
     }
 
     // Network errors
     throw new Error(
       `Failed to connect to hosted API after ${MAX_RETRIES + 1} attempts: ${lastError.message}. ` +
-        `Check your internet connection or set MIDNIGHT_LOCAL=true for local search.`
+        `Check your internet connection or set MIDNIGHT_LOCAL=true for local search.`,
     );
   }
 
@@ -244,7 +232,7 @@ async function apiRequest<T>(
  */
 export async function searchCompactHosted(
   query: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching Compact code via hosted API", { query });
 
@@ -260,7 +248,7 @@ export async function searchCompactHosted(
 export async function searchTypeScriptHosted(
   query: string,
   limit: number = 10,
-  includeTypes: boolean = true
+  includeTypes: boolean = true,
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching TypeScript code via hosted API", { query });
 
@@ -276,7 +264,7 @@ export async function searchTypeScriptHosted(
 export async function searchDocsHosted(
   query: string,
   limit: number = 10,
-  category: string = "all"
+  category: string = "all",
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching documentation via hosted API", { query });
 
@@ -292,7 +280,7 @@ export async function searchDocsHosted(
 export async function searchHosted(
   query: string,
   limit: number = 10,
-  filter?: HostedSearchFilter
+  filter?: HostedSearchFilter,
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching via hosted API", { query, filter });
 
@@ -335,21 +323,40 @@ export async function getHostedApiStats(): Promise<{
   documentsIndexed: number;
   repositories: number;
 }> {
-  return apiRequest<{ documentsIndexed: number; repositories: number }>(
-    "/v1/stats"
-  );
+  return apiRequest<{ documentsIndexed: number; repositories: number }>("/v1/stats");
+}
+
+/**
+ * Check if telemetry is disabled via environment variables.
+ * Respects MIDNIGHT_TELEMETRY=false/0 and the standard DO_NOT_TRACK=1 convention.
+ */
+function isTelemetryDisabled(): boolean {
+  const midnightTelemetry = process.env.MIDNIGHT_TELEMETRY;
+  if (midnightTelemetry === "false" || midnightTelemetry === "0") {
+    return true;
+  }
+  if (process.env.DO_NOT_TRACK === "1") {
+    return true;
+  }
+  return false;
 }
 
 /**
  * Track a tool call to the hosted API
  * Fire-and-forget - doesn't block on response
+ *
+ * Opt out by setting MIDNIGHT_TELEMETRY=false or DO_NOT_TRACK=1
  */
 export function trackToolCall(
   tool: string,
   success: boolean,
   durationMs?: number,
-  version?: string
+  version?: string,
 ): void {
+  if (isTelemetryDisabled()) {
+    return;
+  }
+
   // Fire and forget - don't await, don't block
   apiRequest("/v1/track/tool", {
     method: "POST",

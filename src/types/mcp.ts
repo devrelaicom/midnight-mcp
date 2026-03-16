@@ -69,8 +69,8 @@ export type ToolCategory =
   | "analyze" // Code analysis tools
   | "repository" // Repository operations
   | "versioning" // Version and migration tools
-  | "generation" // AI-powered generation (requires sampling)
   | "health" // Health and status checks
+  | "meta" // Discovery and navigation tools
   | "compound"; // Multi-step compound operations
 
 // ============================================================================
@@ -115,6 +115,7 @@ export interface ExtendedToolDefinition {
     type: "object";
     properties: Record<string, unknown>;
     required?: string[];
+    [key: string]: unknown;
   };
   outputSchema?: OutputSchema;
   annotations?: ToolAnnotations;

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **AI Generation Tools** — `generate-contract`, `review-contract`, `document-contract` and their MCP sampling dependency removed
+- **LLM-Wrapper Analysis Tools** — `explain-circuit`, `extract-contract-structure` removed
+- **Static Knowledge Tools** — `get-version-info`, `get-migration-guide`, `get-latest-syntax` removed; breaking-changes checks still available via `check-breaking-changes` and `upgrade-check`
+- **MCP Prompts** — All 5 workflow prompts (`create-contract`, `review-contract`, `explain-concept`, `compare-approaches`, `debug-contract`) removed
+- **Embedded Resources** — Removed SDK API reference, OpenZeppelin contracts, wallet integration guide, common errors guide, all code examples/patterns/templates (11 URIs); remaining: `compact-reference`, `tokenomics`, and 3 schemas
+
+### Added
+
+- **`midnight-format-contract`** — Format Compact code using the hosted formatter service
+- **`midnight-diff-contracts`** — Semantic diff of two Compact contracts showing structural changes (circuits, ledger fields, imports, pragma)
+
 ## [0.2.17] - 2026-03-03
 
 ### Security

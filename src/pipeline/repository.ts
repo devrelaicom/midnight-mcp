@@ -5,16 +5,9 @@ import { logger, DEFAULT_REPOSITORIES } from "../utils/index.js";
 
 // Schema definitions
 export const GetFileInputSchema = z.object({
-  repo: z
-    .string()
-    .describe(
-      "Repository name (e.g., 'compact', 'midnight-js', 'example-counter')"
-    ),
+  repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js', 'example-counter')"),
   path: z.string().describe("File path within repository"),
-  ref: z
-    .string()
-    .optional()
-    .describe("Branch, tag, or commit SHA (default: main)"),
+  ref: z.string().optional().describe("Branch, tag, or commit SHA (default: main)"),
 });
 
 export const ListExamplesInputSchema = z.object({
@@ -26,10 +19,7 @@ export const ListExamplesInputSchema = z.object({
 });
 
 export const GetLatestUpdatesInputSchema = z.object({
-  since: z
-    .string()
-    .optional()
-    .describe("ISO date to fetch updates from (default: last 7 days)"),
+  since: z.string().optional().describe("ISO date to fetch updates from (default: last 7 days)"),
   repos: z
     .array(z.string())
     .optional()
@@ -42,30 +32,21 @@ export const GetVersionInfoInputSchema = z.object({
 
 export const CheckBreakingChangesInputSchema = z.object({
   repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js')"),
-  currentVersion: z
-    .string()
-    .describe("Version you're currently using (e.g., 'v1.0.0', '0.5.2')"),
+  currentVersion: z.string().describe("Version you're currently using (e.g., 'v1.0.0', '0.5.2')"),
 });
 
 export const GetMigrationGuideInputSchema = z.object({
   repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js')"),
   fromVersion: z.string().describe("Version you're migrating from"),
-  toVersion: z
-    .string()
-    .optional()
-    .describe("Target version (default: latest stable)"),
+  toVersion: z.string().optional().describe("Target version (default: latest stable)"),
 });
 
 export type GetFileInput = z.infer<typeof GetFileInputSchema>;
 export type ListExamplesInput = z.infer<typeof ListExamplesInputSchema>;
 export type GetLatestUpdatesInput = z.infer<typeof GetLatestUpdatesInputSchema>;
 export type GetVersionInfoInput = z.infer<typeof GetVersionInfoInputSchema>;
-export type CheckBreakingChangesInput = z.infer<
-  typeof CheckBreakingChangesInputSchema
->;
-export type GetMigrationGuideInput = z.infer<
-  typeof GetMigrationGuideInputSchema
->;
+export type CheckBreakingChangesInput = z.infer<typeof CheckBreakingChangesInputSchema>;
+export type GetMigrationGuideInput = z.infer<typeof GetMigrationGuideInputSchema>;
 
 // Repository name mapping
 // Repository name mapping
@@ -187,9 +168,7 @@ const EXAMPLES: ExampleDefinition[] = [
 /**
  * Resolve repository name alias to owner/repo
  */
-function resolveRepo(
-  repoName?: string
-): { owner: string; repo: string } | null {
+function resolveRepo(repoName?: string): { owner: string; repo: string } | null {
   // Default to compact if not provided
   const name = repoName || "compact";
   const normalized = name.toLowerCase().replace(/^midnightntwrk\//, "");
@@ -205,7 +184,7 @@ function resolveRepo(
 
   // Assume it's a full org/repo name
   if (name.includes("/")) {
-    const [owner, repo] = name.split("/");
+    const [owner = "", repo = ""] = name.split("/");
     return { owner, repo };
   }
 
@@ -230,7 +209,7 @@ export async function getFile(input: GetFileInput) {
     repoInfo.owner,
     repoInfo.repo,
     input.path,
-    input.ref
+    input.ref,
   );
 
   if (!file) {
@@ -255,6 +234,7 @@ export async function getFile(input: GetFileInput) {
 /**
  * List available example contracts and DApps
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function listExamples(input: ListExamplesInput) {
   logger.debug("Listing examples", { category: input.category });
 
@@ -285,8 +265,7 @@ export async function getLatestUpdates(input: GetLatestUpdatesInput) {
   logger.debug("Getting latest updates", input);
 
   // Default to last 7 days
-  const since =
-    input.since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since = input.since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const repos =
     input.repos?.map(resolveRepo).filter(Boolean) ||
@@ -299,12 +278,7 @@ export async function getLatestUpdates(input: GetLatestUpdatesInput) {
 
   for (const repo of repos) {
     if (!repo) continue;
-    const commits = await githubClient.getRecentCommits(
-      repo.owner,
-      repo.repo,
-      since,
-      10
-    );
+    const commits = await githubClient.getRecentCommits(repo.owner, repo.repo, since, 10);
 
     if (commits.length > 0) {
       updates.push({
@@ -368,10 +342,7 @@ export async function getVersionInfo(input: GetVersionInfoInput) {
         const resolved = resolveRepo(repoName);
         if (!resolved) return null;
         try {
-          const versionInfo = await releaseTracker.getVersionInfo(
-            resolved.owner,
-            resolved.repo
-          );
+          const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
           return {
             name: repoName,
             repository: `${resolved.owner}/${resolved.repo}`,
@@ -386,7 +357,7 @@ export async function getVersionInfo(input: GetVersionInfoInput) {
             publishedAt: null,
           };
         }
-      })
+      }),
     );
 
     return {
@@ -405,20 +376,16 @@ export async function getVersionInfo(input: GetVersionInfoInput) {
   const resolved = resolveRepo(input.repo);
   if (!resolved) {
     throw new Error(
-      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
     );
   }
 
-  const versionInfo = await releaseTracker.getVersionInfo(
-    resolved.owner,
-    resolved.repo
-  );
+  const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
 
   return {
     repository: `${resolved.owner}/${resolved.repo}`,
     latestVersion: versionInfo.latestRelease?.tag || "No releases found",
-    latestStableVersion:
-      versionInfo.latestStableRelease?.tag || "No stable releases",
+    latestStableVersion: versionInfo.latestStableRelease?.tag || "No stable releases",
     publishedAt: versionInfo.latestRelease?.publishedAt || null,
     releaseNotes: versionInfo.latestRelease?.body || null,
     recentReleases: versionInfo.recentReleases.slice(0, 5).map((r) => ({
@@ -444,20 +411,20 @@ export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
   const resolved = resolveRepo(input.repo);
   if (!resolved) {
     throw new Error(
-      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
     );
   }
 
   const outdatedInfo = await releaseTracker.isOutdated(
     resolved.owner,
     resolved.repo,
-    input.currentVersion
+    input.currentVersion,
   );
 
   const breakingChanges = await releaseTracker.getBreakingChangesSince(
     resolved.owner,
     resolved.repo,
-    input.currentVersion
+    input.currentVersion,
   );
 
   return {
@@ -485,7 +452,7 @@ export async function getMigrationGuide(input: GetMigrationGuideInput) {
   const resolved = resolveRepo(input.repo);
   if (!resolved) {
     throw new Error(
-      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`
+      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
     );
   }
 
@@ -493,7 +460,7 @@ export async function getMigrationGuide(input: GetMigrationGuideInput) {
     resolved.owner,
     resolved.repo,
     input.fromVersion,
-    input.toVersion
+    input.toVersion,
   );
 
   return {
@@ -529,8 +496,7 @@ export const repositoryTools = [
       properties: {
         repo: {
           type: "string",
-          description:
-            "Repository name (e.g., 'compact', 'midnight-js', 'example-counter')",
+          description: "Repository name (e.g., 'compact', 'midnight-js', 'example-counter')",
         },
         path: {
           type: "string",
@@ -576,8 +542,7 @@ export const repositoryTools = [
         repos: {
           type: "array",
           items: { type: "string" },
-          description:
-            "Specific repos to check (default: all configured repos)",
+          description: "Specific repos to check (default: all configured repos)",
         },
       },
       required: [],
@@ -593,8 +558,7 @@ export const repositoryTools = [
       properties: {
         repo: {
           type: "string",
-          description:
-            "Repository name (e.g., 'compact', 'midnight-js', 'sdk')",
+          description: "Repository name (e.g., 'compact', 'midnight-js', 'sdk')",
         },
       },
       required: ["repo"],
@@ -614,8 +578,7 @@ export const repositoryTools = [
         },
         currentVersion: {
           type: "string",
-          description:
-            "Version you're currently using (e.g., 'v1.0.0', '0.5.2')",
+          description: "Version you're currently using (e.g., 'v1.0.0', '0.5.2')",
         },
       },
       required: ["repo", "currentVersion"],

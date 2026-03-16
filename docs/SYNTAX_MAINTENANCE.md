@@ -74,8 +74,8 @@ Update tests to validate new patterns:
 // Add test for new deprecated pattern:
 it("should detect <new deprecated pattern>", async () => {
   const badCode = `...`;
-  const result = await extractContractStructure({ code: badCode });
-  expect(result.potentialIssues?.some((i) => i.type === "new_issue_type")).toBe(
+  const result = await analyzeContract({ code: badCode });
+  expect(result.securityFindings?.some((i) => i.message.includes("new_issue_type"))).toBe(
     true
   );
 });
@@ -83,9 +83,9 @@ it("should detect <new deprecated pattern>", async () => {
 // Add test for new correct pattern:
 it("should accept <new correct pattern>", async () => {
   const goodCode = `...`;
-  const result = await extractContractStructure({ code: goodCode });
+  const result = await analyzeContract({ code: goodCode });
   expect(
-    result.potentialIssues?.find((i) => i.type === "new_issue_type")
+    result.securityFindings?.find((i) => i.message.includes("new_issue_type"))
   ).toBeUndefined();
 });
 ```
@@ -107,8 +107,8 @@ import CompactStandardLibrary;
 export ledger counter: Counter;
 export circuit inc(): [] { counter.increment(1); }' > /tmp/test.compact
 
-# Use the MCP to extract structure
-# Check that no P0 errors are reported for valid code
+# Use the MCP to analyze the contract
+# Check that no security findings are reported for valid code
 ```
 
 ## Version History
@@ -142,6 +142,6 @@ To reduce manual maintenance burden, consider:
 If you're unsure whether a syntax change affects midnight-mcp:
 
 1. Write a minimal contract using the new/changed syntax
-2. Run `midnight-extract-contract-structure` on it
-3. If P0 errors are incorrectly reported → update validation.ts
+2. Run `midnight-analyze-contract` on it
+3. If security findings are incorrectly reported → update syntax-validator.ts
 4. If the quick start template breaks → update docs-content.ts

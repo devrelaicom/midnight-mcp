@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -8,18 +9,17 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
   ListResourceTemplatesRequestSchema,
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
   SetLevelRequestSchema,
   LoggingLevel,
-  CompleteRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type Response } from "express";
 import { randomUUID } from "crypto";
+import semver from "semver";
 
+import { z } from "zod";
 import {
   logger,
   formatErrorResponse,
@@ -27,21 +27,12 @@ import {
   trackToolCall,
   serialize,
 } from "./utils/index.js";
+import { toolValidationSchemas } from "./tools/validation.js";
 import { vectorStore } from "./db/index.js";
 import { allTools } from "./tools/index.js";
-import {
-  allResources,
-  getDocumentation,
-  getCode,
-  getSchema,
-} from "./resources/index.js";
-import { promptDefinitions, generatePrompt } from "./prompts/index.js";
+import { allResources, getDocumentation, getSchema } from "./resources/index.js";
 import { registerSamplingCallback } from "./services/index.js";
-import type {
-  ResourceTemplate,
-  SamplingRequest,
-  SamplingResponse,
-} from "./types/index.js";
+import type { ResourceTemplate, SamplingRequest, SamplingResponse } from "./types/index.js";
 
 import { CURRENT_VERSION } from "./utils/version.js";
 const SERVER_INFO = {
@@ -73,12 +64,13 @@ const VERSION_CHECK_INTERVAL = 10; // Re-check every 10 tool calls
 async function checkForUpdates(): Promise<void> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 5000); // 5s timeout
 
-    const response = await fetch(
-      "https://registry.npmjs.org/midnight-mcp/latest",
-      { signal: controller.signal }
-    );
+    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest", {
+      signal: controller.signal,
+    });
     clearTimeout(timeoutId);
 
     if (!response.ok) return;
@@ -86,16 +78,18 @@ async function checkForUpdates(): Promise<void> {
     const data = (await response.json()) as { version: string };
     const latestVersion = data.version;
 
-    if (latestVersion !== CURRENT_VERSION) {
+    if (
+      semver.valid(latestVersion) &&
+      semver.valid(CURRENT_VERSION) &&
+      semver.gt(latestVersion, CURRENT_VERSION)
+    ) {
       versionCheckResult = {
         isOutdated: true,
         latestVersion,
         lastChecked: Date.now(),
         updateMessage: `🚨 UPDATE AVAILABLE: v${latestVersion} (you have v${CURRENT_VERSION})`,
       };
-      logger.warn(
-        `Outdated version detected: v${CURRENT_VERSION} -> v${latestVersion}`
-      );
+      logger.warn(`Outdated version detected: v${CURRENT_VERSION} -> v${latestVersion}`);
     } else {
       versionCheckResult = {
         ...versionCheckResult,
@@ -135,49 +129,35 @@ export function getUpdateWarning(): string | null {
   return versionCheckResult.updateMessage;
 }
 
-// Resource subscriptions tracking
-const resourceSubscriptions = new Set<string>();
-
 /**
- * Clear all subscriptions (useful for server restart/testing)
+ * Clear subscriptions for a specific server (or the active server).
+ * Useful for server restart/testing.
  */
-export function clearSubscriptions(): void {
-  resourceSubscriptions.clear();
-  logger.debug("Subscriptions cleared");
+export function clearSubscriptions(server?: Server): void {
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (target) {
+    const ctx = serverContexts.get(target);
+    if (ctx) {
+      ctx.subscriptions.clear();
+      logger.debug("Subscriptions cleared");
+    }
+  }
 }
 
 // Resource templates for parameterized resources (RFC 6570 URI Templates)
 const resourceTemplates: ResourceTemplate[] = [
   {
-    uriTemplate: "midnight://code/{owner}/{repo}/{path}",
-    name: "Repository Code",
-    title: "📄 Repository Code Files",
-    description:
-      "Access code files from any Midnight repository by specifying owner, repo, and file path",
-    mimeType: "text/plain",
-  },
-  {
     uriTemplate: "midnight://docs/{section}/{topic}",
     name: "Documentation",
     title: "📚 Documentation Sections",
-    description:
-      "Access documentation by section (guides, api, concepts) and topic",
+    description: "Access documentation by section (guides, api, concepts) and topic",
     mimeType: "text/markdown",
-  },
-  {
-    uriTemplate: "midnight://examples/{category}/{name}",
-    name: "Example Contracts",
-    title: "📝 Example Contracts",
-    description:
-      "Access example contracts by category (counter, bboard, token, voting) and name",
-    mimeType: "text/x-compact",
   },
   {
     uriTemplate: "midnight://schema/{type}",
     name: "Schema Definitions",
     title: "🔧 Schema Definitions",
-    description:
-      "Access JSON schemas for contract AST, transactions, and proofs",
+    description: "Access JSON schemas for contract AST, transactions, and proofs",
     mimeType: "application/json",
   },
 ];
@@ -185,51 +165,97 @@ const resourceTemplates: ResourceTemplate[] = [
 /**
  * Create and configure the MCP server
  */
-// Current MCP logging level (controlled by client)
-let mcpLogLevel: LoggingLevel = "info";
 
-// Server instance for sending notifications
-let serverInstance: Server | null = null;
+// Per-server context — enables session isolation in HTTP mode.
+// Each createServer() call registers its own context here.
+// In stdio mode there is only one; in HTTP mode there may be many.
+interface ServerContext {
+  logLevel: LoggingLevel;
+  connected: boolean;
+  subscriptions: Set<string>;
+}
+const serverContexts = new WeakMap<Server, ServerContext>();
 
-// Track if server is connected (can send notifications)
-let isConnected = false;
+// AsyncLocalStorage threads the current server through async handler
+// call chains so that helpers like sendProgressNotification resolve
+// the correct session without requiring an explicit server parameter.
+const serverStorage = new AsyncLocalStorage<Server>();
+
+// "Active" server — the most recently created one. Used as a last-resort
+// fallback by exported notification helpers when AsyncLocalStorage has
+// no value (e.g. startup, background tasks). In stdio mode this is
+// the only server; in HTTP mode it is best-effort (last created session).
+let activeServer: Server | null = null;
 
 /**
- * Mark server as connected (safe to send notifications)
+ * Mark a server as connected (safe to send notifications)
  */
-export function setServerConnected(connected: boolean): void {
-  isConnected = connected;
+export function setServerConnected(connected: boolean, server?: Server): void {
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (target) {
+    const ctx = serverContexts.get(target);
+    if (ctx) ctx.connected = connected;
+  }
 }
 
 /**
- * Send a log message to the MCP client
- * This allows clients to see server logs for debugging
+ * Reset all module-level mutable state to initial values.
+ * Used for test isolation.
+ */
+export function resetServerState(): void {
+  versionCheckResult = {
+    isOutdated: false,
+    latestVersion: CURRENT_VERSION,
+    updateMessage: null,
+    lastChecked: 0,
+  };
+  toolCallCount = 0;
+  // WeakMap entries for closed servers are GC'd automatically.
+  // Just clear the active reference so nothing lingers.
+  activeServer = null;
+}
+
+// Map log levels to numeric values for threshold comparison
+const LOG_LEVEL_VALUES: Record<LoggingLevel, number> = {
+  debug: 0,
+  info: 1,
+  notice: 2,
+  warning: 3,
+  error: 4,
+  critical: 5,
+  alert: 6,
+  emergency: 7,
+};
+
+// Reentrancy guard — prevents infinite recursion when notification
+// failure logging triggers the MCP callback back into sendLogToClient.
+let sendingNotification = false;
+
+/**
+ * Send a log message to the MCP client.
+ * If a specific server is provided it targets that session;
+ * otherwise it falls back to the active (most recent) server.
  */
 export function sendLogToClient(
   level: LoggingLevel,
   loggerName: string,
-  data: unknown
+  data: unknown,
+  server?: Server,
 ): void {
-  // Only send if server exists AND is connected
-  if (!serverInstance || !isConnected) return;
+  if (sendingNotification) return;
 
-  // Map levels to numeric values for comparison
-  const levelValues: Record<LoggingLevel, number> = {
-    debug: 0,
-    info: 1,
-    notice: 2,
-    warning: 3,
-    error: 4,
-    critical: 5,
-    alert: 6,
-    emergency: 7,
-  };
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (!target) return;
+
+  const ctx = serverContexts.get(target);
+  if (!ctx?.connected) return;
 
   // Only send if level meets threshold
-  if (levelValues[level] < levelValues[mcpLogLevel]) return;
+  if (LOG_LEVEL_VALUES[level] < LOG_LEVEL_VALUES[ctx.logLevel]) return;
 
+  sendingNotification = true;
   try {
-    serverInstance.notification({
+    void target.notification({
       method: "notifications/message",
       params: {
         level,
@@ -238,26 +264,30 @@ export function sendLogToClient(
       },
     });
   } catch (error: unknown) {
-    logger.debug("Failed to send log notification to client", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Use console.error to avoid re-entering the MCP log callback
+    console.error(
+      `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  } finally {
+    sendingNotification = false;
   }
 }
 
 /**
- * Send a progress notification to the MCP client
- * Used for long-running operations like compound tools
+ * Send a progress notification to the MCP client.
+ * Used for long-running operations like compound tools.
  */
 export function sendProgressNotification(
   progressToken: string | number,
   progress: number,
   total?: number,
-  message?: string
+  message?: string,
 ): void {
-  if (!serverInstance) return;
+  const target = serverStorage.getStore() ?? activeServer;
+  if (!target) return;
 
   try {
-    serverInstance.notification({
+    void target.notification({
       method: "notifications/progress",
       params: {
         progressToken,
@@ -267,9 +297,10 @@ export function sendProgressNotification(
       },
     });
   } catch (error: unknown) {
-    logger.debug("Failed to send progress notification", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Use console.error to avoid re-entering the MCP log callback
+    console.error(
+      `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -283,21 +314,13 @@ export function createServer(): Server {
         subscribe: true,
         listChanged: true,
       },
-      prompts: {
-        listChanged: true,
-      },
       logging: {},
-      completions: {},
     },
   });
 
-  // Store server instance for logging notifications
-  serverInstance = server;
-
-  // Wire up MCP logging - send logger output to client
-  setMCPLogCallback((level, loggerName, data) => {
-    sendLogToClient(level as LoggingLevel, loggerName, data);
-  });
+  // Register per-server context and set as active
+  serverContexts.set(server, { logLevel: "info", connected: false, subscriptions: new Set() });
+  activeServer = server;
 
   // Register tool handlers
   registerToolHandlers(server);
@@ -305,17 +328,11 @@ export function createServer(): Server {
   // Register resource handlers
   registerResourceHandlers(server);
 
-  // Register prompt handlers
-  registerPromptHandlers(server);
-
   // Register subscription handlers
   registerSubscriptionHandlers(server);
 
   // Register logging handler
   registerLoggingHandler(server);
-
-  // Register completions handler
-  registerCompletionsHandler(server);
 
   // Setup sampling callback if available
   setupSampling(server);
@@ -327,110 +344,20 @@ export function createServer(): Server {
  * Register logging handler for MCP logging capability
  */
 function registerLoggingHandler(server: Server): void {
-  server.setRequestHandler(SetLevelRequestSchema, async (request) => {
+  server.setRequestHandler(SetLevelRequestSchema, (request) => {
     const { level } = request.params;
-    mcpLogLevel = level;
+    const ctx = serverContexts.get(server);
+    if (ctx) ctx.logLevel = level;
     logger.info(`MCP log level set to: ${level}`);
-    sendLogToClient("info", "midnight-mcp", {
-      message: `Log level changed to ${level}`,
-    });
-    return {};
-  });
-}
-
-// Completion suggestions for prompt arguments
-const COMPLETION_VALUES: Record<string, Record<string, string[]>> = {
-  "midnight:create-contract": {
-    contractType: [
-      "token",
-      "voting",
-      "credential",
-      "auction",
-      "escrow",
-      "custom",
-    ],
-    privacyLevel: ["full", "partial", "public"],
-    complexity: ["beginner", "intermediate", "advanced"],
-  },
-  "midnight:review-contract": {
-    focusAreas: [
-      "security",
-      "performance",
-      "privacy",
-      "readability",
-      "gas-optimization",
-    ],
-  },
-  "midnight:explain-concept": {
-    concept: [
-      "zk-proofs",
-      "circuits",
-      "witnesses",
-      "ledger",
-      "state-management",
-      "privacy-model",
-      "token-transfers",
-      "merkle-trees",
-    ],
-    level: ["beginner", "intermediate", "advanced"],
-  },
-  "midnight:compare-approaches": {
-    approaches: [
-      "token-standards",
-      "state-management",
-      "privacy-patterns",
-      "circuit-design",
-    ],
-  },
-  "midnight:debug-contract": {
-    errorType: [
-      "compilation",
-      "runtime",
-      "logic",
-      "privacy-leak",
-      "state-corruption",
-    ],
-  },
-};
-
-/**
- * Register completions handler for argument autocompletion
- */
-function registerCompletionsHandler(server: Server): void {
-  server.setRequestHandler(CompleteRequestSchema, async (request) => {
-    const { ref, argument } = request.params;
-
-    if (ref.type !== "ref/prompt") {
-      return { completion: { values: [], hasMore: false } };
-    }
-
-    const promptName = ref.name;
-    const argName = argument.name;
-    const currentValue = argument.value?.toLowerCase() || "";
-
-    // Get completion values for this prompt/argument
-    const promptCompletions = COMPLETION_VALUES[promptName];
-    if (!promptCompletions) {
-      return { completion: { values: [], hasMore: false } };
-    }
-
-    const argValues = promptCompletions[argName];
-    if (!argValues) {
-      return { completion: { values: [], hasMore: false } };
-    }
-
-    // Filter by current input
-    const filtered = argValues.filter((v) =>
-      v.toLowerCase().includes(currentValue)
-    );
-
-    return {
-      completion: {
-        values: filtered.slice(0, 20),
-        total: filtered.length,
-        hasMore: filtered.length > 20,
+    sendLogToClient(
+      "info",
+      "midnight-mcp",
+      {
+        message: `Log level changed to ${level}`,
       },
-    };
+      server,
+    );
+    return {};
   });
 }
 
@@ -439,7 +366,7 @@ function registerCompletionsHandler(server: Server): void {
  */
 function registerToolHandlers(server: Server): void {
   // List available tools with annotations and output schemas
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  server.setRequestHandler(ListToolsRequestSchema, () => {
     logger.debug("Listing tools");
     return {
       tools: allTools.map((tool) => ({
@@ -486,7 +413,40 @@ function registerToolHandlers(server: Server): void {
     }
 
     try {
-      const result = await tool.handler(args as never);
+      // Error handling convention: tool handlers THROW MCPError (or Error) for
+      // failures. The catch block below converts them to { isError: true } responses.
+      // Handlers must NOT return error-shaped objects as "successful" results.
+
+      // Runtime Zod validation — applies defaults, enforces refinements
+      const zodSchema = toolValidationSchemas[name];
+      let validatedArgs = args;
+      if (zodSchema) {
+        try {
+          validatedArgs = zodSchema.parse(args ?? {}) as Record<string, unknown>;
+        } catch (validationError) {
+          const durationMs = Date.now() - startTime;
+          trackToolCall(name, false, durationMs, CURRENT_VERSION);
+          return {
+            content: [
+              {
+                type: "text",
+                text: serialize({
+                  error: "Invalid tool arguments",
+                  details:
+                    validationError instanceof z.ZodError
+                      ? validationError.issues
+                      : String(validationError),
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+      } else {
+        logger.warn(`No validation schema registered for tool: ${name}`);
+      }
+
+      const result = await serverStorage.run(server, () => tool.handler(validatedArgs as never));
       const durationMs = Date.now() - startTime;
 
       // Track successful tool call (fire-and-forget, won't block response)
@@ -516,8 +476,7 @@ function registerToolHandlers(server: Server): void {
               configFiles: {
                 "Claude Desktop (Mac)":
                   "~/Library/Application Support/Claude/claude_desktop_config.json",
-                "Claude Desktop (Win)":
-                  "%APPDATA%/Claude/claude_desktop_config.json",
+                "Claude Desktop (Win)": "%APPDATA%/Claude/claude_desktop_config.json",
                 Cursor: ".cursor/mcp.json",
                 "VS Code": ".vscode/mcp.json",
                 Windsurf: "~/.codeium/windsurf/mcp_config.json",
@@ -545,9 +504,8 @@ function registerToolHandlers(server: Server): void {
             text: serialize(result),
           },
         ],
-        // Include structured content for machine-readable responses
-        // This allows clients to parse results without JSON.parse()
-        structuredContent: result,
+        // Include structured content only when tool defines outputSchema (per MCP spec)
+        ...(tool.outputSchema && { structuredContent: result }),
       };
     } catch (error: unknown) {
       const durationMs = Date.now() - startTime;
@@ -575,7 +533,7 @@ function registerToolHandlers(server: Server): void {
  */
 function registerResourceHandlers(server: Server): void {
   // List available resources
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  server.setRequestHandler(ListResourcesRequestSchema, () => {
     logger.debug("Listing resources");
     return {
       resources: allResources.map((resource) => ({
@@ -588,7 +546,7 @@ function registerResourceHandlers(server: Server): void {
   });
 
   // List resource templates (RFC 6570 URI Templates)
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, () => {
     logger.debug("Listing resource templates");
     return {
       resourceTemplates: resourceTemplates.map((template) => ({
@@ -613,9 +571,6 @@ function registerResourceHandlers(server: Server): void {
       if (uri.startsWith("midnight://docs/")) {
         content = await getDocumentation(uri);
         mimeType = "text/markdown";
-      } else if (uri.startsWith("midnight://code/")) {
-        content = await getCode(uri);
-        mimeType = "text/x-compact";
       } else if (uri.startsWith("midnight://schema/")) {
         const schema = getSchema(uri);
         content = schema ? JSON.stringify(schema, null, 2) : null;
@@ -623,11 +578,7 @@ function registerResourceHandlers(server: Server): void {
       }
 
       if (!content) {
-        const resourceTypes = [
-          "midnight://docs/",
-          "midnight://code/",
-          "midnight://schema/",
-        ];
+        const resourceTypes = ["midnight://docs/", "midnight://schema/"];
         const validPrefix = resourceTypes.find((p) => uri.startsWith(p));
 
         // Try to suggest correct URI for common mistakes
@@ -638,21 +589,14 @@ function registerResourceHandlers(server: Server): void {
         // Handle common URI mistakes
         if (uri.includes("://resources/")) {
           const resourceName = uri.split("://resources/").pop() || "";
-          // Suggest the correct prefix based on content type
           if (
-            resourceName.includes("template") ||
-            resourceName.includes("pattern") ||
-            resourceName.includes("example")
-          ) {
-            suggestion = `Try: midnight://code/templates/${resourceName} or midnight://code/examples/${resourceName} or midnight://code/patterns/${resourceName}`;
-          } else if (
             resourceName.includes("doc") ||
             resourceName.includes("reference") ||
             resourceName.includes("guide")
           ) {
             suggestion = `Try: midnight://docs/${resourceName}`;
           } else {
-            suggestion = `'midnight://resources/' is not valid. Use: midnight://docs/, midnight://code/, or midnight://schema/`;
+            suggestion = `'midnight://resources/' is not valid. Use: midnight://docs/ or midnight://schema/`;
           }
         }
 
@@ -698,83 +642,44 @@ function registerResourceHandlers(server: Server): void {
 }
 
 /**
- * Register prompt handlers
- */
-function registerPromptHandlers(server: Server): void {
-  // List available prompts
-  server.setRequestHandler(ListPromptsRequestSchema, async () => {
-    logger.debug("Listing prompts");
-    return {
-      prompts: promptDefinitions.map((prompt) => ({
-        name: prompt.name,
-        description: prompt.description,
-        arguments: prompt.arguments,
-      })),
-    };
-  });
-
-  // Get prompt content
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-    logger.info(`Prompt requested: ${name}`, { args });
-
-    const prompt = promptDefinitions.find((p) => p.name === name);
-    if (!prompt) {
-      return {
-        description: `Unknown prompt: ${name}`,
-        messages: [],
-      };
-    }
-
-    const messages = generatePrompt(name, args || {});
-
-    return {
-      description: prompt.description,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    };
-  });
-}
-
-/**
  * Register resource subscription handlers
  */
 function registerSubscriptionHandlers(server: Server): void {
   // Handle subscribe requests
-  server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+  server.setRequestHandler(SubscribeRequestSchema, (request) => {
     const { uri } = request.params;
     logger.info(`Subscribing to resource: ${uri}`);
 
     // Validate that the URI is a valid resource
-    const validPrefixes = [
-      "midnight://docs/",
-      "midnight://code/",
-      "midnight://schema/",
-    ];
+    const validPrefixes = ["midnight://docs/", "midnight://schema/"];
     const isValid = validPrefixes.some((prefix) => uri.startsWith(prefix));
 
     if (!isValid) {
       logger.warn(`Invalid subscription URI: ${uri}`);
       throw new Error(
-        `Invalid subscription URI: ${uri}. Valid prefixes: ${validPrefixes.join(", ")}`
+        `Invalid subscription URI: ${uri}. Valid prefixes: ${validPrefixes.join(", ")}`,
       );
     }
 
-    resourceSubscriptions.add(uri);
-    logger.debug(`Active subscriptions: ${resourceSubscriptions.size}`);
+    const ctx = serverContexts.get(server);
+    if (ctx) {
+      ctx.subscriptions.add(uri);
+      logger.debug(`Active subscriptions: ${ctx.subscriptions.size}`);
+    }
 
     return {};
   });
 
   // Handle unsubscribe requests
-  server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+  server.setRequestHandler(UnsubscribeRequestSchema, (request) => {
     const { uri } = request.params;
     logger.info(`Unsubscribing from resource: ${uri}`);
 
-    resourceSubscriptions.delete(uri);
-    logger.debug(`Active subscriptions: ${resourceSubscriptions.size}`);
+    const ctx = serverContexts.get(server);
+    if (ctx) {
+      ctx.subscriptions.delete(uri);
+      logger.debug(`Active subscriptions: ${ctx.subscriptions.size}`);
+    }
 
     return {};
   });
@@ -785,10 +690,10 @@ function registerSubscriptionHandlers(server: Server): void {
  * Call this when re-indexing or when docs are updated
  */
 export function notifyResourceUpdate(server: Server, uri: string): void {
-  if (resourceSubscriptions.has(uri)) {
+  const ctx = serverContexts.get(server);
+  if (ctx?.subscriptions.has(uri)) {
     logger.info(`Notifying subscribers of update: ${uri}`);
-    // Send notification via the server
-    server.notification({
+    void server.notification({
       method: "notifications/resources/updated",
       params: { uri },
     });
@@ -798,8 +703,11 @@ export function notifyResourceUpdate(server: Server, uri: string): void {
 /**
  * Get the list of active subscriptions
  */
-export function getActiveSubscriptions(): string[] {
-  return Array.from(resourceSubscriptions);
+export function getActiveSubscriptions(server?: Server): string[] {
+  const target = server ?? serverStorage.getStore() ?? activeServer;
+  if (!target) return [];
+  const ctx = serverContexts.get(target);
+  return ctx ? Array.from(ctx.subscriptions) : [];
 }
 
 /**
@@ -808,9 +716,7 @@ export function getActiveSubscriptions(): string[] {
  */
 function setupSampling(server: Server): void {
   // Create a sampling callback that uses the server's request method
-  const samplingCallback = async (
-    request: SamplingRequest
-  ): Promise<SamplingResponse> => {
+  const samplingCallback = async (request: SamplingRequest): Promise<SamplingResponse> => {
     logger.debug("Requesting sampling from client", {
       messageCount: request.messages.length,
       maxTokens: request.maxTokens,
@@ -833,17 +739,19 @@ function setupSampling(server: Server): void {
         {
           parse: (data: unknown) => {
             const response = data as SamplingResponse;
-            // Basic validation of expected response structure
+            // Basic validation of expected response structure (defensive runtime check)
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (!response || typeof response !== "object") {
               throw new Error("Invalid sampling response: expected object");
             }
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (!response.content || typeof response.content !== "object") {
               throw new Error("Invalid sampling response: missing content");
             }
             return response;
           },
           _def: { typeName: "SamplingResponse" },
-        } as never
+        } as never,
       );
 
       return response;
@@ -859,10 +767,18 @@ function setupSampling(server: Server): void {
 }
 
 /**
- * Initialize the server and vector store
+ * Initialize shared resources (vector store, version check)
+ * Called once at startup regardless of transport mode.
  */
-export async function initializeServer(): Promise<Server> {
+export async function initializeSharedResources(): Promise<void> {
   logger.info("Initializing Midnight MCP Server...");
+
+  // Wire up MCP logging once — sendLogToClient resolves the correct
+  // server via AsyncLocalStorage (inside handler chains) or activeServer
+  // (background/startup), so we don't need a per-server callback.
+  setMCPLogCallback((level, loggerName, data) => {
+    sendLogToClient(level as LoggingLevel, loggerName, data);
+  });
 
   // Check for updates in background (non-blocking)
   checkForUpdates().catch((error: unknown) => {
@@ -881,11 +797,16 @@ export async function initializeServer(): Promise<Server> {
     });
   }
 
-  // Create and return server
-  const server = createServer();
-  logger.info(`Server v${CURRENT_VERSION} created successfully`);
+  logger.info(`Server v${CURRENT_VERSION} resources initialized`);
+}
 
-  return server;
+/**
+ * Initialize shared resources and create a server.
+ * Internal helper used only by startServer() for stdio mode.
+ */
+async function initializeServer(): Promise<Server> {
+  await initializeSharedResources();
+  return createServer();
 }
 
 /**
@@ -898,41 +819,62 @@ export async function startServer(): Promise<void> {
   await server.connect(transport);
 
   // Now safe to send notifications
-  setServerConnected(true);
+  setServerConnected(true, server);
 
   logger.info("Midnight MCP Server running on stdio");
 }
 
-// HTTP transport state
-const transports = {
-  streamable: {} as Record<string, StreamableHTTPServerTransport>,
-  sse: {} as Record<string, SSEServerTransport>,
+// Session management constants
+const MAX_SESSIONS = 100;
+const SESSION_TTL_MS = (() => {
+  const envVal = process.env.MIDNIGHT_MCP_SESSION_TTL;
+  if (envVal) {
+    const parsed = Number(envVal);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed * 1000; // seconds → ms
+  }
+  return 30 * 60 * 1000; // default: 30 minutes
+})();
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface SessionEntry<T> {
+  transport: T;
+  server: Server;
+  createdAt: number;
+  lastActivityAt: number;
+}
+
+const sessions = {
+  streamable: new Map<string, SessionEntry<StreamableHTTPServerTransport>>(),
+  sse: new Map<string, SessionEntry<SSEServerTransport>>(),
 };
 
+function totalSessionCount(): number {
+  return sessions.streamable.size + sessions.sse.size;
+}
+
 /**
- * Close all active transports
+ * Close all active sessions in a session map
  */
-async function closeTransports(
-  transportMap: Record<
-    string,
-    StreamableHTTPServerTransport | SSEServerTransport
-  >
+async function closeSessions<T extends StreamableHTTPServerTransport | SSEServerTransport>(
+  sessionMap: Map<string, SessionEntry<T>>,
 ): Promise<void> {
-  const closePromises = Object.values(transportMap).map((transport) =>
-    transport.close?.().catch(() => {})
-  );
+  const closePromises = Array.from(sessionMap.values()).map(async (entry) => {
+    await entry.transport.close().catch(() => {});
+    await entry.server.close().catch(() => {});
+  });
   await Promise.all(closePromises);
+  sessionMap.clear();
 }
 
 /**
  * Start the server with HTTP transport (SSE + Streamable HTTP)
  */
 export async function startHttpServer(port: number = 3000): Promise<void> {
-  const mcpServer = await initializeServer();
+  await initializeSharedResources();
   const app = express();
 
   // Parse JSON for the Streamable HTTP endpoint
-  app.use("/mcp", express.json());
+  app.use("/mcp", express.json({ limit: "1mb" }));
 
   // Health check endpoint
   app.get("/health", (_req, res) => {
@@ -940,6 +882,7 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
       status: "ok",
       version: CURRENT_VERSION,
       transport: "http",
+      activeSessions: totalSessionCount(),
     });
   });
 
@@ -948,26 +891,54 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 
-    if (sessionId && transports.streamable[sessionId]) {
+    const existingEntry = sessionId ? sessions.streamable.get(sessionId) : undefined;
+    if (existingEntry) {
       // Reuse existing transport
-      transport = transports.streamable[sessionId];
+      existingEntry.lastActivityAt = Date.now();
+      transport = existingEntry.transport;
     } else if (!sessionId && isInitializeRequest(req.body)) {
-      // New session initialization
+      // Check session capacity
+      if (totalSessionCount() >= MAX_SESSIONS) {
+        res.status(503).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32000,
+            message: "Server at session capacity. Try again later.",
+          },
+          id: null,
+        });
+        return;
+      }
+
+      // New session initialization — create a dedicated server
+      const sessionServer = createServer();
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (newSessionId) => {
-          transports.streamable[newSessionId] = transport;
+          sessions.streamable.set(newSessionId, {
+            transport,
+            server: sessionServer,
+            createdAt: Date.now(),
+            lastActivityAt: Date.now(),
+          });
           logger.debug(`New streamable session: ${newSessionId}`);
         },
       });
       transport.onclose = () => {
         if (transport.sessionId) {
-          delete transports.streamable[transport.sessionId];
+          const entry = sessions.streamable.get(transport.sessionId);
+          sessions.streamable.delete(transport.sessionId);
+          if (entry) {
+            entry.server.close().catch((err: unknown) => {
+              logger.error(`Error closing streamable server: ${String(err)}`);
+            });
+          }
           logger.debug(`Streamable session closed: ${transport.sessionId}`);
         }
       };
       try {
-        await mcpServer.connect(transport);
+        await sessionServer.connect(transport);
+        setServerConnected(true, sessionServer);
       } catch (error: unknown) {
         logger.error("Failed to connect streamable transport", {
           error: String(error),
@@ -997,19 +968,38 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
 
   // SSE endpoint for server-to-client notifications
   app.get("/sse", async (_req: Request, res: Response) => {
+    // Check session capacity
+    if (totalSessionCount() >= MAX_SESSIONS) {
+      res.status(503).end("Server at session capacity. Try again later.");
+      return;
+    }
+
     logger.debug("New SSE connection");
+    const sessionServer = createServer();
     const transport = new SSEServerTransport("/messages", res);
-    transports.sse[transport.sessionId] = transport;
+    sessions.sse.set(transport.sessionId, {
+      transport,
+      server: sessionServer,
+      createdAt: Date.now(),
+      lastActivityAt: Date.now(),
+    });
 
     res.on("close", () => {
-      delete transports.sse[transport.sessionId];
+      const entry = sessions.sse.get(transport.sessionId);
+      sessions.sse.delete(transport.sessionId);
+      if (entry) {
+        entry.server.close().catch((err: unknown) => {
+          logger.error(`Error closing SSE server: ${String(err)}`);
+        });
+      }
       logger.debug(`SSE session closed: ${transport.sessionId}`);
     });
 
     try {
-      await mcpServer.connect(transport);
+      await sessionServer.connect(transport);
+      setServerConnected(true, sessionServer);
     } catch (error: unknown) {
-      delete transports.sse[transport.sessionId];
+      sessions.sse.delete(transport.sessionId);
       logger.error(`SSE connection failed: ${transport.sessionId}`, {
         error: String(error),
       });
@@ -1018,12 +1008,13 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   });
 
   // SSE message endpoint
-  app.post("/messages", async (req: Request, res: Response) => {
+  app.post("/messages", express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
-    const transport = transports.sse[sessionId];
+    const entry = sessions.sse.get(sessionId);
 
-    if (transport) {
-      await transport.handlePostMessage(req, res);
+    if (entry) {
+      entry.lastActivityAt = Date.now();
+      await entry.transport.handlePostMessage(req, res);
     } else {
       res.status(400).send(`No transport found for sessionId ${sessionId}`);
     }
@@ -1032,17 +1023,40 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   // Handle GET/DELETE for session management
   const handleSessionRequest = async (req: Request, res: Response) => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    if (!sessionId || !transports.streamable[sessionId]) {
+    const entry = sessionId ? sessions.streamable.get(sessionId) : undefined;
+    if (!entry) {
       res.status(400).send("Invalid or missing session ID");
       return;
     }
 
-    const transport = transports.streamable[sessionId];
-    await transport.handleRequest(req, res);
+    entry.lastActivityAt = Date.now();
+    await entry.transport.handleRequest(req, res);
   };
 
   app.get("/mcp", handleSessionRequest);
   app.delete("/mcp", handleSessionRequest);
+
+  // Session cleanup interval — evict expired sessions
+  const cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, entry] of sessions.streamable) {
+      if (now - entry.lastActivityAt > SESSION_TTL_MS) {
+        entry.transport.close().catch(() => {});
+        entry.server.close().catch(() => {});
+        sessions.streamable.delete(id);
+        logger.debug(`Evicted expired streamable session: ${id}`);
+      }
+    }
+    for (const [id, entry] of sessions.sse) {
+      if (now - entry.lastActivityAt > SESSION_TTL_MS) {
+        entry.transport.close().catch(() => {});
+        entry.server.close().catch(() => {});
+        sessions.sse.delete(id);
+        logger.debug(`Evicted expired SSE session: ${id}`);
+      }
+    }
+  }, CLEANUP_INTERVAL_MS);
+  cleanupInterval.unref();
 
   // Start server
   const httpServer = app.listen(port, "127.0.0.1", () => {
@@ -1058,13 +1072,18 @@ export async function startHttpServer(port: number = 3000): Promise<void> {
   // Graceful shutdown
   const shutdown = async () => {
     logger.info("Shutting down HTTP server...");
-    await closeTransports(transports.sse);
-    await closeTransports(transports.streamable);
+    clearInterval(cleanupInterval);
+    await closeSessions(sessions.sse);
+    await closeSessions(sessions.streamable);
     httpServer.close(() => {
       logger.info("Server shutdown complete");
       process.exit(0);
     });
   };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", () => {
+    void shutdown();
+  });
+  process.on("SIGTERM", () => {
+    void shutdown();
+  });
 }

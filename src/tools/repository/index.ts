@@ -8,23 +8,15 @@ export {
   GetFileInputSchema,
   ListExamplesInputSchema,
   GetLatestUpdatesInputSchema,
-  GetVersionInfoInputSchema,
   CheckBreakingChangesInputSchema,
-  GetMigrationGuideInputSchema,
   GetFileAtVersionInputSchema,
   CompareSyntaxInputSchema,
-  GetLatestSyntaxInputSchema,
-  ExtractContractStructureInputSchema,
   type GetFileInput,
   type ListExamplesInput,
   type GetLatestUpdatesInput,
-  type GetVersionInfoInput,
   type CheckBreakingChangesInput,
-  type GetMigrationGuideInput,
   type GetFileAtVersionInput,
   type CompareSyntaxInput,
-  type GetLatestSyntaxInput,
-  type ExtractContractStructureInput,
 } from "./schemas.js";
 
 // Constants
@@ -36,13 +28,9 @@ export {
   getFile,
   listExamples,
   getLatestUpdates,
-  getVersionInfo,
   checkBreakingChanges,
-  getMigrationGuide,
   getFileAtVersion,
   compareSyntax,
-  getLatestSyntax,
-  extractContractStructure,
 } from "./handlers.js";
 
 // Tools

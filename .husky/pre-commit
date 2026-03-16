@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+# Get staged .ts files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM -- 'src/**/*.ts')
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# Lint staged files (warnings = errors via --max-warnings 0)
+npx eslint --max-warnings 0 $STAGED_FILES
+
+# Format check staged files
+npx prettier --check $STAGED_FILES
+
+# Typecheck entire project (can't typecheck individual files)
+npx tsc --noEmit

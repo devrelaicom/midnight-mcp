@@ -22,6 +22,13 @@ export class EmbeddingGenerator {
   }
 
   /**
+   * Returns true if no OpenAI API key is configured and dummy embeddings will be used.
+   */
+  get isDummyMode(): boolean {
+    return this.openai === null;
+  }
+
+  /**
    * Generate embeddings for a single text
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
@@ -41,12 +48,16 @@ export class EmbeddingGenerator {
         input: text,
       });
 
-      const embedding = response.data[0].embedding;
+      const firstResult = response.data[0];
+      if (!firstResult) {
+        throw new Error("No embedding data returned from API");
+      }
+      const embedding = firstResult.embedding;
       const EXPECTED_DIMENSIONS = 1536; // text-embedding-3-small default
-      if (!embedding || embedding.length !== EXPECTED_DIMENSIONS) {
+      if (embedding.length !== EXPECTED_DIMENSIONS) {
         logger.warn("Unexpected embedding dimensions", {
           expected: EXPECTED_DIMENSIONS,
-          actual: embedding?.length ?? 0,
+          actual: embedding.length,
           model: this.model,
         });
       }
@@ -55,7 +66,7 @@ export class EmbeddingGenerator {
         text,
         embedding,
         model: this.model,
-        tokenCount: response.usage?.total_tokens,
+        tokenCount: response.usage.total_tokens,
       };
     } catch (error: unknown) {
       logger.error("Failed to generate embedding", { error: String(error) });
@@ -91,9 +102,12 @@ export class EmbeddingGenerator {
         });
 
         for (let j = 0; j < batch.length; j++) {
+          const batchText = batch[j];
+          const dataItem = response.data[j];
+          if (!batchText || !dataItem) continue;
           results.push({
-            text: batch[j],
-            embedding: response.data[j].embedding,
+            text: batchText,
+            embedding: dataItem.embedding,
             model: this.model,
           });
         }
@@ -121,9 +135,11 @@ export class EmbeddingGenerator {
     let normB = 0;
 
     for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
+      const ai = a[i] ?? 0;
+      const bi = b[i] ?? 0;
+      dotProduct += ai * bi;
+      normA += ai * ai;
+      normB += bi * bi;
     }
 
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));

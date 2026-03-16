@@ -11,6 +11,14 @@ import yaml from "js-yaml";
 let useJsonOutput = false;
 
 /**
+ * Reset all module-level mutable state to initial values.
+ * Used for test isolation.
+ */
+export function resetSerializerState(): void {
+  useJsonOutput = false;
+}
+
+/**
  * Set the output format for tool responses
  * @param json - If true, use JSON output. If false, use YAML (default).
  */

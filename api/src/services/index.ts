@@ -12,3 +12,12 @@ export {
 } from "./metrics";
 
 export { getEmbedding } from "./embeddings";
+
+export {
+  generateToken,
+  generateUUID,
+  verifyPKCE,
+  exchangeCodeWithGitHub,
+  getGitHubUser,
+  getGitHubOrgs,
+} from "./oauth";
