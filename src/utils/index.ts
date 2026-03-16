@@ -69,5 +69,9 @@ export { serialize, setOutputFormat, isJsonOutput, getOutputMimeType } from "./s
 // Schema conversion utilities
 export { zodInputSchema } from "./schema.js";
 
+// HTML-to-markdown extraction
+export { extractContentFromHtml } from "./html-to-markdown.js";
+export type { ExtractedContent } from "./html-to-markdown.js";
+
 // Shared version constant
 export { CURRENT_VERSION } from "./version.js";
