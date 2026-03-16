@@ -2,17 +2,16 @@
  * Embedded documentation content
  *
  * DESIGN PRINCIPLE: This file contains ONLY curated/unique content that:
- * 1. Doesn't exist in official docs (wallet-integration guide we created)
+ * 1. Doesn't exist in official docs in this form
  * 2. Is a synthesized summary (tokenomics whitepaper)
- * 3. Is a quick reference card (compact-reference, sdk-api)
- * 4. Is from external sources (OpenZeppelin Compact contracts)
+ * 3. Is a quick reference card (compact-reference)
  *
  * For official Midnight docs (glossary, Zswap, Kachina concepts),
  * use the search_docs tool which queries the Vector DB.
  */
 
 export const EMBEDDED_DOCS: Record<string, string> = {
-  "midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.21)
+  "midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.16 - v0.18)
 
 > **CRITICAL**: This reference is derived from **actual compiling contracts** in the Midnight ecosystem.
 > Always verify syntax against this reference before generating contracts.
@@ -22,7 +21,7 @@ export const EMBEDDED_DOCS: Record<string, string> = {
 Use this as a starting point - it compiles successfully:
 
 \`\`\`compact
-pragma language_version 0.21;
+pragma language_version >= 0.16 && <= 0.18;
 
 import CompactStandardLibrary;
 
@@ -30,7 +29,7 @@ import CompactStandardLibrary;
 export ledger counter: Counter;
 export ledger owner: Bytes<32>;
 
-// Witness for off-chain, witness-backed data
+// Witness for private/off-chain data
 witness local_secret_key(): Bytes<32>;
 
 // Circuit (returns [] not Void)
@@ -43,22 +42,15 @@ export circuit increment(): [] {
 
 ## 1. Pragma (Version Declaration)
 
-**RECOMMENDED** - use an exact major.minor version in MCP-generated code:
+**CORRECT** - use bounded range without patch version:
 \`\`\`compact
-pragma language_version 0.21;
+pragma language_version >= 0.16 && <= 0.18;
 \`\`\`
 
-**ALSO ACCEPTED** - the local 0.21.0 compiler accepts minimum-version pragmas:
+**WRONG** - these will cause parse errors:
 \`\`\`compact
-pragma language_version >= 0.21;
-\`\`\`
-
-Official docs currently show exact-version pragmas, so that remains the default recommendation here.
-
-**WRONG / OUTDATED** - avoid malformed ranges and patch-specific examples that are not shown in the docs:
-\`\`\`compact
-pragma language_version >= 0.21.0;           // ❌ docs show major.minor pragmas
-pragma language_version >= 0.16.0 < 0.19.0;  // ❌ malformed range syntax
+pragma language_version >= 0.14.0;           // ❌ patch version not needed
+pragma language_version >= 0.16.0 < 0.19.0;  // ❌ wrong operator format
 \`\`\`
 
 ---
@@ -89,9 +81,8 @@ export ledger counter: Counter;
 export ledger owner: Bytes<32>;
 export ledger balances: Map<Bytes<32>, Uint<64>>;
 
-// Internal ledger state (not exported in the public API)
-// Ledger writes are still observable on-chain.
-ledger secretValue: Field;
+// Private state (off-chain only)
+ledger secretValue: Field;  // no export = private
 \`\`\`
 
 **WRONG** - block syntax is deprecated:
@@ -108,7 +99,7 @@ ledger {
 \`\`\`compact
 export ledger publicData: Field;           // Public, readable by anyone
 export sealed ledger immutableData: Field; // Set once in constructor, cannot change
-ledger internalData: Field;                // Internal ledger field, not exported
+ledger privateData: Field;                 // Private, not exported
 \`\`\`
 
 ---
@@ -229,7 +220,7 @@ export pure circuit hash(x: Field): Bytes<32>  // No state access
 
 ## 6. Witnesses
 
-Witnesses provide off-chain, witness-backed data to circuits. They run locally, not on-chain.
+Witnesses provide off-chain/private data to circuits. They run locally, not on-chain.
 
 **CRITICAL**: Witnesses are declarations only - NO implementation body in Compact!
 The implementation goes in your TypeScript prover.
@@ -243,7 +234,7 @@ witness find_user(id: Bytes<32>): Maybe<UserData>;
 
 // ❌ WRONG - witnesses cannot have bodies
 witness get_caller(): Bytes<32> {
-  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), local_secret_key()]);  // ERROR!
+  return public_key(local_secret_key());  // ERROR!
 }
 \`\`\`
 
@@ -258,7 +249,7 @@ export sealed ledger owner: Bytes<32>;
 export sealed ledger nonce: Bytes<32>;
 
 constructor(initNonce: Bytes<32>) {
-  owner = disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), local_secret_key()]));
+  owner = disclose(public_key(local_secret_key()));
   nonce = disclose(initNonce);
 }
 \`\`\`
@@ -307,7 +298,7 @@ export circuit authenticated_action(): [] {
 
 ### Commit-Reveal Pattern (COMPLETE, VALIDATED)
 \`\`\`compact
-pragma language_version 0.21;
+pragma language_version >= 0.16 && <= 0.18;
 
 import CompactStandardLibrary;
 
@@ -547,7 +538,7 @@ assert(disclose(caller == owner), "Not authorized");
 |---------|---------|
 | \`ledger { field: Type; }\` | \`export ledger field: Type;\` |
 | \`circuit fn(): Void\` | \`circuit fn(): []\` |
-| \`pragma language_version >= 0.21.0;\` | \`pragma language_version 0.21;\` |
+| \`pragma >= 0.16.0\` | \`pragma >= 0.16 && <= 0.18\` |
 | \`enum State { ... }\` | \`export enum State { ... }\` |
 | \`if (witness_val == x)\` | \`if (disclose(witness_val == x))\` |
 | \`Cell<Field>\` | \`Field\` (Cell is deprecated) |
@@ -597,110 +588,6 @@ These contracts compile successfully and demonstrate correct patterns:
 4. **Sea Battle** (advanced): \`bricktowers/midnight-seabattle\`
 
 When in doubt, reference these repos for working syntax.
-`,
-
-  "midnight://docs/sdk-api": `# Midnight TypeScript SDK Quick Reference
-
-## Installation
-
-\`\`\`bash
-npm install @midnight-ntwrk/midnight-js-contracts
-\`\`\`
-
-## Core Types
-
-### Contract Deployment
-
-\`\`\`typescript
-import { deployContract, ContractDeployment } from '@midnight-ntwrk/midnight-js-contracts';
-
-const deployment: ContractDeployment = await deployContract({
-  contract: compiledContract,
-  privateState: initialPrivateState,
-  args: constructorArgs,
-});
-
-const { contractAddress, initialState } = deployment;
-\`\`\`
-
-### Contract Interaction
-
-\`\`\`typescript
-import { callContract } from '@midnight-ntwrk/midnight-js-contracts';
-
-// Call a circuit
-const result = await callContract({
-  contractAddress,
-  circuitName: 'increment',
-  args: [amount],
-  privateState: currentPrivateState,
-});
-
-// Result contains new state and return value
-const { newPrivateState, returnValue, proof } = result;
-\`\`\`
-
-### Providers
-
-\`\`\`typescript
-import { 
-  MidnightProvider,
-  createMidnightProvider 
-} from '@midnight-ntwrk/midnight-js-contracts';
-
-const provider = await createMidnightProvider({
-  indexer: 'https://indexer.testnet.midnight.network',
-  node: 'https://node.testnet.midnight.network',
-  proofServer: 'https://prover.testnet.midnight.network',
-});
-\`\`\`
-
-## State Management
-
-\`\`\`typescript
-interface ContractState<T> {
-  publicState: PublicState;
-  privateState: T;
-}
-
-// Subscribe to state changes
-provider.subscribeToContract(contractAddress, (state) => {
-  console.log('New state:', state);
-});
-\`\`\`
-
-## Transaction Building
-
-\`\`\`typescript
-import { buildTransaction } from '@midnight-ntwrk/midnight-js-contracts';
-
-const tx = await buildTransaction({
-  contractAddress,
-  circuitName: 'transfer',
-  args: [recipient, amount],
-  privateState,
-});
-
-// Sign and submit
-const signedTx = await wallet.signTransaction(tx);
-const txHash = await provider.submitTransaction(signedTx);
-\`\`\`
-
-## Error Handling
-
-\`\`\`typescript
-import { MidnightError, ContractError } from '@midnight-ntwrk/midnight-js-contracts';
-
-try {
-  await callContract({ ... });
-} catch (error) {
-  if (error instanceof ContractError) {
-    console.error('Contract assertion failed:', error.message);
-  } else if (error instanceof MidnightError) {
-    console.error('Network error:', error.code);
-  }
-}
-\`\`\`
 `,
 
   "midnight://docs/compiler": `# Compact Compiler Guide
@@ -809,8 +696,8 @@ Ledger ADT types cannot be used in type casts:
 // ❌ Wrong
 const x = value as Counter;
 
-// ✅ Correct - use the ledger field directly
-counter.increment(1);
+// ✅ Correct - use ledger field directly
+ledger.counter.increment(1);
 \`\`\`
 
 #### Version Mismatch After Update
@@ -850,297 +737,6 @@ compact compile src/contract.compact managed/contract
 # Using nodemon or similar
 nodemon --watch src/*.compact --exec "compact compile src/contract.compact managed/contract"
 \`\`\`
-`,
-
-  "midnight://docs/openzeppelin": `# OpenZeppelin Contracts for Compact
-
-> **Official Documentation**: https://docs.openzeppelin.com/contracts-compact
-> **GitHub Repository**: https://github.com/OpenZeppelin/compact-contracts
-
-The official OpenZeppelin library for Midnight smart contracts provides battle-tested, audited implementations of common patterns.
-
-## Installation
-
-\`\`\`bash
-npm install @openzeppelin/compact-contracts
-\`\`\`
-
-## Available Modules
-
-### Token Standards
-- **FungibleToken** - Privacy-preserving token with commitment-backed shielded balances
-- **NFT** - Non-fungible tokens with optional privacy
-
-### Access Control
-- **Ownable** - Single-owner access pattern
-- **Roles** - Role-based access control
-- **AccessControl** - Flexible permission system
-
-### Security
-- **Pausable** - Emergency stop mechanism
-- **ReentrancyGuard** - Prevent reentrancy attacks
-
-## Usage Example
-
-\`\`\`compact
-pragma language_version 0.21;
-
-import CompactStandardLibrary;
-import "@openzeppelin/compact-contracts/src/token/FungibleToken"
-  prefix FungibleToken_;
-import "@openzeppelin/compact-contracts/src/access/Ownable"
-  prefix Ownable_;
-
-// Exact ledger wiring depends on the OpenZeppelin release you install.
-// Use the package's current examples as the source of truth.
-export sealed ledger owner: Bytes<32>;
-
-constructor(initialOwner: Bytes<32>) {
-  owner = disclose(initialOwner);
-}
-
-export circuit mint(to: Bytes<32>, amount: Uint<64>): [] {
-  Ownable_assertOnlyOwner();
-  FungibleToken_mint(to, amount);
-}
-\`\`\`
-
-## Best Practices
-
-1. **Always use audited contracts** - Don't reinvent token standards
-2. **Combine patterns** - Ownable + FungibleToken + Pausable
-3. **Check for updates** - Security patches are released regularly
-4. **Read the docs** - Each module has specific usage patterns
-`,
-
-  "midnight://docs/openzeppelin/token": `# OpenZeppelin FungibleToken
-
-The recommended standard for privacy-preserving tokens on Midnight.
-
-## Features
-
-- Shielded balances backed by commitments
-- Optional public balance disclosure
-- Transfer with ZK proofs
-- Mint/burn capabilities
-
-## Basic Usage
-
-\`\`\`compact
-pragma language_version 0.21;
-
-import CompactStandardLibrary;
-import "@openzeppelin/compact-contracts/src/token/FungibleToken"
-  prefix FungibleToken_;
-
-export ledger name: Opaque<"string">;
-export ledger symbol: Opaque<"string">;
-export ledger decimals: Uint<8>;
-
-export circuit initialize(
-  newName: Opaque<"string">,
-  newSymbol: Opaque<"string">,
-  newDecimals: Uint<8>,
-  initialSupply: Uint<64>,
-  owner: Bytes<32>
-): [] {
-  // Treat this as an illustrative wrapper around the library's token module.
-  // Check the installed OpenZeppelin package examples for exact wiring.
-  name = disclose(newName);
-  symbol = disclose(newSymbol);
-  decimals = disclose(newDecimals);
-  FungibleToken_mint(owner, initialSupply);
-}
-
-// Shielded transfer
-export circuit transfer(to: Bytes<32>, amount: Uint<64>): [] {
-  FungibleToken_transfer(to, amount);
-}
-
-// Check balance through a witness-backed path
-witness myBalance(): Uint<64>;
-
-// Reveal balance publicly (optional)
-export circuit revealBalance(): Uint<64> {
-  return disclose(myBalance());
-}
-\`\`\`
-
-## Minting and Burning
-
-\`\`\`compact
-import "@openzeppelin/compact-contracts/src/access/Ownable"
-  prefix Ownable_;
-
-export circuit mint(to: Bytes<32>, amount: Uint<64>): [] {
-  Ownable_assertOnlyOwner();
-  FungibleToken_mint(to, amount);
-}
-
-export circuit burn(amount: Uint<64>): [] {
-  FungibleToken_burn(amount);
-}
-\`\`\`
-
-## Privacy Model
-
-| Operation | Privacy |
-|-----------|---------|
-| Balance | Commitment-backed shielded balance |
-| Transfer amount | Shielded |
-| Sender | Shielded |
-| Recipient | Shielded |
-| Transaction occurred | Public (proof exists) |
-
-## Important Notes
-
-1. **No approval mechanism** - Unlike ERC20, transfers are direct
-2. **Balances are commitments** - Not stored as plain values
-3. **Privacy by default** - Explicit disclosure required to reveal
-`,
-
-  "midnight://docs/openzeppelin/access": `# OpenZeppelin Access Control
-
-Patterns for controlling who can call contract functions.
-
-## Ownable
-
-Simple single-owner access control.
-
-\`\`\`compact
-import "@openzeppelin/compact-contracts/src/access/Ownable"
-  prefix Ownable_;
-
-export sealed ledger owner: Bytes<32>;
-
-constructor(initialOwner: Bytes<32>) {
-  owner = disclose(initialOwner);
-}
-
-export circuit adminFunction(): [] {
-  Ownable_assertOnlyOwner();
-  // Only owner can execute this
-}
-
-export circuit transferOwnership(newOwner: Bytes<32>): [] {
-  Ownable_assertOnlyOwner();
-  owner = disclose(newOwner);
-}
-\`\`\`
-
-## Role-Based Access Control
-
-For more complex permission systems.
-
-\`\`\`compact
-import "@openzeppelin/compact-contracts/src/access/AccessControl"
-  prefix AccessControl_;
-
-export ledger admins: Set<Bytes<32>>;
-export ledger minters: Set<Bytes<32>>;
-witness caller(): Bytes<32>;
-
-export circuit initialize(admin: Bytes<32>): [] {
-  admins.insert(disclose(admin));
-}
-
-export circuit mint(to: Bytes<32>, amount: Uint<64>): [] {
-  const account = caller();
-  assert(disclose(minters.member(account) || admins.member(account)), "Missing minter role");
-  // Mint tokens
-}
-
-export circuit grantMinterRole(account: Bytes<32>): [] {
-  minters.insert(disclose(account));
-}
-\`\`\`
-
-## Combining Patterns
-
-\`\`\`compact
-import "@openzeppelin/compact-contracts/src/access/Ownable"
-  prefix Ownable_;
-import "@openzeppelin/compact-contracts/src/security/Pausable"
-  prefix Pausable_;
-
-export ledger paused: Boolean;
-
-export circuit criticalFunction(): [] {
-  Ownable_assertOnlyOwner();
-  assert(!paused, "Paused");
-  // Execute critical logic
-}
-
-export circuit pause(): [] {
-  Ownable_assertOnlyOwner();
-  paused = true;
-}
-\`\`\`
-`,
-
-  "midnight://docs/openzeppelin/security": `# OpenZeppelin Security Patterns
-
-Security utilities for Compact contracts.
-
-## Pausable
-
-Emergency stop mechanism for contracts.
-
-\`\`\`compact
-import "@openzeppelin/compact-contracts/src/security/Pausable"
-  prefix Pausable_;
-import "@openzeppelin/compact-contracts/src/access/Ownable"
-  prefix Ownable_;
-
-export ledger paused: Boolean;
-
-export circuit transfer(to: Bytes<32>, amount: Uint<64>): [] {
-  assert(!paused, "Paused");
-  // Transfer logic
-}
-
-export circuit pause(): [] {
-  Ownable_assertOnlyOwner();
-  paused = true;
-}
-
-export circuit unpause(): [] {
-  Ownable_assertOnlyOwner();
-  paused = false;
-}
-\`\`\`
-
-## When to Use Pausable
-
-- Token contracts handling real value
-- DeFi protocols with liquidity
-- Contracts with upgrade mechanisms
-- Any contract where bugs could cause fund loss
-
-## Implementation Details
-
-\`\`\`compact
-// Pausable module internals (simplified)
-circuit Pausable_assertNotPaused(): [] {
-  assert(!paused, "Contract is paused");
-}
-
-circuit Pausable_pause(): [] {
-  paused = true;
-}
-
-circuit Pausable_unpause(): [] {
-  paused = false;
-}
-\`\`\`
-
-## Best Practices
-
-1. **Always use Pausable** for contracts handling value
-2. **Combine with Ownable** for admin-only pause control
-3. **Test pause scenarios** thoroughly
-4. **Document pause conditions** for users
-5. **Consider timelock** for unpause in high-value contracts
 `,
 
   "midnight://docs/tokenomics": `# Midnight Tokenomics Summary
@@ -1211,288 +807,5 @@ Where:
 2. **MEV resistant** - Shielded transactions
 3. **Cross-chain native** - Same token on Cardano + Midnight
 4. **Fair distribution** - Free, multi-phase, broad eligibility
-`,
-
-  "midnight://docs/wallet-integration": `# Midnight Wallet Integration Guide
-
-A guide for integrating Midnight Lace wallet into your DApp (v4 API).
-
-## Browser Detection
-
-\`\`\`typescript
-declare global {
-  interface Window {
-    midnight?: {
-      mnLace?: InitialAPI;
-    };
-  }
-}
-
-function isWalletAvailable(): boolean {
-  return typeof window !== 'undefined' 
-    && window.midnight?.mnLace !== undefined;
-}
-\`\`\`
-
-## DApp Connector API
-
-\`\`\`typescript
-interface InitialAPI {
-  connect(networkId: string): Promise<WalletConnectedAPI>;
-  getConnectionStatus(): Promise<ConnectionStatus>;
-  apiVersion: string;
-  name: string;
-  icon: string;
-  rdns: string;
-}
-
-async function connectWallet(): Promise<WalletConnectedAPI> {
-  if (!window.midnight?.mnLace) {
-    throw new Error('Midnight Lace wallet not found');
-  }
-  // Connect to the desired network (e.g., 'preview' or 'testnet')
-  return await window.midnight.mnLace.connect('preview');
-}
-\`\`\`
-
-## ConnectedAPI Interface
-
-\`\`\`typescript
-interface WalletConnectedAPI {
-  getShieldedAddresses(): Promise<{ shieldedAddress: string, shieldedCoinPublicKey: string }>;
-  getUnshieldedAddress(): Promise<string>;
-  getShieldedBalances(): Promise<Balance[]>;
-  getUnshieldedBalances(): Promise<Balance[]>;
-  balanceUnsealedTransaction(tx: string): Promise<{ tx: string }>;
-  submitTransaction(tx: string): Promise<string>;
-  signData(address: string, payload: string): Promise<Signature>;
-}
-\`\`\`
-
-## React Hook
-
-\`\`\`typescript
-export function useWallet() {
-  const [state, setState] = useState({
-    isConnected: false,
-    address: null as string | null,
-    isLoading: false,
-    error: null as string | null,
-  });
-
-  const connect = useCallback(async () => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    try {
-      if (!window.midnight?.mnLace) {
-        throw new Error('Please install Midnight Lace wallet');
-      }
-      const api = await window.midnight.mnLace.connect('preview');
-      const { shieldedAddress } = await api.getShieldedAddresses();
-      setState({
-        isConnected: true,
-        address: shieldedAddress || null,
-        isLoading: false,
-        error: null,
-      });
-      return api;
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed',
-      }));
-      throw error;
-    }
-  }, []);
-
-  return { ...state, connect };
-}
-\`\`\`
-
-## Connection Flow
-
-\`\`\`
-1. User clicks "Connect Wallet"
-2. DApp calls window.midnight.mnLace.connect('preview')
-3. Wallet popup asks user to approve network connection
-4. User approves → DApp receives WalletConnectedAPI
-5. DApp can now interact with wallet using granular methods
-\`\`\`
-
-## Best Practices
-
-1. Always check wallet availability first
-2. Handle user rejection gracefully (e.g., \`error.type === 'DAppConnectorAPIError'\`)
-3. Store connection state in context
-4. Provide clear loading/error feedback
-5. Test with Midnight Lace extension
-`,
-
-  // Common Errors Reference - VERIFIED from official Midnight documentation
-  "midnight://docs/common-errors": `# Common Midnight Errors & Solutions
-
-Verified error messages from official Midnight documentation.
-
-## Version Mismatch Errors
-
-**Source:** [Fix version mismatch errors guide](https://docs.midnight.network/how-to/fix-version-mismatches)
-
-Version mismatches occur when Midnight components are out of sync:
-- Compact compiler
-- Runtime libraries (@midnight-ntwrk/compact-runtime, @midnight-ntwrk/ledger)
-- Proof server
-- Indexer
-
-### "Version mismatch" / CompactError
-\`\`\`javascript
-// The runtime checks version compatibility on startup
-throw new __compactRuntime.CompactError(\`Version mismatch...\`);
-\`\`\`
-
-**Fix:** Check versions and update all components together:
-\`\`\`bash
-# Check your versions
-compact --version
-npm list @midnight-ntwrk/compact-runtime
-npm list @midnight-ntwrk/ledger
-
-# Consult the compatibility matrix
-# https://docs.midnight.network/relnotes/support-matrix
-\`\`\`
-
-## Compact Compiler Errors
-
-### "invalid context for a ledger ADT type"
-**Source:** Compact 0.15/0.23 release notes
-
-Ledger ADT types (Counter, Map, etc.) cannot be used as Compact types in casts.
-
-\`\`\`compact
-// ❌ Wrong - casting to ledger ADT type
-const x = value as Counter;  // Error!
-
-// ✅ Correct - use the ledger field directly
-counter.increment(1);
-\`\`\`
-
-### "static type error" - argument count/type mismatch
-**Source:** Compact runtime type checks
-
-\`\`\`javascript
-// Runtime validates argument counts
-if (args_1.length !== 2)
-  throw new __compactRuntime.CompactError(
-    \`post: expected 2 arguments, received \${args_1.length}\`
-  );
-\`\`\`
-
-**Fix:** Ensure TypeScript calls match circuit signatures exactly.
-
-### assert() failures
-**Source:** [Compact language reference](https://docs.midnight.network/develop/reference/compact/lang-ref)
-
-\`\`\`compact
-// Assert syntax
-assert(condition, "error message");
-
-// Example from bboard tutorial
-assert(state == State.VACANT, "Attempted to post to an occupied board");
-\`\`\`
-
-**Note:** If assertion fails, the transaction fails without reaching the chain.
-
-## TypeScript SDK Errors
-
-### ContractTypeError
-**Source:** @midnight-ntwrk/midnight-js-contracts
-
-Thrown when there's a contract type mismatch between the given contract type
-and the initial state deployed at a contract address.
-
-\`\`\`typescript
-// Typically thrown by findDeployedContract()
-try {
-  const contract = await findDeployedContract(provider, address, MyContract);
-} catch (e) {
-  if (e instanceof ContractTypeError) {
-    // The contract at this address is a different type
-    console.error('Contract type mismatch:', e.circuitIds);
-  }
-}
-\`\`\`
-
-### type_error() - Runtime type errors
-**Source:** @midnight-ntwrk/compact-runtime
-
-Internal function for type errors with parameters: who, what, where, type, value.
-
-## DApp Connector Errors
-
-**Source:** @midnight-ntwrk/dapp-connector-api
-
-\`\`\`typescript
-import { DAppConnectorAPIError } from '@midnight-ntwrk/dapp-connector-api';
-
-// Error handling in v4 uses error.type instead of instanceof
-try {
-  const api = await window.midnight.mnLace.connect('preview');
-} catch (error: any) {
-  if (error.type === 'DAppConnectorAPIError') {
-    if (error.code === 'PermissionRejected') {
-      console.log('User rejected wallet connection');
-    }
-  }
-}
-\`\`\`
-
-## Node.js Environment Errors
-
-### ERR_UNSUPPORTED_DIR_IMPORT
-**Source:** [BBoard tutorial troubleshooting](https://docs.midnight.network/develop/tutorial/3-creating/bboard-dapp)
-
-Occurs due to environment caching after modifying shell config or changing Node versions.
-
-**Fix:**
-\`\`\`bash
-# 1. Open a NEW terminal window (don't just source ~/.zshrc)
-# 2. Verify Node version
-nvm use 18
-
-# 3. Clear cached modules
-rm -rf node_modules/.cache
-\`\`\`
-
-## Transaction Errors
-
-### INSUFFICIENT_FUNDS / Not enough tDUST
-**Source:** Midnight documentation examples
-
-\`\`\`typescript
-try {
-  const result = await sdk.sendTransaction(options);
-} catch (error) {
-  if (error.code === 'INSUFFICIENT_FUNDS') {
-    console.error('Not enough tDUST in wallet');
-    // Direct user to testnet faucet
-  }
-}
-\`\`\`
-
-## Debugging Resources
-
-1. **Compatibility Matrix:** [/relnotes/support-matrix](https://docs.midnight.network/relnotes/support-matrix)
-2. **Discord:** #developer-support channel
-3. **Recompile after updates:**
-   \`\`\`bash
-   # Clean generated files (use managed/ directory structure)
-   rm -rf managed/<contract_name>
-   
-   # Or clean specific artifacts
-   rm -rf managed/counter/keys/*.prover managed/counter/keys/*.verifier
-   
-   # Rebuild
-   compact compile src/contract.compact managed/contract
-   \`\`\`
-4. **Compiler output docs:** See \`midnight://docs/compiler\` for full directory structure
 `,
 };

@@ -11,7 +11,7 @@ const rootDir = resolve(import.meta.dirname, "..");
 const pkg = JSON.parse(readFileSync(resolve(rootDir, "package.json"), "utf-8"));
 
 // Count tools by searching for tool name patterns in source files
-const toolDirs = ["search", "analyze", "repository", "generation", "health", "meta"];
+const toolDirs = ["search", "analyze", "repository", "health", "meta", "diff", "format"];
 let toolCount = 0;
 for (const dir of toolDirs) {
   const content = readFileSync(resolve(rootDir, `src/tools/${dir}/tools.ts`), "utf-8");
@@ -24,14 +24,17 @@ const serverJson = {
   description: pkg.description,
   author: pkg.author,
   license: pkg.license,
-  repository: typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url?.replace(/\.git$/, ""),
+  repository:
+    typeof pkg.repository === "string"
+      ? pkg.repository
+      : pkg.repository?.url?.replace(/\.git$/, ""),
   homepage: pkg.homepage,
   transport: ["stdio", "http"],
   tools: toolCount,
-  resources: 9,
-  prompts: 5,
+  resources: 5,
+  prompts: 0,
   keywords: pkg.keywords,
-  categories: ["blockchain", "developer-tools", "code-generation"],
+  categories: ["blockchain", "developer-tools"],
 };
 
 writeFileSync(resolve(rootDir, "server.json"), JSON.stringify(serverJson, null, 2) + "\n");

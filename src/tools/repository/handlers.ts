@@ -14,26 +14,13 @@ import {
 } from "../../utils/index.js";
 import { sendProgressNotification } from "../../server.js";
 import { REPO_ALIASES, EXAMPLES } from "./constants.js";
-import { EMBEDDED_DOCS } from "../../resources/content/docs-content.js";
-import {
-  COMPACT_VERSION,
-  RECOMMENDED_PRAGMA,
-  REFERENCE_CONTRACTS,
-  BUILTIN_FUNCTIONS,
-  TYPE_COMPATIBILITY,
-  LEDGER_TYPE_LIMITS,
-  COMMON_ERRORS,
-} from "../../config/compact-version.js";
 import type {
   GetFileInput,
   ListExamplesInput,
   GetLatestUpdatesInput,
-  GetVersionInfoInput,
   CheckBreakingChangesInput,
-  GetMigrationGuideInput,
   GetFileAtVersionInput,
   CompareSyntaxInput,
-  GetLatestSyntaxInput,
   UpgradeCheckInput,
   FullRepoContextInput,
 } from "./schemas.js";
@@ -410,45 +397,6 @@ export async function getLatestUpdates(input: GetLatestUpdatesInput) {
 }
 
 /**
- * Get version and release info for a repository
- */
-export async function getVersionInfo(input: GetVersionInfoInput) {
-  // Ensure repo defaults to compact if undefined/empty
-  const repoName = input.repo || "compact";
-  logger.debug("Getting version info", { repo: repoName });
-
-  const resolved = resolveRepo(repoName);
-  if (!resolved) {
-    throw new MCPError(
-      `Unknown repository: ${input.repo}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
-      ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
-    );
-  }
-
-  const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
-
-  return {
-    repository: `${resolved.owner}/${resolved.repo}`,
-    latestVersion: versionInfo.latestRelease?.tag || "No releases found",
-    latestStableVersion: versionInfo.latestStableRelease?.tag || "No stable releases",
-    publishedAt: versionInfo.latestRelease?.publishedAt || null,
-    releaseNotes: versionInfo.latestRelease?.body || null,
-    recentReleases: versionInfo.recentReleases.slice(0, 5).map((r) => ({
-      version: r.tag,
-      date: r.publishedAt.split("T")[0],
-      isPrerelease: r.isPrerelease,
-      url: r.url,
-    })),
-    recentBreakingChanges: versionInfo.changelog
-      .slice(0, 3)
-      .flatMap((c) => c.changes.breaking)
-      .slice(0, 10),
-    versionContext: releaseTracker.getVersionContext(versionInfo),
-  };
-}
-
-/**
  * Check for breaking changes since a specific version
  */
 export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
@@ -493,56 +441,6 @@ export async function checkBreakingChanges(input: CheckBreakingChangesInput) {
       : outdatedInfo.isOutdated
         ? `✅ Safe to upgrade. No breaking changes detected since ${input.currentVersion}.`
         : `✅ You're on the latest version.`,
-  };
-}
-
-/**
- * Get migration guide between versions
- */
-export async function getMigrationGuide(input: GetMigrationGuideInput) {
-  // Ensure repo defaults to compact if undefined/empty
-  const repoName = input.repo || "compact";
-  logger.debug("Getting migration guide", {
-    repo: repoName,
-    fromVersion: input.fromVersion,
-    toVersion: input.toVersion,
-  });
-
-  const resolved = resolveRepo(repoName);
-  if (!resolved) {
-    throw new MCPError(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
-      ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
-    );
-  }
-
-  const guide = await releaseTracker.getMigrationGuide(
-    resolved.owner,
-    resolved.repo,
-    input.fromVersion,
-    input.toVersion,
-  );
-
-  return {
-    repository: `${resolved.owner}/${resolved.repo}`,
-    from: guide.from,
-    to: guide.to,
-    summary: {
-      breakingChangesCount: guide.breakingChanges.length,
-      deprecationsCount: guide.deprecations.length,
-      newFeaturesCount: guide.newFeatures.length,
-    },
-    breakingChanges: guide.breakingChanges,
-    deprecations: guide.deprecations,
-    newFeatures: guide.newFeatures,
-    migrationSteps: guide.migrationSteps,
-    migrationDifficulty:
-      guide.breakingChanges.length === 0
-        ? "Easy - No breaking changes"
-        : guide.breakingChanges.length <= 3
-          ? "Moderate - Few breaking changes"
-          : "Complex - Multiple breaking changes, plan carefully",
   };
 }
 
@@ -681,256 +579,6 @@ export async function compareSyntax(input: CompareSyntaxInput) {
     recommendation: comparison.hasDifferences
       ? `⚠️ This file has changed between ${comparison.oldVersion} and ${comparison.newVersion}. Review the differences before using code patterns from the old version.`
       : `✅ No changes in this file between versions.`,
-  };
-}
-
-/**
- * Get the latest syntax reference for Compact language
- * This is the source of truth for writing valid, compilable contracts
- */
-export async function getLatestSyntax(input: GetLatestSyntaxInput) {
-  // Ensure repo defaults to compact if undefined/empty
-  const repoName = input.repo || "compact";
-  logger.debug("Getting latest syntax reference", { repo: repoName });
-
-  // For Compact language, always return our curated reference first
-  // This is more reliable than fetching from GitHub and includes pitfalls/patterns
-  if (repoName === "compact" || repoName === "midnight-compact") {
-    const compactReference = EMBEDDED_DOCS["midnight://docs/compact-reference"];
-    const currentVersionLabel =
-      COMPACT_VERSION.min === COMPACT_VERSION.max
-        ? COMPACT_VERSION.max
-        : `${COMPACT_VERSION.min}-${COMPACT_VERSION.max}`;
-
-    // Check if there's a newer release we might not have documented
-    // Version config is centralized in src/config/compact-version.ts
-    let versionWarning: string | undefined;
-
-    try {
-      const versionInfo = await releaseTracker.getVersionInfo("midnightntwrk", "compact");
-      const latestTag = versionInfo.latestStableRelease?.tag || versionInfo.latestRelease?.tag;
-      if (latestTag) {
-        // Extract version number from tag (e.g., "v0.21.0" -> "0.21")
-        const latestVersion = latestTag.replace(/^v/, "").split(".").slice(0, 2).join(".");
-
-        if (
-          latestVersion !== COMPACT_VERSION.max &&
-          parseFloat(latestVersion) > parseFloat(COMPACT_VERSION.max)
-        ) {
-          versionWarning = `⚠️ Compact ${latestTag} is available. This reference is based on ${COMPACT_VERSION.max}. Some syntax may have changed - check release notes for breaking changes. See docs/SYNTAX_MAINTENANCE.md for update instructions.`;
-        }
-      }
-    } catch {
-      // Ignore version check errors, still return cached docs
-    }
-
-    if (compactReference) {
-      return {
-        repository: "midnightntwrk/compact",
-        version: `${currentVersionLabel} (current)`,
-        versionConfig: {
-          min: COMPACT_VERSION.min,
-          max: COMPACT_VERSION.max,
-          lastUpdated: COMPACT_VERSION.lastUpdated,
-          maintenanceGuide: "See docs/SYNTAX_MAINTENANCE.md for update instructions",
-        },
-        ...(versionWarning && { versionWarning }),
-
-        // Quick start template - ALWAYS compiles
-        quickStartTemplate: `${RECOMMENDED_PRAGMA}
-
-import CompactStandardLibrary;
-
-export ledger counter: Counter;
-export ledger owner: Bytes<32>;
-
-witness local_secret_key(): Bytes<32>;
-
-export circuit increment(): [] {
-  counter.increment(1);
-}`,
-
-        // Built-in functions vs patterns (CRITICAL knowledge)
-        builtinFunctions: BUILTIN_FUNCTIONS,
-
-        // Type compatibility rules
-        typeCompatibility: TYPE_COMPATIBILITY,
-
-        // Ledger type limitations
-        ledgerTypeLimits: LEDGER_TYPE_LIMITS,
-
-        // Common compilation errors with fixes
-        commonErrors: COMMON_ERRORS,
-
-        // Common mistakes that cause compilation failures
-        commonMistakes: [
-          {
-            wrong: "ledger { field: Type; }",
-            correct: "export ledger field: Type;",
-            error: 'parse error: found "{" looking for an identifier',
-          },
-          {
-            wrong: "circuit fn(): Void",
-            correct: "circuit fn(): []",
-            error: 'parse error: found "{" looking for ";"',
-          },
-          {
-            wrong: "pragma language_version >= 0.21.0;",
-            correct: RECOMMENDED_PRAGMA,
-            error: "outdated pragma style for MCP guidance",
-          },
-          {
-            wrong: "enum State { a, b }",
-            correct: "export enum State { a, b }",
-            error: "enum not accessible from TypeScript",
-          },
-          {
-            wrong: "if (witness_val == x)",
-            correct: "if (disclose(witness_val == x))",
-            error: "implicit disclosure error",
-          },
-          {
-            wrong: "Cell<Field>",
-            correct: "Field",
-            error: "unbound identifier Cell (deprecated)",
-          },
-          {
-            wrong: "public_key(sk)",
-            correct: 'persistentHash<Vector<2, Bytes<32>>>([pad(32, "midnight:pk:"), sk])',
-            error: 'unbound identifier "public_key"',
-          },
-          {
-            wrong: "counter.value()",
-            correct: "counter.read()  // Returns Uint<64>",
-            error: 'operation "value" undefined for Counter',
-          },
-          {
-            wrong: "Choice::rock (Rust-style)",
-            correct: "Choice.rock (dot notation)",
-            error: 'parse error: found ":" looking for ")"',
-          },
-          {
-            wrong: "witness fn(): T { ... }",
-            correct: "witness fn(): T;  // declaration only, no body",
-            error: "parse error after witness declaration",
-          },
-          {
-            wrong: "pure function helper(): T",
-            correct: "pure circuit helper(): T",
-            error: 'unbound identifier "function"',
-          },
-          {
-            wrong: "amount as Bytes<32>  // direct Uint to Bytes",
-            correct: "(amount as Field) as Bytes<32>  // go through Field",
-            error: "cannot cast from type Uint<64> to type Bytes<32>",
-          },
-          {
-            wrong: "ledger.insert(key, a + b)  // arithmetic result",
-            correct: "ledger.insert(key, (a + b) as Uint<64>)  // cast result",
-            error: "expected type Uint<64> but received Uint<0..N>",
-          },
-          {
-            wrong: "export circuit fn(param: T): [] { ledger.insert(param, v); }",
-            correct:
-              "export circuit fn(param: T): [] { const d = disclose(param); ledger.insert(d, v); }",
-            error: "potential witness-value disclosure must be declared",
-          },
-        ],
-
-        syntaxReference: compactReference,
-
-        sections: [
-          "Quick Start Template",
-          "Pragma (Version Declaration)",
-          "Imports",
-          "Ledger Declarations",
-          "Data Types",
-          "Built-in Functions",
-          "Type Compatibility",
-          "Ledger Type Limits",
-          "Circuits",
-          "Witnesses",
-          "Constructor",
-          "Common Patterns",
-          "Common Operations",
-          "Assertions",
-          "Common Mistakes to Avoid",
-          "Common Errors & Fixes",
-          "Exports for TypeScript",
-          "Reference Contracts",
-        ],
-
-        referenceContracts: REFERENCE_CONTRACTS.map((rc) => ({
-          name: rc.name,
-          repo: rc.repo,
-          description: rc.description,
-        })),
-
-        note: `⚠️ CALL THIS TOOL BEFORE generating ANY Compact code!
-Use quickStartTemplate as your base. Check commonMistakes BEFORE submitting code.
-
-KEY RULES:
-1. public_key() is NOT a builtin - use persistentHash pattern
-2. Counter uses .read() not .value() - all ADT methods work in circuits
-3. Map.lookup()/Set.member() ARE available in circuits (verified)
-4. Arithmetic results need casting: (a + b) as Uint<64>
-5. Uint→Bytes needs two casts: (amount as Field) as Bytes<32>
-6. Circuit params touching ledger need disclose(): const d = disclose(param);
-
-Compact is NOT TypeScript - don't guess syntax, use this reference!
-Version: ${currentVersionLabel} (updated: ${COMPACT_VERSION.lastUpdated}).`,
-      };
-    }
-  }
-
-  const resolved = resolveRepo(repoName);
-  if (!resolved) {
-    throw new MCPError(
-      `Unknown repository: ${repoName}. Available: ${Object.keys(REPO_ALIASES).join(", ")}`,
-      ErrorCodes.UNKNOWN_REPO,
-      `Try one of: ${Object.keys(REPO_ALIASES).slice(0, 8).join(", ")}`,
-    );
-  }
-
-  const reference = await releaseTracker.getLatestSyntaxReference(resolved.owner, resolved.repo);
-
-  if (!reference || reference.syntaxFiles.length === 0) {
-    // Fallback: get example contracts as syntax reference
-    const versionInfo = await releaseTracker.getVersionInfo(resolved.owner, resolved.repo);
-    const version = versionInfo.latestStableRelease?.tag || "main";
-
-    return {
-      repository: `${resolved.owner}/${resolved.repo}`,
-      version,
-      warning: "No grammar documentation found. Use example contracts as reference.",
-      syntaxFiles: [],
-      examplePaths: ["examples/", "test/", "contracts/"],
-    };
-  }
-
-  return {
-    repository: `${resolved.owner}/${resolved.repo}`,
-    version: reference.version,
-    syntaxFiles: reference.syntaxFiles.map((f) => {
-      const result = smartTruncate(f.content, f.path);
-      if (result.truncated) {
-        logger.info("Syntax file truncated", {
-          repository: `${resolved.owner}/${resolved.repo}`,
-          path: f.path,
-          version: reference.version,
-          language: result.truncationInfo?.language,
-          contentLength: f.content.length,
-          truncationInfo: result.truncationInfo,
-        });
-      }
-      return {
-        path: f.path,
-        content: result.content,
-        truncated: result.truncated,
-        ...(result.truncationInfo && { truncationInfo: result.truncationInfo }),
-      };
-    }),
-    note: `This is the authoritative syntax reference at version ${reference.version}. Use this to ensure contracts are compilable.`,
   };
 }
 
@@ -1149,7 +797,7 @@ export async function getFullRepoContext(
     // Relevant examples
     examples,
 
-    note: `Use this context to write ${repoName} code at version ${version}. For detailed syntax, use midnight-get-latest-syntax.`,
+    note: `Use this context to write ${repoName} code at version ${version}.`,
   };
 }
 

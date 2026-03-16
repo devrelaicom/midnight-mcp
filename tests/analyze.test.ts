@@ -9,7 +9,6 @@ import {
 } from "vitest";
 import {
   analyzeContract,
-  explainCircuit,
   compileContract,
 } from "../src/tools/analyze/index.js";
 
@@ -56,7 +55,7 @@ describe("Contract Analyzer", () => {
       json: async () => ({
         success: true,
         mode: "fast",
-        pragma: "0.21.0",
+        pragma: "0.18.0",
         imports: ["CompactStandardLibrary"],
         circuits: [
           {
@@ -73,7 +72,7 @@ describe("Contract Analyzer", () => {
     });
 
     const result = await analyzeContract({
-      code: "pragma language_version 0.21;",
+      code: "pragma language_version >= 0.18.0;",
       mode: "fast",
     });
 
@@ -104,158 +103,6 @@ describe("Contract Analyzer", () => {
   });
 });
 
-describe("Circuit Explainer", () => {
-  const mockFetch = vi.fn();
-  const originalFetch = globalThis.fetch;
-
-  beforeAll(() => {
-    globalThis.fetch = mockFetch;
-  });
-
-  afterAll(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  beforeEach(() => {
-    mockFetch.mockReset();
-  });
-
-  it("should explain a circuit with disclose", async () => {
-    const code = `
-export circuit revealData(data: Field): Field {
-  return disclose(data);
-}
-    `;
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: true,
-        mode: "fast",
-        pragma: null,
-        imports: [],
-        circuits: [
-          {
-            name: "revealData",
-            exported: true,
-            pure: false,
-            params: [{ name: "data", type: "Field" }],
-            returnType: "Field",
-            line: 2,
-          },
-        ],
-        ledger: [],
-      }),
-    });
-
-    const result = await explainCircuit({ circuitCode: code });
-
-    expect(result.circuitName).toBe("revealData");
-    expect(result.isPublic).toBe(true);
-    expect(result.operations).toContain(
-      "Reveals private data selectively (disclose)",
-    );
-    expect(result.zkImplications.length).toBeGreaterThan(0);
-  });
-
-  it("should explain a circuit with assertions", async () => {
-    const code = `
-export circuit validateAmount(amount: Field): Boolean {
-  assert(amount > 0);
-  assert(amount < 1000);
-  return true;
-}
-    `;
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: true,
-        mode: "fast",
-        pragma: null,
-        imports: [],
-        circuits: [
-          {
-            name: "validateAmount",
-            exported: true,
-            pure: false,
-            params: [{ name: "amount", type: "Field" }],
-            returnType: "Boolean",
-            line: 2,
-          },
-        ],
-        ledger: [],
-      }),
-    });
-
-    const result = await explainCircuit({ circuitCode: code });
-
-    expect(result.circuitName).toBe("validateAmount");
-    expect(result.operations).toContain("Validates constraints (assert)");
-  });
-
-  it("should identify state modifications", async () => {
-    const code = `
-pragma language_version 0.21;
-
-import CompactStandardLibrary;
-
-export ledger balance: Counter;
-export ledger transactions: Map<Field, Field>;
-
-export circuit deposit(amount: Uint<16>): [] {
-  const value = disclose(amount);
-  balance.increment(value);
-  transactions.insert(0 as Field, value as Field);
-}
-    `;
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: true,
-        mode: "fast",
-        pragma: null,
-        imports: [],
-        circuits: [
-          {
-            name: "deposit",
-            exported: true,
-            pure: false,
-            params: [{ name: "amount", type: "Uint<16>" }],
-            returnType: "[]",
-            line: 7,
-          },
-        ],
-        ledger: [],
-      }),
-    });
-
-    const result = await explainCircuit({ circuitCode: code });
-
-    expect(result.operations).toContain("Increments a counter value");
-    expect(result.operations).toContain("Inserts data into ledger storage");
-  });
-
-  it("should throw for code with no circuit", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: true,
-        mode: "fast",
-        pragma: null,
-        imports: [],
-        circuits: [],
-        ledger: [],
-      }),
-    });
-
-    await expect(
-      explainCircuit({ circuitCode: "no circuit here" }),
-    ).rejects.toThrow(/No circuit definition found/);
-  });
-});
-
 describe("Compile Contract", () => {
   const mockFetch = vi.fn();
   const originalFetch = globalThis.fetch;
@@ -278,14 +125,14 @@ describe("Compile Contract", () => {
       json: async () => ({
         success: true,
         output: "Compilation successful",
-        compilerVersion: "0.21.0",
+        compilerVersion: "0.18.0",
         compiledAt: "2026-01-19T19:17:56.064Z",
         executionTime: 2841,
       }),
     });
 
     const result = (await compileContract({
-      code: "pragma language_version 0.21;",
+      code: `pragma language_version >= 0.18.0;`,
       skipZk: true,
     })) as Record<string, unknown>;
 
@@ -300,7 +147,7 @@ describe("Compile Contract", () => {
     });
 
     await expect(
-      compileContract({ code: "pragma language_version 0.21;" }),
+      compileContract({ code: "pragma language_version >= 0.18.0;" }),
     ).rejects.toThrow(/unavailable/);
   });
 

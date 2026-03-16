@@ -42,19 +42,9 @@ export const GetLatestUpdatesInputSchema = z.object({
     .describe("Specific repos to check (default: all configured repos)"),
 });
 
-export const GetVersionInfoInputSchema = z.object({
-  repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js')"),
-});
-
 export const CheckBreakingChangesInputSchema = z.object({
   repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js')"),
   currentVersion: z.string().describe("Version you're currently using (e.g., 'v1.0.0', '0.5.2')"),
-});
-
-export const GetMigrationGuideInputSchema = z.object({
-  repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js')"),
-  fromVersion: z.string().describe("Version you're migrating from"),
-  toVersion: z.string().optional().describe("Target version (default: latest stable)"),
 });
 
 export const GetFileAtVersionInputSchema = z.object({
@@ -68,10 +58,6 @@ export const CompareSyntaxInputSchema = z.object({
   path: z.string().describe("File path to compare"),
   oldVersion: z.string().describe("Old version tag (e.g., 'v0.9.0')"),
   newVersion: z.string().optional().describe("New version tag (default: latest)"),
-});
-
-export const GetLatestSyntaxInputSchema = z.object({
-  repo: z.string().default("compact").describe("Repository name (default: 'compact')"),
 });
 
 // Compound tool schemas - reduce multiple API calls to one
@@ -92,11 +78,8 @@ export const FullRepoContextInputSchema = z.object({
 export type GetFileInput = z.infer<typeof GetFileInputSchema>;
 export type ListExamplesInput = z.infer<typeof ListExamplesInputSchema>;
 export type GetLatestUpdatesInput = z.infer<typeof GetLatestUpdatesInputSchema>;
-export type GetVersionInfoInput = z.infer<typeof GetVersionInfoInputSchema>;
 export type CheckBreakingChangesInput = z.infer<typeof CheckBreakingChangesInputSchema>;
-export type GetMigrationGuideInput = z.infer<typeof GetMigrationGuideInputSchema>;
 export type GetFileAtVersionInput = z.infer<typeof GetFileAtVersionInputSchema>;
 export type CompareSyntaxInput = z.infer<typeof CompareSyntaxInputSchema>;
-export type GetLatestSyntaxInput = z.infer<typeof GetLatestSyntaxInputSchema>;
 export type UpgradeCheckInput = z.infer<typeof UpgradeCheckInputSchema>;
 export type FullRepoContextInput = z.infer<typeof FullRepoContextInputSchema>;

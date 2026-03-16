@@ -157,14 +157,6 @@ describe("suggestTool", () => {
       expect(result.suggestions[0].tool).toBe("midnight-upgrade-check");
     });
 
-    it("should match ZK/circuit intents to explain-circuit", async () => {
-      const result = await suggestTool({
-        intent: "explain the zero knowledge proof circuit",
-      });
-
-      expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-explain-circuit");
-    });
   });
 
   describe("domain-specific matches", () => {
@@ -251,38 +243,7 @@ describe("suggestTool", () => {
     });
   });
 
-  describe("generation matches", () => {
-    it("should match contract generation intents", async () => {
-      const result = await suggestTool({ intent: "generate a new contract" });
-
-      expect(result.suggestions[0].tool).toBe("midnight-generate-contract");
-    });
-
-    it("should match code review intents", async () => {
-      const result = await suggestTool({
-        intent: "review my code and check if it's correct",
-      });
-
-      // "correct" also matches syntax patterns, so review may not be first
-      expect(
-        result.suggestions.some((s) => s.tool === "midnight-review-contract")
-      ).toBe(true);
-    });
-
-    it("should match documentation intents", async () => {
-      const result = await suggestTool({
-        intent: "document my contract and add comments",
-      });
-
-      expect(
-        result.suggestions.some(
-          (s) =>
-            s.tool === "midnight-document-contract" ||
-            s.tool === "midnight-generate-documentation"
-        )
-      ).toBe(true);
-    });
-
+  describe("documentation matches", () => {
     it("should route 'fetch docs' to fetch-docs, not search-docs", async () => {
       const result = await suggestTool({
         intent: "fetch the latest docs",
@@ -318,18 +279,6 @@ describe("suggestTool", () => {
   });
 
   describe("version and migration matches", () => {
-    it("should match migration guide intents", async () => {
-      const result = await suggestTool({
-        intent: "how to migrate to new version",
-      });
-
-      expect(
-        result.suggestions.some(
-          (s) => s.tool === "midnight-get-migration-guide"
-        )
-      ).toBe(true);
-    });
-
     it("should match syntax comparison intents", async () => {
       const result = await suggestTool({
         intent: "compare syntax between versions",

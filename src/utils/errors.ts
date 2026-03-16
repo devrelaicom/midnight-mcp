@@ -51,7 +51,6 @@ export const ErrorCodes = {
   OPENAI_UNAVAILABLE: "OPENAI_UNAVAILABLE",
   MISSING_PARAM: "MISSING_PARAMETER",
   INVALID_VERSION: "INVALID_VERSION",
-  SAMPLING_UNAVAILABLE: "SAMPLING_UNAVAILABLE",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
 
@@ -101,18 +100,6 @@ export const SelfCorrectionHints = {
     correction: {
       invalidPath: path,
       ...(similarPaths && { suggestions: similarPaths }),
-    },
-  }),
-
-  SAMPLING_NOT_AVAILABLE: (toolName: string) => ({
-    error: `Sampling capability not available`,
-    code: ErrorCodes.SAMPLING_UNAVAILABLE,
-    suggestion: `${toolName} requires a client that supports sampling (e.g., Claude Desktop). Use a non-AI alternative or switch clients.`,
-    alternatives: {
-      "midnight-generate-contract":
-        "Use midnight-search-compact to find similar contracts as templates",
-      "midnight-review-contract": "Use midnight-analyze-contract for static analysis",
-      "midnight-document-contract": "Manual documentation or inline comments",
     },
   }),
 

@@ -9,12 +9,9 @@ import {
   GetFileInputSchema,
   ListExamplesInputSchema,
   GetLatestUpdatesInputSchema,
-  GetVersionInfoInputSchema,
   CheckBreakingChangesInputSchema,
-  GetMigrationGuideInputSchema,
   GetFileAtVersionInputSchema,
   CompareSyntaxInputSchema,
-  GetLatestSyntaxInputSchema,
   UpgradeCheckInputSchema,
   FullRepoContextInputSchema,
 } from "./schemas.js";
@@ -22,12 +19,9 @@ import {
   getFile,
   listExamples,
   getLatestUpdates,
-  getVersionInfo,
   checkBreakingChanges,
-  getMigrationGuide,
   getFileAtVersion,
   compareSyntax,
-  getLatestSyntax,
   upgradeCheck,
   getFullRepoContext,
 } from "./handlers.js";
@@ -80,19 +74,6 @@ USAGE GUIDANCE:
     handler: getLatestUpdates,
   },
   {
-    name: "midnight-get-version-info",
-    description:
-      "Get the latest version, release notes, and recent breaking changes for a Midnight repository. Use this to ensure you're working with the latest implementation.",
-    inputSchema: zodInputSchema(GetVersionInfoInputSchema),
-    annotations: {
-      readOnlyHint: true,
-      openWorldHint: true,
-      title: "Get Version Info",
-      category: "versioning",
-    },
-    handler: getVersionInfo,
-  },
-  {
     name: "midnight-check-breaking-changes",
     description:
       "Check if there are breaking changes between your current version and the latest release. Essential before upgrading dependencies.",
@@ -104,19 +85,6 @@ USAGE GUIDANCE:
       category: "versioning",
     },
     handler: checkBreakingChanges,
-  },
-  {
-    name: "midnight-get-migration-guide",
-    description:
-      "Get a detailed migration guide for upgrading between versions, including all breaking changes, deprecations, and recommended steps.",
-    inputSchema: zodInputSchema(GetMigrationGuideInputSchema),
-    annotations: {
-      readOnlyHint: true,
-      openWorldHint: true,
-      title: "Get Migration Guide",
-      category: "versioning",
-    },
-    handler: getMigrationGuide,
   },
   {
     name: "midnight-get-file-at-version",
@@ -146,27 +114,6 @@ USAGE GUIDANCE:
     },
     handler: compareSyntax,
   },
-  {
-    name: "midnight-get-latest-syntax",
-    description: `🚨 CALL THIS BEFORE GENERATING ANY COMPACT CODE!
-Get the authoritative Compact syntax reference. Prevents hallucination by providing:
-- Correct syntax patterns (Compact is NOT TypeScript!)
-- commonMistakes array with wrong→correct mappings
-- Type casting rules (Uint→Bytes needs two casts)
-- disclose() requirements for circuit params
-- Map.lookup()/Set.member() ARE available in circuits
-
-ALWAYS check this reference before writing Compact contracts.`,
-    inputSchema: zodInputSchema(GetLatestSyntaxInputSchema),
-    annotations: {
-      readOnlyHint: true,
-      openWorldHint: true,
-      title: "🚨 Get Syntax Reference (Call First!)",
-      category: "versioning",
-    },
-    handler: getLatestSyntax,
-  },
-
   // ============================================================================
   // COMPOUND TOOLS - Multi-step operations in a single call
   // These reduce token usage by 50-70% compared to calling individual tools
@@ -174,7 +121,7 @@ ALWAYS check this reference before writing Compact contracts.`,
   {
     name: "midnight-upgrade-check",
     description:
-      "🚀 COMPOUND TOOL: Complete upgrade analysis in ONE call. Combines version check + breaking changes + migration guide. Use this instead of calling midnight-get-version-info, midnight-check-breaking-changes, and midnight-get-migration-guide separately. Saves ~60% tokens.",
+      "🚀 COMPOUND TOOL: Complete upgrade analysis in ONE call. Combines version check + breaking changes + migration guide. Saves ~60% tokens compared to calling individual tools.",
     inputSchema: zodInputSchema(UpgradeCheckInputSchema),
     outputSchema: {
       type: "object" as const,

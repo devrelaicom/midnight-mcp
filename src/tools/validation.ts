@@ -17,23 +17,16 @@ import {
 } from "./search/schemas.js";
 
 // Analyze schemas
-import {
-  AnalyzeContractInputSchema,
-  ExplainCircuitInputSchema,
-  CompileContractInputSchema,
-} from "./analyze/schemas.js";
+import { AnalyzeContractInputSchema, CompileContractInputSchema } from "./analyze/schemas.js";
 
 // Repository schemas
 import {
   GetFileInputSchema,
   ListExamplesInputSchema,
   GetLatestUpdatesInputSchema,
-  GetVersionInfoInputSchema,
   CheckBreakingChangesInputSchema,
-  GetMigrationGuideInputSchema,
   GetFileAtVersionInputSchema,
   CompareSyntaxInputSchema,
-  GetLatestSyntaxInputSchema,
   UpgradeCheckInputSchema,
   FullRepoContextInputSchema,
 } from "./repository/schemas.js";
@@ -45,13 +38,6 @@ import {
   CheckVersionInputSchema,
   GetUpdateInstructionsInputSchema,
 } from "./health/schemas.js";
-
-// Generation schemas
-import {
-  GenerateContractInputSchema,
-  ReviewContractInputSchema,
-  DocumentContractInputSchema,
-} from "./generation/schemas.js";
 
 // Format schemas
 import { FormatContractInputSchema } from "./format/schemas.js";
@@ -75,7 +61,6 @@ export const toolValidationSchemas: Record<string, ZodType> = {
 
   // Analyze tools
   "midnight-analyze-contract": AnalyzeContractInputSchema,
-  "midnight-explain-circuit": ExplainCircuitInputSchema,
   "midnight-compile-contract": CompileContractInputSchema,
 
   // Format tools
@@ -88,12 +73,9 @@ export const toolValidationSchemas: Record<string, ZodType> = {
   "midnight-get-file": GetFileInputSchema,
   "midnight-list-examples": ListExamplesInputSchema,
   "midnight-get-latest-updates": GetLatestUpdatesInputSchema,
-  "midnight-get-version-info": GetVersionInfoInputSchema,
   "midnight-check-breaking-changes": CheckBreakingChangesInputSchema,
-  "midnight-get-migration-guide": GetMigrationGuideInputSchema,
   "midnight-get-file-at-version": GetFileAtVersionInputSchema,
   "midnight-compare-syntax": CompareSyntaxInputSchema,
-  "midnight-get-latest-syntax": GetLatestSyntaxInputSchema,
   "midnight-upgrade-check": UpgradeCheckInputSchema,
   "midnight-get-repo-context": FullRepoContextInputSchema,
 
@@ -102,11 +84,6 @@ export const toolValidationSchemas: Record<string, ZodType> = {
   "midnight-get-status": GetStatusInputSchema,
   "midnight-check-version": CheckVersionInputSchema,
   "midnight-get-update-instructions": GetUpdateInstructionsInputSchema,
-
-  // Generation tools
-  "midnight-generate-contract": GenerateContractInputSchema,
-  "midnight-review-contract": ReviewContractInputSchema,
-  "midnight-document-contract": DocumentContractInputSchema,
 
   // Meta tools
   "midnight-list-tool-categories": ListToolCategoriesInputSchema,

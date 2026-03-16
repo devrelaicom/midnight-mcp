@@ -21,11 +21,8 @@ export {
 export {
   analyzeTools,
   analyzeContract,
-  explainCircuit,
   AnalyzeContractInputSchema,
-  ExplainCircuitInputSchema,
   type AnalyzeContractInput,
-  type ExplainCircuitInput,
 } from "./analyze/index.js";
 
 // Repository tools
@@ -55,21 +52,6 @@ export {
   type GetStatusInput,
   type CheckVersionInput,
 } from "./health/index.js";
-
-// Generation tools
-export {
-  generationTools,
-  generationHandlers,
-  handleGenerateContract,
-  handleReviewContract,
-  handleDocumentContract,
-  GenerateContractInputSchema,
-  ReviewContractInputSchema,
-  DocumentContractInputSchema,
-  type GenerateContractInput,
-  type ReviewContractInput,
-  type DocumentContractInput,
-} from "./generation/index.js";
 
 // Meta tools
 export {
@@ -107,7 +89,6 @@ import { searchTools } from "./search/index.js";
 import { analyzeTools } from "./analyze/index.js";
 import { repositoryTools } from "./repository/index.js";
 import { healthTools } from "./health/index.js";
-import { generationTools } from "./generation/index.js";
 import { metaTools } from "./meta/index.js";
 import { formatTools } from "./format/index.js";
 import { diffTools } from "./diff/index.js";
@@ -121,5 +102,4 @@ export const allTools: ExtendedToolDefinition[] = [
   ...diffTools,
   ...repositoryTools,
   ...healthTools,
-  ...generationTools,
 ];
