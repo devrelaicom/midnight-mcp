@@ -600,25 +600,6 @@ Smart tool discovery via natural language.
 
 ---
 
-## Resources
-
-Access via `resources/read` with URI.
-
-### Documentation (2)
-
-| URI                                 | Content                  |
-| ----------------------------------- | ------------------------ |
-| `midnight://docs/compact-reference` | Compact language reference |
-| `midnight://docs/tokenomics`        | Tokenomics (NIGHT, DUST, rewards) |
-
-### Schemas (3)
-
-| URI                              | Content             |
-| -------------------------------- | ------------------- |
-| `midnight://schema/compact-ast`  | Compact AST schema  |
-| `midnight://schema/transaction`  | Transaction schema  |
-| `midnight://schema/proof`        | Proof schema        |
-
 ---
 
 ## Errors

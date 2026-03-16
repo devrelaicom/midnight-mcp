@@ -13,24 +13,7 @@ Update the syntax reference when:
 
 ## Files to Update
 
-### 1. Syntax Reference (`src/resources/content/docs-content.ts`)
-
-Update the embedded documentation:
-
-```typescript
-// Look for this section and update:
-"midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.21)
-```
-
-**Checklist:**
-
-- [ ] Update version label in title
-- [ ] Update Quick Start Template
-- [ ] Update pragma format if changed
-- [ ] Add new syntax patterns
-- [ ] Mark deprecated patterns with ❌
-
-### 2. Version Constants (`src/config/compact-version.ts`)
+### 1. Version Constants (`src/config/compact-version.ts`)
 
 Update the centralized Compact version config:
 
