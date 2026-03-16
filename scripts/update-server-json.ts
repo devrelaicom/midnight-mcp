@@ -31,7 +31,7 @@ const serverJson = {
   homepage: pkg.homepage,
   transport: ["stdio", "http"],
   tools: toolCount,
-  resources: 5,
+  resources: 0,
   prompts: 0,
   keywords: pkg.keywords,
   categories: ["blockchain", "developer-tools"],

@@ -5,43 +5,21 @@
 
 import { githubClient } from "../pipeline/index.js";
 import { logger } from "../utils/index.js";
-import { EMBEDDED_DOCS } from "./content/index.js";
 import type { ResourceDefinition } from "./schemas.js";
 
 // Documentation resource URIs
-// NOTE: Only resources with embedded content are listed here.
-// For other docs (glossary, Zswap, Kachina, etc.), use search_docs tool
-// which queries the indexed Vector DB for the full midnight-docs repo.
-export const documentationResources: ResourceDefinition[] = [
-  {
-    uri: "midnight://docs/compact-reference",
-    name: "Compact Language Reference",
-    description: "Quick reference for Compact syntax, types, circuits, and witnesses",
-    mimeType: "text/markdown",
-  },
-  {
-    uri: "midnight://docs/tokenomics",
-    name: "Tokenomics Summary",
-    description:
-      "Curated summary: NIGHT token, DUST resource, block rewards, Glacier Drop distribution",
-    mimeType: "text/markdown",
-  },
-];
+// Embedded docs have been migrated to midnight-expert skills.
+// Use search_docs tool which queries the Vector DB for the full midnight-docs repo.
+export const documentationResources: ResourceDefinition[] = [];
 
 /**
  * Get documentation content by URI
  */
 export async function getDocumentation(uri: string): Promise<string | null> {
-  // Check embedded docs first
-  if (EMBEDDED_DOCS[uri]) {
-    return EMBEDDED_DOCS[uri];
-  }
-
   // Try to fetch from GitHub if it's a doc path
   if (uri.startsWith("midnight://docs/")) {
     const docPath = uri.replace("midnight://docs/", "");
     try {
-      // Try to fetch from midnight-docs repo
       const file = await githubClient.getFileContent(
         "midnightntwrk",
         "midnight-docs",

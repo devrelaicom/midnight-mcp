@@ -137,19 +137,8 @@ This catches semantic errors that static analysis misses (sealed fields, disclos
 | Capability    | Feature                                        |
 | ------------- | ---------------------------------------------- |
 | **Tools**     | 23 tools with `listChanged` notifications      |
-| **Resources** | 5 embedded resources with subscription support |
 | **Logging**   | Client-controllable log level                  |
 | **Progress**  | Real-time progress for compound tools          |
-
-### 5 Embedded Resources
-
-Quick references available offline:
-
-- Compact syntax guide
-- Tokenomics overview
-- Compact AST schema
-- Transaction schema
-- ZK proof schema
 
 ---
 
