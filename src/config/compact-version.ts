@@ -24,19 +24,19 @@
  */
 export const COMPACT_VERSION = {
   /** Minimum supported version */
-  min: "0.16",
+  min: "0.21",
   /** Maximum supported version */
-  max: "0.18",
+  max: "0.21",
   /** When this config was last updated */
-  lastUpdated: "2025-01-26",
+  lastUpdated: "2026-03-11",
   /** Source of truth for syntax patterns */
-  referenceSource: "https://github.com/piotr-iohk/template-contract",
+  referenceSource: "https://github.com/midnightntwrk/midnight-docs",
 };
 
 /**
  * Current pragma format that should be used in contracts
  */
-export const RECOMMENDED_PRAGMA = `pragma language_version >= ${COMPACT_VERSION.min} && <= ${COMPACT_VERSION.max};`;
+export const RECOMMENDED_PRAGMA = `pragma language_version ${COMPACT_VERSION.max};`;
 
 /**
  * Known deprecated patterns (add new ones here when Compact evolves)
@@ -71,24 +71,24 @@ export const DEPRECATED_PATTERNS = {
  */
 export const REFERENCE_CONTRACTS = [
   {
-    name: "template-contract",
-    repo: "piotr-iohk/template-contract",
-    description: "Official Midnight template contract",
+    name: "example-hello-world",
+    repo: "midnightntwrk/example-hello-world",
+    description: "Current getting-started example aligned with Compact 0.21",
   },
   {
-    name: "tokenomics-project",
-    repo: "piotr-iohk/tokenomics-project",
-    description: "Token implementation example",
+    name: "example-counter",
+    repo: "midnightntwrk/example-counter",
+    description: "Official counter tutorial example",
   },
   {
-    name: "zswap-example",
-    repo: "piotr-iohk/zswap-example",
-    description: "Privacy-preserving swap example",
+    name: "example-bboard",
+    repo: "midnightntwrk/example-bboard",
+    description: "Official bulletin board tutorial example",
   },
   {
-    name: "reentrancy-example",
-    repo: "piotr-iohk/reentrancy-example",
-    description: "Cross-contract call patterns",
+    name: "midnight-docs",
+    repo: "midnightntwrk/midnight-docs",
+    description: "Authoritative source for current Compact examples and guidance",
   },
 ];
 
@@ -96,7 +96,11 @@ export const REFERENCE_CONTRACTS = [
  * Get the version info as a string for display
  */
 export function getVersionInfo(): string {
-  return `Compact ${COMPACT_VERSION.min}-${COMPACT_VERSION.max} (updated ${COMPACT_VERSION.lastUpdated})`;
+  const versionLabel =
+    COMPACT_VERSION.min === COMPACT_VERSION.max
+      ? COMPACT_VERSION.max
+      : `${COMPACT_VERSION.min}-${COMPACT_VERSION.max}`;
+  return `Compact ${versionLabel} (updated ${COMPACT_VERSION.lastUpdated})`;
 }
 
 /**
@@ -492,7 +496,7 @@ Or use bounded Uint<0..N> for parameters that need constraints`,
     error: 'operation "value" undefined for ledger field type Counter',
     cause: "Using wrong method name - Counter uses .read() not .value()",
     fix: `Use counter.read() to get the current value:
-const current = ledger.counter.read();
+const current = counter.read();
 
 Counter ADT methods available in circuits:
 - increment(amount: Uint<16>): []  - increase counter

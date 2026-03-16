@@ -19,29 +19,34 @@ Update the embedded documentation:
 
 ```typescript
 // Look for this section and update:
-"midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.16 - v0.18)
+"midnight://docs/compact-reference": `# Compact Language Syntax Reference (v0.21)
 ```
 
 **Checklist:**
 
-- [ ] Update version range in title
+- [ ] Update version label in title
 - [ ] Update Quick Start Template
 - [ ] Update pragma format if changed
 - [ ] Add new syntax patterns
 - [ ] Mark deprecated patterns with ❌
 
-### 2. Version Constants (`src/tools/repository/handlers.ts`)
+### 2. Version Constants (`src/config/compact-version.ts`)
 
-Update the embedded docs version:
+Update the centralized Compact version config:
 
 ```typescript
 // Find and update:
-const EMBEDDED_DOCS_VERSION = "0.18"; // <-- Update this
+export const COMPACT_VERSION = {
+  min: "0.21",
+  max: "0.21",
+};
+
+export const RECOMMENDED_PRAGMA = `pragma language_version 0.21;`;
 
 // Also update commonMistakes array if patterns change
-const commonMistakes = [
+export const DEPRECATED_PATTERNS = {
   // Add new deprecated patterns here
-];
+};
 ```
 
 ### 3. Static Analysis (`src/tools/repository/validation.ts`)
@@ -102,7 +107,7 @@ npm test
 npm run build
 
 # 3. Manual test with a real contract
-echo 'pragma language_version >= 0.16 && <= 0.18;
+echo 'pragma language_version 0.21;
 import CompactStandardLibrary;
 export ledger counter: Counter;
 export circuit inc(): [] { counter.increment(1); }' > /tmp/test.compact
@@ -113,20 +118,21 @@ export circuit inc(): [] { counter.increment(1); }' > /tmp/test.compact
 
 ## Version History
 
-| Compact Version | midnight-mcp Version | Key Changes                                          |
-| --------------- | -------------------- | ---------------------------------------------------- |
+| Compact Version | midnight-mcp Version | Key Changes                                         |
+| --------------- | -------------------- | --------------------------------------------------- |
+| 0.21            | current              | Exact version pragma, current docs/examples         |
 | 0.16 - 0.18     | 0.1.33+              | Individual ledger decls, `[]` return, bounded pragma |
-| 0.14 - 0.15     | 0.1.0 - 0.1.32       | `ledger {}` block, `Cell<T>` wrapper                 |
+| 0.14 - 0.15     | 0.1.0 - 0.1.32       | `ledger {}` block, `Cell<T>` wrapper                |
 
 ## Finding Syntax Changes
 
 1. **Midnight Docs**: https://docs.midnight.network
 2. **Compiler Release Notes**: Check GitHub releases
 3. **Example Repos** (known-good reference):
-   - `piotr-iohk/template-contract`
-   - `piotr-iohk/tokenomics-project`
-   - `piotr-iohk/zswap-example`
-   - `piotr-iohk/reentrancy-example`
+   - `midnightntwrk/example-hello-world`
+   - `midnightntwrk/example-counter`
+   - `midnightntwrk/example-bboard`
+   - `midnightntwrk/midnight-docs`
 
 ## Future Improvements
 

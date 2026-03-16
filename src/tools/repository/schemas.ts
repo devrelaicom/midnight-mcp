@@ -63,7 +63,7 @@ export const CompareSyntaxInputSchema = z.object({
 // Compound tool schemas - reduce multiple API calls to one
 export const UpgradeCheckInputSchema = z.object({
   repo: z.string().default("compact").describe("Repository name (default: 'compact')"),
-  currentVersion: z.string().describe("Your current version (e.g., 'v0.14.0', '0.13.5')"),
+  currentVersion: z.string().describe("Your current version (e.g., 'v0.29.0', '0.21.0')"),
 });
 
 export const FullRepoContextInputSchema = z.object({

@@ -32,7 +32,7 @@ export const GetVersionInfoInputSchema = z.object({
 
 export const CheckBreakingChangesInputSchema = z.object({
   repo: z.string().describe("Repository name (e.g., 'compact', 'midnight-js')"),
-  currentVersion: z.string().describe("Version you're currently using (e.g., 'v1.0.0', '0.5.2')"),
+  currentVersion: z.string().describe("Version you're currently using (e.g., 'v0.29.0', '0.21.0')"),
 });
 
 export const GetMigrationGuideInputSchema = z.object({

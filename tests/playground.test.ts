@@ -80,17 +80,17 @@ describe("playground API client", () => {
       mockFetchOk({ success: true });
 
       await compile("code", {
-        version: "0.14.0",
-        versions: ["0.13.0", "0.14.0"],
+        version: "0.21.0",
+        versions: ["0.21.0", "0.29.0"],
         wrapWithDefaults: false,
         skipZk: false,
       });
 
       const parsed = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
-      expect(parsed.options.version).toBe("0.14.0");
+      expect(parsed.options.version).toBe("0.21.0");
       expect(parsed.options.wrapWithDefaults).toBe(false);
       expect(parsed.options.skipZk).toBe(false);
-      expect(parsed.versions).toEqual(["0.13.0", "0.14.0"]);
+      expect(parsed.versions).toEqual(["0.21.0", "0.29.0"]);
     });
 
     it("throws MCPError for code exceeding max size", async () => {
@@ -108,13 +108,13 @@ describe("playground API client", () => {
       const result = { success: true, formatted: "code", changed: false };
       mockFetchOk(result);
 
-      const res = await format("code", { version: "0.14.0" });
+      const res = await format("code", { version: "0.21.0" });
 
       const [url, init] = fetchSpy.mock.calls[0];
       expect(url).toBe(`${BASE_URL}/format`);
       const parsed = JSON.parse(init?.body as string);
       expect(parsed.code).toBe("code");
-      expect(parsed.options.version).toBe("0.14.0");
+      expect(parsed.options.version).toBe("0.21.0");
       expect(res).toEqual(result);
     });
   });
@@ -170,7 +170,7 @@ describe("playground API client", () => {
     it("sends GET to /pg/health", async () => {
       const result = {
         status: "ok",
-        compactCli: { installed: true, version: "0.14.0" },
+        compactCli: { installed: true, version: "0.21.0" },
       };
       mockFetchOk(result);
 

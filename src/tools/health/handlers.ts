@@ -107,7 +107,7 @@ export async function checkVersion(_input: CheckVersionInput) {
         ? null
         : [
             "Auto-update config tool - AI agents update your config automatically",
-            "midnight-extract-contract-structure - Static analysis with 10 pre-compilation checks",
+            "midnight-analyze-contract - Static analysis with 10 pre-compilation checks",
             "MCP Logging, Progress, Completions capabilities",
           ],
     };
