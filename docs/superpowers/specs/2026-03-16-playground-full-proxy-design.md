@@ -35,7 +35,10 @@ The MCP server remains a thin client. All compilation, analysis, formatting, dif
 | Visualize/Prove | Separate tools (not modes on analyze) | Fundamentally different return types; clearer output schemas |
 | Versions/Libraries | Tools (not MCP resources) | Universal client support; consistent with existing tool patterns |
 | Version tracking | Extract from response body, not request | Playground resolves versions and includes them in responses — more accurate |
-| cached-response | Proxied but no dedicated MCP tool | Useful for API-level caching; LLMs have no reason to request by hash |
+| cached-response | Proxied but no dedicated MCP tool | Useful for API-level caching; LLMs can share links using `cacheKey` from tool responses |
+| `cacheKey` in responses | Pass through from playground | Allows LLMs to reference/share specific results via the cached-response URL |
+| Archive compile input | `files: Record<string, string>` (not raw base64 tar) | LLMs can't produce binary archives; handler tars the files map internally |
+| Tool discovery / workflows | Separate skill in midnight-expert plugin | Gradual disclosure via skill is better for context management than bloating tool descriptions |
 | Simulate file organization | Own module `src/tools/simulate/` | Distinct stateful workflow, 4 tools, warrants separation from analyze |
 | Dashboard | New playground section | Endpoint + version + error breakdown |
 
@@ -163,11 +166,18 @@ Annotations: `readOnlyHint: true`, `idempotentHint: true`, category: `"analyze"`
 
 **`midnight-compile-archive`**
 
-Compiles multi-file Compact projects from a base64-encoded `.tar.gz` archive.
+Compiles multi-file Compact projects. The MCP tool accepts a `files` map (path → source code) which is more natural for LLMs than producing binary archives. The MCP handler tars the files into a `.tar.gz` before sending to the playground's `/compile/archive` endpoint.
+
+Keys in the `files` map are relative paths that preserve directory structure — this is critical because Compact imports resolve relative to file location. When the handler creates the archive, it reproduces the directory hierarchy so that imports between files resolve correctly after unpacking.
 
 ```
 Input:  {
-  archive: string,              // base64 .tar.gz
+  files: Record<string, string>,  // relative path → source code
+  // e.g. {
+  //   "src/main.compact": "import ...; export circuit ...",
+  //   "src/lib/utils.compact": "export circuit helper() ...",
+  //   "src/lib/types.compact": "type MyType = ..."
+  // }
   version?: string,
   versions?: string[],
   options?: {
@@ -178,6 +188,8 @@ Input:  {
 }
 Output: { success, output, errors[], warnings[], insights?, bindings?, cacheKey? }
 ```
+
+The handler creates a `.tar.gz` in memory from the `files` map (using a lightweight tar library or Node's built-in zlib + tar stream), preserving the directory structure from the keys, base64-encodes it, and sends it to the playground. This shields the LLM from binary format concerns while preserving the playground's archive API and ensuring import paths remain valid.
 
 Annotations: `readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: true`, category: `"analyze"`
 
@@ -255,6 +267,20 @@ Output: { libraries: [{ name: string, domain: string, path: string }] }
 
 Annotations: `readOnlyHint: true`, `idempotentHint: true`, category: `"health"`
 
+### 2.4 `cacheKey` in Tool Responses
+
+The playground returns a `cacheKey` (SHA-256 hash) in responses from `/compile`, `/format`, `/analyze`, `/diff`, and `/prove`. This key can be used to retrieve the cached result via `GET /pg/cached-response/:hash`.
+
+All MCP tool handlers that proxy these endpoints must pass through the `cacheKey` field in their response. This allows LLMs to reference specific results — e.g., sharing a link to a compilation result or re-fetching a previous analysis without re-running the operation.
+
+The `cacheKey` should be included in tool responses alongside a hint about how to construct the URL:
+```
+cacheKey: "abc123...",
+cacheUrl: "https://midnight-mcp-api.midnightmcp.workers.dev/pg/cached-response/abc123..."
+```
+
+The `cacheUrl` is constructed by the MCP handler from `config.hostedApiUrl` + `/pg/cached-response/` + `cacheKey`. This gives the LLM a shareable URL without requiring it to know the API base URL.
+
 ---
 
 ## 3. Enhancements to Existing Tools
@@ -311,7 +337,8 @@ async function del<T>(path: string): Promise<T>     // DELETE with timeout + err
 // Analyze module
 visualize(code: string, options?: { version?: string }): Promise<VisualizeResult>
 prove(code: string, options?: { version?: string }): Promise<ProveResult>
-compileArchive(archive: string, options?: ArchiveCompileOptions): Promise<CompileResult>
+compileArchive(files: Record<string, string>, options?: ArchiveCompileOptions): Promise<CompileResult>
+// Handler creates .tar.gz from files map (keys are relative paths preserving directory structure) before sending to playground
 
 // Simulate module
 simulateDeploy(code: string, options?: { version?: string }): Promise<SimulateDeployResult>
@@ -424,7 +451,24 @@ Update `api/src/templates/dashboard.ts` — the `generateDashboardHtml` function
 
 ---
 
-## 7. File Changes Summary
+## 7. Companion Skill for Tool Discovery and Workflows
+
+Rather than bloating individual tool descriptions with workflow guidance, meta-tool suggestion logic, and common usage patterns, a new skill will be added to the `midnight-expert` plugin (`https://github.com/devrelaicom/midnight-expert`).
+
+This skill will use gradual disclosure to provide:
+
+- **Tool discovery:** Which tools to use for common tasks (e.g., "I want to test my contract" → simulate workflow, "I want to check privacy" → prove tool)
+- **Workflow sequences:** Step-by-step guides for multi-tool workflows (e.g., compile → analyze → simulate → prove)
+- **Common patterns:** Typical parameter combinations, version selection strategies, library usage
+- **Simulation walkthrough:** Deploy → call → inspect state → clean up, with example parameters
+
+This approach is better for context management — the skill content is loaded on demand rather than packed into every tool description. It also means workflow documentation can be updated independently of the MCP server release cycle.
+
+**This skill is out of scope for the current implementation plan** but should be created as a follow-up after the tools are deployed and tested.
+
+---
+
+## 8. File Changes Summary
 
 ### New Files
 
