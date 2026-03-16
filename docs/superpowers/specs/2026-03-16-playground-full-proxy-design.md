@@ -1,7 +1,7 @@
 # Playground Full Proxy — Design Spec
 
 **Date:** 2026-03-16
-**Status:** Draft
+**Status:** Approved
 **Supersedes:** 2026-03-11-playground-api-proxy-design.md (extends, does not invalidate)
 **Scope:** Proxy all compact-playground endpoints through the API layer; add 9 new MCP tools; enhance 3 existing tools; add playground-specific dashboard metrics with version tracking.
 
@@ -78,6 +78,27 @@ async function proxyRequest(
 ```
 
 Each route calls `proxyRequest`, then extracts version info from the response body and calls `trackPlaygroundCall`.
+
+### 1.2.1 Playground Tracking Function
+
+Add `trackPlaygroundCall` to `api/src/services/metrics.ts` as a dedicated function for playground-specific metrics (separate from the existing `trackToolCall` which tracks MCP tool usage):
+
+```typescript
+function trackPlaygroundCall(
+  endpoint: string,       // e.g. "/pg/compile"
+  success: boolean,
+  durationMs?: number,
+  version?: string | null  // extracted from response body
+): void
+```
+
+This function increments the playground-specific counters (`playgroundCalls`, `playgroundByEndpoint`, `playgroundByVersion`, `playgroundErrors`) and appends to `recentToolCalls` with the `endpoint` field populated. It is called by the API proxy routes only — the MCP server's tool-level tracking via `trackToolCall` remains unchanged and continues to track tool names.
+
+The two tracking paths are complementary:
+- **`trackToolCall`**: Called by the MCP server via `POST /v1/track/tool` — tracks which MCP tool was used (e.g. `"midnight-compile-contract"`)
+- **`trackPlaygroundCall`**: Called by the API proxy routes — tracks which playground endpoint was hit (e.g. `"/pg/compile"`) with version info
+
+Both feed into the same `Metrics` object but populate different fields.
 
 ### 1.3 Version Extraction from Responses
 
@@ -246,7 +267,7 @@ Annotations: `readOnlyHint: true`, `idempotentHint: true`, category: `"health"`
 - `versions?: string[]` — multi-version analysis (deep mode only).
 - `version?: string` — specific compiler version.
 
-**Response changes:** Stop reshaping the playground response. Pass through the full output including:
+**Response changes:** The current handler cherry-picks fields from the playground response (`success`, `mode`, `pragma`, `imports`, `circuits`, `ledger`, `compilation`). Change the handler to return the playground response as-is — no field selection, no reshaping. The handler becomes a thin pass-through: call the playground service, return whatever JSON it sends back. The full playground response includes:
 
 | Field | Description |
 |-------|-------------|
@@ -306,7 +327,17 @@ listLibraries(): Promise<LibrariesResult>
 ### 4.3 Updated Functions
 
 - `compile()` — add `includeBindings` and `libraries` to options interface
-- `analyze()` — add `include`, `circuit`, `version`, `versions` parameters
+- `analyze()` — expand signature from `analyze(code, mode)` to:
+  ```typescript
+  analyze(code: string, options?: {
+    mode?: "fast" | "deep",       // default: "fast" (unchanged)
+    include?: string[],           // filter response sections
+    circuit?: string,             // focus on single circuit
+    version?: string,             // specific compiler version
+    versions?: string[],          // multi-version (deep mode only)
+  }): Promise<AnalyzeResult>
+  ```
+  The `mode` parameter moves into the options object for consistency. The two-argument `analyze(code, mode)` call site in the analyze handler is updated to use the new options form.
 - `format()` — add `versions` parameter
 
 ---
@@ -324,6 +355,8 @@ playgroundByEndpoint: Record<string, number>;    // e.g. { "/compile": 45, "/sim
 playgroundByVersion: Record<string, number>;     // e.g. { "0.29.0": 30, "0.26.0": 15 }
 playgroundErrors: number;
 ```
+
+Update `createDefaultMetrics()` in `api/src/services/metrics.ts` to initialize these fields to `0` / `{}` so the dashboard never encounters `undefined` values.
 
 Extend the `ToolCall` interface:
 
@@ -408,7 +441,7 @@ Update `api/src/templates/dashboard.ts` — the `generateDashboardHtml` function
 |------|---------|
 | `api/src/routes/pg.ts` | Add 10 new proxy routes, generalize proxy helper, add response version extraction and tracking |
 | `api/src/services/metrics.ts` | Add playground-specific metrics fields and `trackPlaygroundCall` function |
-| `api/src/interfaces.ts` | Extend `Metrics` and `ToolCall` interfaces |
+| `api/src/interfaces/index.ts` | Extend `Metrics` and `ToolCall` interfaces |
 | `api/src/templates/dashboard.ts` | Add playground metrics section to dashboard HTML |
 | `api/wrangler.toml` | Update `COMPACT_PLAYGROUND_URL` to `https://compact-playground.fly.dev` |
 | `src/services/playground.ts` | Add `get()`, `del()` helpers; add 9 new endpoint functions; update `compile()`, `analyze()`, `format()` signatures |
@@ -423,6 +456,7 @@ Update `api/src/templates/dashboard.ts` — the `generateDashboardHtml` function
 | `src/tools/format/schemas.ts` | Add `versions` parameter |
 | `src/tools/format/handlers.ts` | Pass `versions` through to playground service |
 | `src/tools/index.ts` | Import and register simulate tools |
+| `src/tools/meta/tools.ts` | Update hardcoded tool count to 32 |
 
 ### Tool Count
 
