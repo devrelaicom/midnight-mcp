@@ -122,18 +122,32 @@ pg.post("/visualize", (c) => proxyRequest(c, "/visualize"));
 pg.post("/prove", (c) => proxyRequest(c, "/prove"));
 pg.post("/compile/archive", (c) => proxyRequest(c, "/compile/archive"));
 
+// Format guard for URL path parameters to prevent path traversal
+const SAFE_PARAM = /^[a-zA-Z0-9_-]+$/;
+
+function validateParam(c: Context<{ Bindings: Bindings }>, name: string): string | Response {
+  const value = c.req.param(name) ?? "";
+  if (!SAFE_PARAM.test(value)) {
+    return c.json({ error: `Invalid ${name}` }, 400);
+  }
+  return value;
+}
+
 // Simulation
 pg.post("/simulate/deploy", (c) => proxyRequest(c, "/simulate/deploy"));
 pg.post("/simulate/:id/call", (c) => {
-  const id = c.req.param("id");
+  const id = validateParam(c, "id");
+  if (id instanceof Response) return id;
   return proxyRequest(c, `/simulate/${id}/call`);
 });
 pg.get("/simulate/:id/state", (c) => {
-  const id = c.req.param("id");
+  const id = validateParam(c, "id");
+  if (id instanceof Response) return id;
   return proxyRequest(c, `/simulate/${id}/state`, "GET");
 });
 pg.delete("/simulate/:id", (c) => {
-  const id = c.req.param("id");
+  const id = validateParam(c, "id");
+  if (id instanceof Response) return id;
   return proxyRequest(c, `/simulate/${id}`, "DELETE");
 });
 
@@ -143,7 +157,8 @@ pg.get("/libraries", (c) => proxyRequest(c, "/libraries", "GET"));
 
 // Cache lookup
 pg.get("/cached-response/:hash", (c) => {
-  const hash = c.req.param("hash");
+  const hash = validateParam(c, "hash");
+  if (hash instanceof Response) return hash;
   return proxyRequest(c, `/cached-response/${hash}`, "GET");
 });
 
