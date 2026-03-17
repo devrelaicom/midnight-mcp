@@ -104,16 +104,17 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ## What's Included
 
-### 23 Tools
+### 32 Tools
 
 | Category       | Tools                                                                                                          | Description                                   |
 | -------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | **Search**     | `search-compact`, `search-typescript`, `search-docs`, `fetch-docs`                                             | Semantic search + live docs fetching          |
-| **Analysis**   | `analyze-contract`, `compile-contract`                                                                         | Static analysis + real compilation            |
+| **Analysis**   | `analyze-contract`, `compile-contract`, `visualize-contract`, `prove-contract`, `compile-archive`             | Static analysis + real compilation + visualization |
 | **Code Tools** | `format-contract`, `diff-contracts`                                                                            | Format code + semantic diffing                |
+| **Simulation** | `simulate-deploy`, `simulate-call`, `simulate-state`, `simulate-delete`                                        | Playground simulation tools                    |
 | **Repository** | `get-file`, `list-examples`, `get-latest-updates`, `check-breaking-changes`, `get-file-at-version`, `compare-syntax` | Access files and track version changes   |
 | **Compound**   | `upgrade-check`, `get-repo-context`                                                                            | Multi-step operations _(saves 50-70% tokens)_ |
-| **Health**     | `health-check`, `get-status`, `check-version`, `get-update-instructions`                                       | Server status and version checking            |
+| **Health**     | `health-check`, `get-status`, `check-version`, `get-update-instructions`, `list-compiler-versions`, `list-libraries` | Server status and version checking            |
 | **Discovery**  | `list-tool-categories`, `list-category-tools`, `suggest-tool`                                                  | Explore available tools and get recommendations |
 
 All tools are prefixed with `midnight-` (e.g., `midnight-search-compact`).
@@ -136,7 +137,7 @@ This catches semantic errors that static analysis misses (sealed fields, disclos
 
 | Capability    | Feature                                        |
 | ------------- | ---------------------------------------------- |
-| **Tools**     | 23 tools with `listChanged` notifications      |
+| **Tools**     | 32 tools with `listChanged` notifications      |
 | **Logging**   | Client-controllable log level                  |
 | **Progress**  | Real-time progress for compound tools          |
 
