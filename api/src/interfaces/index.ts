@@ -53,6 +53,8 @@ export interface ToolCall {
   success: boolean;
   durationMs?: number;
   version?: string;
+  // playground endpoint, e.g. "/pg/compile"
+  endpoint?: string;
 }
 
 export interface Metrics {
@@ -68,6 +70,11 @@ export interface Metrics {
   totalToolCalls: number;
   toolCallsByName: Record<string, number>;
   recentToolCalls: ToolCall[];
+  // Playground tracking
+  playgroundCalls: number;
+  playgroundByEndpoint: Record<string, number>;
+  playgroundByVersion: Record<string, number>;
+  playgroundErrors: number;
 }
 
 // ============== Search Types ==============

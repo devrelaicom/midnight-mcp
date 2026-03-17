@@ -4,7 +4,7 @@ compatibility_date = "2024-12-01"
 
 [vars]
 ENVIRONMENT = "production"
-COMPACT_PLAYGROUND_URL = "https://compact-playground.up.railway.app"
+COMPACT_PLAYGROUND_URL = "https://compact-playground.fly.dev"
 
 # Vectorize index for semantic search
 [[vectorize]]

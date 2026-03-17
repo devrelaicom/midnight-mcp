@@ -6,6 +6,7 @@ export {
   getMetrics,
   trackQuery,
   trackToolCall,
+  trackPlaygroundCall,
   persistMetrics,
   loadMetrics,
   createDefaultMetrics,

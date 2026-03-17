@@ -19,6 +19,11 @@ export function createDefaultMetrics(): Metrics {
     totalToolCalls: 0,
     toolCallsByName: {},
     recentToolCalls: [],
+    // Playground tracking
+    playgroundCalls: 0,
+    playgroundByEndpoint: {},
+    playgroundByVersion: {},
+    playgroundErrors: 0,
   };
 }
 
@@ -114,6 +119,50 @@ export function trackToolCall(
     success,
     durationMs,
     version,
+  };
+  metrics.recentToolCalls.unshift(logEntry);
+  if (metrics.recentToolCalls.length > 100) {
+    metrics.recentToolCalls = metrics.recentToolCalls.slice(0, 100);
+  }
+
+  metrics.lastUpdated = new Date().toISOString();
+}
+
+/**
+ * Track a playground proxy call with endpoint and version info.
+ * Called by API proxy routes — separate from MCP-level tool tracking.
+ */
+export function trackPlaygroundCall(
+  endpoint: string,
+  success: boolean,
+  durationMs?: number,
+  version?: string | null,
+): void {
+  if (!metrics.playgroundCalls) metrics.playgroundCalls = 0;
+  if (!metrics.playgroundByEndpoint) metrics.playgroundByEndpoint = {};
+  if (!metrics.playgroundByVersion) metrics.playgroundByVersion = {};
+  if (!metrics.playgroundErrors) metrics.playgroundErrors = 0;
+
+  metrics.playgroundCalls++;
+  metrics.playgroundByEndpoint[endpoint] =
+    (metrics.playgroundByEndpoint[endpoint] || 0) + 1;
+
+  if (version) {
+    metrics.playgroundByVersion[version] =
+      (metrics.playgroundByVersion[version] || 0) + 1;
+  }
+
+  if (!success) {
+    metrics.playgroundErrors++;
+  }
+
+  const logEntry: ToolCall = {
+    tool: "pg-proxy",
+    timestamp: new Date().toISOString(),
+    success,
+    durationMs,
+    version: version ?? undefined,
+    endpoint,
   };
   metrics.recentToolCalls.unshift(logEntry);
   if (metrics.recentToolCalls.length > 100) {
