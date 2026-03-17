@@ -4,6 +4,7 @@
  */
 
 import { Hono, type Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Bindings } from "../interfaces";
 import { trackPlaygroundCall } from "../services";
 
@@ -68,12 +69,22 @@ async function proxyRequest(
       );
     }
 
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      const text = await response.text().catch(() => "Non-JSON response");
+      trackInBackground(c, path, false, durationMs, null);
+      return c.json(
+        { error: `Unexpected response type: ${contentType || "unknown"}`, detail: text.slice(0, 200) },
+        502,
+      );
+    }
+
     const data = (await response.json()) as Record<string, unknown>;
     const version = extractVersion(data);
 
     trackInBackground(c, path, response.ok, durationMs, version);
 
-    return c.json(data, response.status as 200);
+    return c.json(data, response.status as ContentfulStatusCode);
   } catch {
     const durationMs = Date.now() - start;
     trackInBackground(c, path, false, durationMs, null);
