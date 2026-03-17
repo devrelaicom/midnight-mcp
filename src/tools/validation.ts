@@ -17,7 +17,21 @@ import {
 } from "./search/schemas.js";
 
 // Analyze schemas
-import { AnalyzeContractInputSchema, CompileContractInputSchema } from "./analyze/schemas.js";
+import {
+  AnalyzeContractInputSchema,
+  CompileContractInputSchema,
+  VisualizeContractInputSchema,
+  ProveContractInputSchema,
+  CompileArchiveInputSchema,
+} from "./analyze/schemas.js";
+
+// Simulate schemas
+import {
+  SimulateDeployInputSchema,
+  SimulateCallInputSchema,
+  SimulateStateInputSchema,
+  SimulateDeleteInputSchema,
+} from "./simulate/schemas.js";
 
 // Repository schemas
 import {
@@ -37,6 +51,8 @@ import {
   GetStatusInputSchema,
   CheckVersionInputSchema,
   GetUpdateInstructionsInputSchema,
+  ListCompilerVersionsInputSchema,
+  ListLibrariesInputSchema,
 } from "./health/schemas.js";
 
 // Format schemas
@@ -62,6 +78,15 @@ export const toolValidationSchemas: Record<string, ZodType> = {
   // Analyze tools
   "midnight-analyze-contract": AnalyzeContractInputSchema,
   "midnight-compile-contract": CompileContractInputSchema,
+  "midnight-visualize-contract": VisualizeContractInputSchema,
+  "midnight-prove-contract": ProveContractInputSchema,
+  "midnight-compile-archive": CompileArchiveInputSchema,
+
+  // Simulate tools
+  "midnight-simulate-deploy": SimulateDeployInputSchema,
+  "midnight-simulate-call": SimulateCallInputSchema,
+  "midnight-simulate-state": SimulateStateInputSchema,
+  "midnight-simulate-delete": SimulateDeleteInputSchema,
 
   // Format tools
   "midnight-format-contract": FormatContractInputSchema,
@@ -84,6 +109,8 @@ export const toolValidationSchemas: Record<string, ZodType> = {
   "midnight-get-status": GetStatusInputSchema,
   "midnight-check-version": CheckVersionInputSchema,
   "midnight-get-update-instructions": GetUpdateInstructionsInputSchema,
+  "midnight-list-compiler-versions": ListCompilerVersionsInputSchema,
+  "midnight-list-libraries": ListLibrariesInputSchema,
 
   // Meta tools
   "midnight-list-tool-categories": ListToolCategoriesInputSchema,

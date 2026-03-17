@@ -84,6 +84,23 @@ export {
   type DiffContractsInput,
 } from "./diff/index.js";
 
+// Simulate tools
+export {
+  simulateTools,
+  handleSimulateDeploy,
+  handleSimulateCall,
+  handleSimulateState,
+  handleSimulateDelete,
+  SimulateDeployInputSchema,
+  SimulateCallInputSchema,
+  SimulateStateInputSchema,
+  SimulateDeleteInputSchema,
+  type SimulateDeployInput,
+  type SimulateCallInput,
+  type SimulateStateInput,
+  type SimulateDeleteInput,
+} from "./simulate/index.js";
+
 // Combined tool list for MCP server
 import { searchTools } from "./search/index.js";
 import { analyzeTools } from "./analyze/index.js";
@@ -92,6 +109,7 @@ import { healthTools } from "./health/index.js";
 import { metaTools } from "./meta/index.js";
 import { formatTools } from "./format/index.js";
 import { diffTools } from "./diff/index.js";
+import { simulateTools } from "./simulate/index.js";
 import type { ExtendedToolDefinition } from "../types/index.js";
 
 export const allTools: ExtendedToolDefinition[] = [
@@ -100,6 +118,7 @@ export const allTools: ExtendedToolDefinition[] = [
   ...analyzeTools,
   ...formatTools,
   ...diffTools,
+  ...simulateTools,
   ...repositoryTools,
   ...healthTools,
 ];

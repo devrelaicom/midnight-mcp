@@ -18,6 +18,7 @@ import { repositoryTools } from "../repository/index.js";
 import { healthTools } from "../health/index.js";
 import { formatTools } from "../format/index.js";
 import { diffTools } from "../diff/index.js";
+import { simulateTools } from "../simulate/index.js";
 
 // Late-bound import for metaTools to avoid circular dependency
 let _metaTools: ExtendedToolDefinition[] = [];
@@ -38,6 +39,7 @@ function getToolsByCategory(): Map<ToolCategory, ExtendedToolDefinition[]> {
     ...analyzeTools,
     ...formatTools,
     ...diffTools,
+    ...simulateTools,
     ...repositoryTools,
     ...healthTools,
     ..._metaTools,

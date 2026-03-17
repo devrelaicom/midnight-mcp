@@ -10,11 +10,14 @@ import {
   formatRateLimitStatus,
 } from "../../utils/index.js";
 import { searchCache, fileCache, metadataCache } from "../../utils/cache.js";
+import { listVersions, listLibraries } from "../../services/playground.js";
 import type {
   HealthCheckInput,
   GetStatusInput,
   CheckVersionInput,
   GetUpdateInstructionsInput,
+  ListCompilerVersionsInput,
+  ListLibrariesInput,
 } from "./schemas.js";
 
 import { CURRENT_VERSION } from "../../utils/version.js";
@@ -449,4 +452,12 @@ function generateExampleConfig(editor: string): object {
   }
 
   return baseConfig;
+}
+
+export async function handleListCompilerVersions(_input: ListCompilerVersionsInput) {
+  return listVersions();
+}
+
+export async function handleListLibraries(_input: ListLibrariesInput) {
+  return listLibraries();
 }
