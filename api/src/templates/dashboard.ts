@@ -93,6 +93,8 @@ function generateDashboardContent(metrics: Metrics): string {
     ${generateActivitySection(metrics, recentToolCalls)}
     
     ${generateInsightsSection(metrics, qualityScore, successRate, failedCalls, avgRelevance)}
+
+    ${generatePlaygroundSection(metrics)}
   `;
 }
 
@@ -314,6 +316,58 @@ function generateInsightsSection(
     fullWidth: true,
     className: "insights-section",
   });
+}
+
+/**
+ * Generate playground analytics section
+ */
+function generatePlaygroundSection(metrics: Metrics): string {
+  const pgCalls = metrics.playgroundCalls || 0;
+  const pgByEndpoint = metrics.playgroundByEndpoint || {};
+  const pgByVersion = metrics.playgroundByVersion || {};
+  const pgErrors = metrics.playgroundErrors || 0;
+
+  if (pgCalls === 0) {
+    return generateCard(
+      generateEmptyState("No playground activity recorded yet", { icon: "🔧" }),
+      { title: "Playground" },
+    );
+  }
+
+  const errorRate = pgCalls > 0 ? Math.round((pgErrors / pgCalls) * 100) : 0;
+
+  const endpointCard = generateCard(
+    generateBarChart(pgByEndpoint, pgCalls, {
+      maxItems: 10,
+      emptyMessage: "No endpoint data",
+    }),
+    { title: "Playground — By Endpoint" },
+  );
+
+  const versionCard = generateCard(
+    generateBarChart(pgByVersion, pgCalls, {
+      maxItems: 8,
+      emptyMessage: "No version data",
+    }),
+    { title: "Playground — By Compiler Version" },
+  );
+
+  const summaryHtml = `
+    <div style="display: flex; gap: 24px; margin-bottom: 16px;">
+      <div><strong>${pgCalls.toLocaleString()}</strong> total requests</div>
+      <div><strong>${errorRate}%</strong> error rate</div>
+      <div><strong>${Object.keys(pgByEndpoint).length}</strong> endpoints used</div>
+      <div><strong>${Object.keys(pgByVersion).length}</strong> compiler versions</div>
+    </div>
+  `;
+
+  const summaryCard = generateCard(summaryHtml, { title: "Playground — Overview" });
+
+  return `
+    <h2 style="margin: 32px 0 16px; color: #eee;">Playground Analytics</h2>
+    ${summaryCard}
+    ${generateGrid([endpointCard, versionCard])}
+  `;
 }
 
 /**

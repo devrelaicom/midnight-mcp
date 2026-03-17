@@ -31,8 +31,13 @@ export const GetUpdateInstructionsInputSchema = z.object({
     .describe("Target editor (provides all if auto)"),
 });
 
+export const ListCompilerVersionsInputSchema = z.object({});
+export const ListLibrariesInputSchema = z.object({});
+
 // Type exports
 export type HealthCheckInput = z.infer<typeof HealthCheckInputSchema>;
 export type GetStatusInput = z.infer<typeof GetStatusInputSchema>;
 export type CheckVersionInput = z.infer<typeof CheckVersionInputSchema>;
 export type GetUpdateInstructionsInput = z.infer<typeof GetUpdateInstructionsInputSchema>;
+export type ListCompilerVersionsInput = z.infer<typeof ListCompilerVersionsInputSchema>;
+export type ListLibrariesInput = z.infer<typeof ListLibrariesInputSchema>;

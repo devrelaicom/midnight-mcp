@@ -11,7 +11,7 @@ const rootDir = resolve(import.meta.dirname, "..");
 const pkg = JSON.parse(readFileSync(resolve(rootDir, "package.json"), "utf-8"));
 
 // Count tools by searching for tool name patterns in source files
-const toolDirs = ["search", "analyze", "repository", "health", "meta", "diff", "format"];
+const toolDirs = ["search", "analyze", "repository", "health", "meta", "diff", "format", "simulate"];
 let toolCount = 0;
 for (const dir of toolDirs) {
   const content = readFileSync(resolve(rootDir, `src/tools/${dir}/tools.ts`), "utf-8");

@@ -9,7 +9,8 @@ export type Bindings = {
   VECTORIZE: VectorizeIndex;
   OPENAI_API_KEY: string;
   ENVIRONMENT: string;
-  METRICS: KVNamespace;
+  METRICS: KVNamespace; // OAuth/session storage only
+  DB: D1Database; // Metrics, analytics, embedding cache
   // Auth
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
@@ -17,8 +18,6 @@ export type Bindings = {
   // Rate limiting
   RATE_LIMIT_ANON: RateLimit;
   RATE_LIMIT_AUTH: RateLimit;
-  // Caching
-  EMBEDDING_CACHE: KVNamespace;
   COMPACT_PLAYGROUND_URL: string;
 };
 
@@ -53,6 +52,8 @@ export interface ToolCall {
   success: boolean;
   durationMs?: number;
   version?: string;
+  // playground endpoint, e.g. "/pg/compile"
+  endpoint?: string;
 }
 
 export interface Metrics {
@@ -68,6 +69,11 @@ export interface Metrics {
   totalToolCalls: number;
   toolCallsByName: Record<string, number>;
   recentToolCalls: ToolCall[];
+  // Playground tracking
+  playgroundCalls: number;
+  playgroundByEndpoint: Record<string, number>;
+  playgroundByVersion: Record<string, number>;
+  playgroundErrors: number;
 }
 
 // ============== Search Types ==============

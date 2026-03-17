@@ -24,6 +24,15 @@ import {
   analyze,
   diff,
   healthCheck,
+  visualize,
+  prove,
+  compileArchive,
+  simulateDeploy,
+  simulateCall,
+  simulateState,
+  simulateDelete,
+  listVersions,
+  listLibraries,
 } from "../src/services/playground.js";
 
 const BASE_URL = "https://test-api.example.com/pg";
@@ -126,7 +135,7 @@ describe("playground API client", () => {
       const result = { success: true, mode: "deep", circuits: [] };
       mockFetchOk(result);
 
-      const res = await analyze("code", "deep");
+      const res = await analyze("code", { mode: "deep" });
 
       const [url, init] = fetchSpy.mock.calls[0];
       expect(url).toBe(`${BASE_URL}/analyze`);
@@ -191,6 +200,150 @@ describe("playground API client", () => {
       fetchSpy.mockRejectedValueOnce(new Error("network down"));
       const res = await healthCheck();
       expect(res).toEqual({ status: "unavailable" });
+    });
+  });
+
+  // ---- visualize ----
+
+  describe("visualize", () => {
+    it("sends POST to /pg/visualize with code", async () => {
+      const result = { success: true, graph: { nodes: [], edges: [] }, mermaid: "graph TD" };
+      mockFetchOk(result);
+
+      const res = await visualize("code");
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/visualize`);
+      expect(init?.method).toBe("POST");
+      const parsed = JSON.parse(init?.body as string);
+      expect(parsed.code).toBe("code");
+      expect(res).toEqual(result);
+    });
+  });
+
+  // ---- prove ----
+
+  describe("prove", () => {
+    it("sends POST to /pg/prove with code", async () => {
+      const result = { success: true, circuits: [] };
+      mockFetchOk(result);
+
+      const res = await prove("code");
+
+      const [url] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/prove`);
+      expect(res).toEqual(result);
+    });
+  });
+
+  // ---- simulate ----
+
+  describe("simulateDeploy", () => {
+    it("sends POST to /pg/simulate/deploy", async () => {
+      const result = { success: true, sessionId: "sess-1", circuits: [], ledger: {} };
+      mockFetchOk(result);
+
+      const res = await simulateDeploy("code");
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/simulate/deploy`);
+      const parsed = JSON.parse(init?.body as string);
+      expect(parsed.code).toBe("code");
+      expect(res).toEqual(result);
+    });
+  });
+
+  describe("simulateCall", () => {
+    it("sends POST to /pg/simulate/:id/call", async () => {
+      const result = { success: true, result: null, stateChanges: [] };
+      mockFetchOk(result);
+
+      const res = await simulateCall("sess-1", "increment", { amount: 1 });
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/simulate/sess-1/call`);
+      const parsed = JSON.parse(init?.body as string);
+      expect(parsed.circuit).toBe("increment");
+      expect(parsed.arguments).toEqual({ amount: 1 });
+      expect(res).toEqual(result);
+    });
+  });
+
+  describe("simulateState", () => {
+    it("sends GET to /pg/simulate/:id/state", async () => {
+      const result = { success: true, ledger: {}, circuits: [], callHistory: [] };
+      mockFetchOk(result);
+
+      const res = await simulateState("sess-1");
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/simulate/sess-1/state`);
+      expect(init?.method).toBe("GET");
+      expect(res).toEqual(result);
+    });
+  });
+
+  describe("simulateDelete", () => {
+    it("sends DELETE to /pg/simulate/:id", async () => {
+      const result = { success: true };
+      mockFetchOk(result);
+
+      const res = await simulateDelete("sess-1");
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/simulate/sess-1`);
+      expect(init?.method).toBe("DELETE");
+      expect(res).toEqual(result);
+    });
+  });
+
+  // ---- compileArchive ----
+
+  describe("compileArchive", () => {
+    it("sends POST to /pg/compile/archive", async () => {
+      const result = { success: true, output: "OK" };
+      mockFetchOk(result);
+
+      const res = await compileArchive("base64data", { version: "0.29.0" });
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/compile/archive`);
+      const parsed = JSON.parse(init?.body as string);
+      expect(parsed.archive).toBe("base64data");
+      expect(parsed.version).toBe("0.29.0");
+      expect(res).toEqual(result);
+    });
+  });
+
+  // ---- listVersions ----
+
+  describe("listVersions", () => {
+    it("sends GET to /pg/versions", async () => {
+      const result = { default: "0.29.0", installed: [{ version: "0.29.0", languageVersion: "0.21.0" }] };
+      mockFetchOk(result);
+
+      const res = await listVersions();
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/versions`);
+      expect(init?.method).toBe("GET");
+      expect(res).toEqual(result);
+    });
+  });
+
+  // ---- listLibraries ----
+
+  describe("listLibraries", () => {
+    it("sends GET to /pg/libraries", async () => {
+      const result = { libraries: [{ name: "Ownable", domain: "access", path: "access/Ownable" }] };
+      mockFetchOk(result);
+
+      const res = await listLibraries();
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BASE_URL}/libraries`);
+      expect(init?.method).toBe("GET");
+      expect(res).toEqual(result);
     });
   });
 

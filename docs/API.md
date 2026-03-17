@@ -82,39 +82,81 @@ Live fetch from docs.midnight.network (SSG pages).
 
 #### midnight-analyze-contract
 
-Static analysis of Compact contracts.
+Static analysis of Compact contracts with detailed structural and security analysis.
 
 ```typescript
 // Input
 {
-  code: string;           // Contract source
-  checkSecurity?: boolean; // Run security checks (default: true)
+  code: string;                    // Contract source
+  checkSecurity?: boolean;         // Run security checks (default: true)
+  include?: string[];              // Filter response sections: "diagnostics", "facts", "findings", "recommendations", "circuits"
+  circuit?: string;                // Focus analysis on a single circuit by name
+  version?: string;                // Specific compiler version
+  versions?: string[];             // Multi-version analysis (deep mode only)
 }
 
 // Output
 {
-  structure: {
+  summary: {
     hasLedger: boolean;
     hasCircuits: boolean;
     hasWitnesses: boolean;
-    ledgerFields: Array<{ name: string; type: string; isShielded: boolean }>;
+    totalLines: number;
+    publicCircuits: number;
+    privateCircuits: number;
+    publicState: number;
+    privateState: number;
+  };
+  structure: {
+    imports: string[];
+    exports: string[];
+    ledger: Array<{ name: string; type: string; isShielded: boolean }>;
     circuits: Array<{ name: string; parameters: Array<{name: string; type: string}>; returnType: string; isExported: boolean }>;
     witnesses: Array<{ name: string; parameters: Array<{name: string; type: string}>; returnType: string }>;
+    types: Array<{ name: string; definition: string }>;
   };
-  patterns: {
-    detected: string[];
-    suggestions: string[];
+  facts?: {
+    hasStdLibImport: boolean;
+    unusedWitnesses: string[];
   };
-  security: {
-    issues: Array<{ severity: "high" | "medium" | "low"; message: string; line?: number }>;
-    score: number;
+  findings?: Array<{
+    code: string;
+    severity: "high" | "medium" | "low";
+    message: string;
+    suggestion?: string;
+  }>;
+  recommendations?: Array<{
+    message: string;
+    priority: "high" | "medium" | "low";
+    relatedFindings?: string[];
+  }>;
+  circuits?: Array<{
+    name: string;
+    structure: object;
+    explanation?: {
+      operations: string[];
+      zkImplications: string[];
+      privacyConsiderations: string[];
+    };
+    facts?: {
+      readsPrivateState: boolean;
+      revealsPrivateData: boolean;
+      commitsData: boolean;
+      hashesData: boolean;
+      constrainsExecution: boolean;
+      mutatesLedger: boolean;
+      ledgerMutations?: string[];
+    };
+    findings?: Array<object>;
+  }>;
+  compilation?: {
+    success: boolean;
+    diagnostics: Array<object>;
+    executionTime: number;
+    compilerVersion: string;
+    languageVersion: string;
   };
-  metrics: {
-    lineCount: number;
-    circuitCount: number;
-    witnessCount: number;
-    complexity: "low" | "medium" | "high";
-  };
+  cacheKey?: string;               // For retrieving cached results
 }
 ```
 
@@ -128,6 +170,8 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
   code: string;              // Compact source code
   skipZk?: boolean;          // Skip ZK generation for faster validation (default: true)
   fullCompile?: boolean;     // Full compilation with ZK circuits (default: false)
+  includeBindings?: boolean; // Return TypeScript artifacts (default: false)
+  libraries?: string[];      // OZ modules to link, e.g. ["access/Ownable", "token/FungibleToken"] (max 20)
 }
 
 // Output (success)
@@ -143,6 +187,8 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
     exports: string[];
   };
   warnings: string[];
+  bindings?: object;         // TypeScript artifacts (if includeBindings=true)
+  cacheKey?: string;         // For retrieving cached results
   serviceUrl: string;
 }
 
@@ -176,6 +222,195 @@ Compile Compact code using the hosted compiler service. Returns real compiler er
 }
 ```
 
+#### midnight-visualize-contract
+
+Generate a visual architecture graph of the contract showing circuit relationships, ledger access patterns, and witness dependencies.
+
+```typescript
+// Input
+{
+  code: string;              // Contract source code
+  version?: string;          // Compiler version (default: latest)
+}
+
+// Output
+{
+  success: boolean;
+  graph: {
+    nodes: Array<{
+      id: string;
+      label: string;
+      type: "circuit" | "ledger" | "witness";
+      metadata?: object;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      label?: string;
+      type: "calls" | "reads" | "writes";
+    }>;
+  };
+  mermaid: string;           // Mermaid diagram representation
+  cacheKey?: string;         // For retrieving cached results
+}
+```
+
+#### midnight-prove-contract
+
+Analyze ZK privacy boundaries of a contract — which data crosses proof boundaries, public vs. private inputs, and proof flow per circuit.
+
+```typescript
+// Input
+{
+  code: string;              // Contract source code
+  version?: string;          // Compiler version (default: latest)
+}
+
+// Output
+{
+  success: boolean;
+  circuits: Array<{
+    name: string;
+    privacyBoundary: {
+      publicInputs: string[];
+      privateInputs: string[];
+      publicOutputs: string[];
+    };
+    proofFlow: {
+      description: string;
+      constraints: string[];
+    };
+  }>;
+  cacheKey?: string;         // For retrieving cached results
+}
+```
+
+#### midnight-compile-archive
+
+Compile multi-file Compact projects. Accepts a map of file paths to source code.
+
+```typescript
+// Input
+{
+  files: Record<string, string>;     // relative path → source code
+  version?: string;                  // Compiler version
+  versions?: string[];               // Multi-version analysis
+  options?: {
+    skipZk?: boolean;                // Skip ZK generation (default: true)
+    includeBindings?: boolean;       // Include TypeScript artifacts (default: false)
+    libraries?: string[];            // OZ modules, e.g. ["access/Ownable"]
+  };
+}
+
+// Output
+{
+  success: boolean;
+  output: {
+    circuits: string[];
+    ledgerFields: string[];
+    exports: string[];
+  };
+  errors: Array<{ message: string; file: string; line?: number }>;
+  warnings: string[];
+  insights?: string[];
+  bindings?: object;                 // TypeScript artifacts (if includeBindings=true)
+  cacheKey?: string;                 // For retrieving cached results
+}
+```
+
+---
+
+### Simulation Tools
+
+#### midnight-simulate-deploy
+
+Deploy a contract for interactive simulation. Returns a session ID for follow-up calls.
+
+```typescript
+// Input
+{
+  code: string;              // Contract source code
+  version?: string;          // Compiler version (default: latest)
+}
+
+// Output
+{
+  success: boolean;
+  sessionId: string;         // Store this for subsequent calls
+  circuits: string[];        // Available circuits to call
+  ledger: {
+    fields: Array<{ name: string; value: unknown }>;
+    initialState: object;
+  };
+}
+```
+
+#### midnight-simulate-call
+
+Execute a circuit on a simulated contract.
+
+```typescript
+// Input
+{
+  sessionId: string;         // From simulate-deploy
+  circuit: string;           // Circuit name to execute
+  arguments?: Record<string, unknown>;  // Circuit arguments
+}
+
+// Output
+{
+  success: boolean;
+  result: unknown;           // Circuit return value
+  stateChanges: Array<{
+    field: string;
+    before: unknown;
+    after: unknown;
+  }>;
+  updatedLedger: object;     // Current ledger state after call
+}
+```
+
+#### midnight-simulate-state
+
+Read the current simulation state without executing any circuits.
+
+```typescript
+// Input
+{
+  sessionId: string;         // From simulate-deploy
+}
+
+// Output
+{
+  success: boolean;
+  ledger: object;            // Current ledger state
+  circuits: string[];        // Available circuits
+  callHistory: Array<{
+    circuit: string;
+    arguments: object;
+    result: unknown;
+    timestamp: string;
+  }>;
+}
+```
+
+#### midnight-simulate-delete
+
+End a simulation session and free resources.
+
+```typescript
+// Input
+{
+  sessionId: string;         // From simulate-deploy
+}
+
+// Output
+{
+  success: boolean;
+  message?: string;
+}
+```
+
 ---
 
 ### Code Tools
@@ -189,6 +424,7 @@ Format Compact contract code using the official formatter.
 {
   code: string;      // Contract source to format
   version?: string;  // Compiler version (default: latest)
+  versions?: string[];  // Multi-version formatting for consistency testing
 }
 
 // Output
@@ -197,6 +433,7 @@ Format Compact contract code using the official formatter.
   formatted: string;  // Formatted contract source code
   changed: boolean;   // Whether the code was changed
   diff?: string;      // Diff showing formatting changes
+  cacheKey?: string;  // For retrieving cached results
 }
 ```
 
@@ -233,6 +470,7 @@ Compare two versions of a Compact contract and show semantic differences.
     added: string[];
     removed: string[];
   };
+  cacheKey?: string;  // For retrieving cached results
 }
 ```
 
@@ -521,6 +759,41 @@ Platform-specific update instructions.
   instructions: string;
   platform: string;
   editor: string;
+}
+```
+
+#### midnight-list-compiler-versions
+
+List all installed compiler versions with language version mapping.
+
+```typescript
+// Input: none
+
+// Output
+{
+  default: string;  // e.g., "0.29.0"
+  installed: Array<{
+    version: string;
+    languageVersion: string;
+  }>;
+}
+```
+
+#### midnight-list-libraries
+
+List available OpenZeppelin Compact modules by domain.
+
+```typescript
+// Input: none
+
+// Output
+{
+  libraries: Array<{
+    name: string;
+    domain: string;
+    path: string;
+    description?: string;
+  }>;
 }
 ```
 

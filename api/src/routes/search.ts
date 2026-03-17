@@ -5,12 +5,7 @@
 
 import { Hono, type Context } from "hono";
 import type { Bindings, SearchRequestBody, AuthState } from "../interfaces";
-import {
-  getEmbedding,
-  trackQuery,
-  persistMetrics,
-  loadMetrics,
-} from "../services";
+import { getEmbedding, trackQuery } from "../services";
 import {
   validateQuery,
   validateLimit,
@@ -31,8 +26,6 @@ async function handleSearch(
   endpoint: string
 ): Promise<Response> {
   try {
-    await loadMetrics(c.env.METRICS);
-
     const body = await c.req.json<SearchRequestBody>();
 
     const query = validateQuery(body.query);
@@ -44,7 +37,7 @@ async function handleSearch(
     const embedding = await getEmbedding(
       query,
       c.env.OPENAI_API_KEY,
-      c.env.EMBEDDING_CACHE
+      c.env.DB
     );
 
     const resolvedFilter =
@@ -58,8 +51,9 @@ async function handleSearch(
     });
 
     const boostedMatches = applyKeywordBoost(results.matches, query);
-    trackQuery(query, endpoint, boostedMatches, filter?.language);
-    await persistMetrics(c.env.METRICS);
+    c.executionCtx.waitUntil(
+      trackQuery(c.env.DB, query, endpoint, boostedMatches, filter?.language),
+    );
 
     const response = formatResults(boostedMatches, query);
 

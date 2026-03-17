@@ -4,14 +4,13 @@
 
 import { Hono } from "hono";
 import type { Bindings } from "../interfaces";
-import { getMetrics, loadMetrics } from "../services";
+import { getMetrics } from "../services";
 
 const statsRoutes = new Hono<{ Bindings: Bindings }>();
 
 // Stats endpoint (JSON API)
 statsRoutes.get("/", async (c) => {
-  await loadMetrics(c.env.METRICS);
-  const metrics = getMetrics();
+  const metrics = await getMetrics(c.env.DB);
 
   return c.json({
     service: "midnight-mcp-api",
@@ -31,8 +30,7 @@ statsRoutes.get("/", async (c) => {
 
 // Recent queries endpoint
 statsRoutes.get("/queries", async (c) => {
-  await loadMetrics(c.env.METRICS);
-  const metrics = getMetrics();
+  const metrics = await getMetrics(c.env.DB);
 
   return c.json({
     recentQueries: metrics.recentQueries,

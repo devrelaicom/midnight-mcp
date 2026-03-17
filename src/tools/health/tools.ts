@@ -10,8 +10,17 @@ import {
   GetStatusInputSchema,
   CheckVersionInputSchema,
   GetUpdateInstructionsInputSchema,
+  ListCompilerVersionsInputSchema,
+  ListLibrariesInputSchema,
 } from "./schemas.js";
-import { healthCheck, getStatus, checkVersion, getUpdateInstructions } from "./handlers.js";
+import {
+  healthCheck,
+  getStatus,
+  checkVersion,
+  getUpdateInstructions,
+  handleListCompilerVersions,
+  handleListLibraries,
+} from "./handlers.js";
 
 // ============================================================================
 // Output Schemas
@@ -177,5 +186,35 @@ export const healthTools: ExtendedToolDefinition[] = [
       category: "health",
     },
     handler: getUpdateInstructions,
+  },
+  {
+    name: "midnight-list-compiler-versions",
+    description:
+      "List all installed Compact compiler versions with their language version mapping. " +
+      "Use this to check what compiler versions are available before compiling or analyzing contracts.",
+    inputSchema: zodInputSchema(ListCompilerVersionsInputSchema),
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+      title: "List Compiler Versions",
+      category: "health",
+    },
+    handler: handleListCompilerVersions,
+  },
+  {
+    name: "midnight-list-libraries",
+    description:
+      "List available OpenZeppelin Compact modules by domain (access, security, token, utils). " +
+      "Use this to check what libraries can be linked when compiling contracts with the libraries parameter.",
+    inputSchema: zodInputSchema(ListLibrariesInputSchema),
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+      title: "List Available Libraries",
+      category: "health",
+    },
+    handler: handleListLibraries,
   },
 ];

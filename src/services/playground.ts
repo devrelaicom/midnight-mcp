@@ -13,19 +13,31 @@ function apiUrl(path: string): string {
   return `${config.hostedApiUrl}/pg${path}`;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+export function buildCacheUrl(cacheKey: string): string {
+  return `${config.hostedApiUrl}/pg/cached-response/${cacheKey}`;
+}
+
+// ---- HTTP helpers ----
+
+async function request<T>(
+  method: "GET" | "POST" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, TIMEOUT);
 
   try {
-    const response = await fetch(apiUrl(path), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    const options: RequestInit = { method, signal: controller.signal };
+
+    if (body !== undefined) {
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(apiUrl(path), options);
 
     if (response.status === 503) {
       throw new MCPError(
@@ -54,12 +66,26 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   }
 }
 
+function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>("POST", path, body);
+}
+
+function get<T>(path: string): Promise<T> {
+  return request<T>("GET", path);
+}
+
+function del<T>(path: string): Promise<T> {
+  return request<T>("DELETE", path);
+}
+
 // ---- Compile ----
 
 export interface CompileOptions {
   wrapWithDefaults?: boolean;
   skipZk?: boolean;
   version?: string;
+  includeBindings?: boolean;
+  libraries?: string[];
 }
 
 export interface CompileResult {
@@ -76,6 +102,7 @@ export interface CompileResult {
   compiledAt?: string;
   originalCode?: string;
   wrappedCode?: string;
+  cacheKey?: string;
 }
 
 export interface MultiVersionCompileResult {
@@ -112,6 +139,8 @@ export async function compile(
       wrapWithDefaults: options.wrapWithDefaults ?? true,
       skipZk: options.skipZk ?? true,
       ...(options.version && { version: options.version }),
+      ...(options.includeBindings && { includeBindings: true }),
+      ...(options.libraries?.length && { libraries: options.libraries }),
     },
   };
 
@@ -129,43 +158,80 @@ export interface FormatResult {
   formatted: string;
   changed: boolean;
   diff?: string;
+  cacheKey?: string;
 }
 
 export async function format(
   code: string,
-  options: { version?: string } = {},
+  options: { version?: string; versions?: string[] } = {},
 ): Promise<FormatResult> {
-  return post("/format", { code, options });
+  const body: Record<string, unknown> = { code, options };
+  if (options.versions) {
+    body.versions = options.versions;
+  }
+  return post("/format", body);
 }
 
 // ---- Analyze ----
 
+export interface AnalyzeOptions {
+  mode?: "fast" | "deep";
+  include?: string[];
+  circuit?: string;
+  version?: string;
+  versions?: string[];
+}
+
 export interface AnalyzeResult {
   success: boolean;
   mode: "fast" | "deep";
-  pragma: string | null;
-  imports: string[];
-  circuits: Array<{
-    name: string;
-    exported: boolean;
-    pure: boolean;
-    params: Array<{ name: string; type: string }>;
-    returnType: string;
-    line: number;
+  summary?: {
+    hasLedger?: boolean;
+    hasCircuits?: boolean;
+    hasWitnesses?: boolean;
+    totalLines?: number;
+    publicCircuits?: number;
+    privateCircuits?: number;
+    publicState?: number;
+    privateState?: number;
+  };
+  structure?: {
+    imports?: unknown[];
+    exports?: unknown[];
+    ledger?: unknown[];
+    circuits?: unknown[];
+    witnesses?: unknown[];
+    types?: unknown[];
+  };
+  facts?: Record<string, unknown>;
+  findings?: Array<{
+    code?: string;
+    severity?: string;
+    message?: string;
+    suggestion?: string;
   }>;
-  ledger: Array<{
-    name: string;
-    type: string;
-    exported: boolean;
+  recommendations?: Array<{
+    message?: string;
+    priority?: string;
+    relatedFindings?: string[];
   }>;
-  compilation?: CompileResult;
+  circuits?: unknown[];
+  compilation?: Record<string, unknown>;
+  cacheKey?: string;
+  [key: string]: unknown;
 }
 
-export async function analyze(
-  code: string,
-  mode: "fast" | "deep" = "fast",
-): Promise<AnalyzeResult> {
-  return post("/analyze", { code, mode });
+export async function analyze(code: string, options: AnalyzeOptions = {}): Promise<AnalyzeResult> {
+  const body: Record<string, unknown> = {
+    code,
+    mode: options.mode ?? "fast",
+  };
+  if (options.include) body.include = options.include;
+  if (options.circuit) body.circuit = options.circuit;
+  if (options.version) body.version = options.version;
+  if (options.versions) body.versions = options.versions;
+
+  return post("/analyze", body);
 }
 
 // ---- Diff ----
@@ -185,10 +251,151 @@ export interface DiffResult {
   };
   pragma: { before: string | null; after: string | null; changed: boolean };
   imports: { added: string[]; removed: string[] };
+  cacheKey?: string;
 }
 
 export async function diff(before: string, after: string): Promise<DiffResult> {
   return post("/diff", { before, after });
+}
+
+// ---- Visualize ----
+
+export interface VisualizeResult {
+  success: boolean;
+  graph?: { nodes: unknown[]; edges: unknown[] };
+  mermaid?: string;
+  cacheKey?: string;
+}
+
+export async function visualize(
+  code: string,
+  options: { version?: string } = {},
+): Promise<VisualizeResult> {
+  return post("/visualize", { code, ...options });
+}
+
+// ---- Prove ----
+
+export interface ProveResult {
+  success: boolean;
+  circuits?: unknown[];
+  cacheKey?: string;
+}
+
+export async function prove(
+  code: string,
+  options: { version?: string } = {},
+): Promise<ProveResult> {
+  return post("/prove", { code, ...options });
+}
+
+// ---- Compile Archive ----
+
+export interface ArchiveCompileOptions {
+  version?: string;
+  versions?: string[];
+  skipZk?: boolean;
+  includeBindings?: boolean;
+  libraries?: string[];
+}
+
+export async function compileArchive(
+  archive: string,
+  options: ArchiveCompileOptions = {},
+): Promise<CompileResult | MultiVersionCompileResult> {
+  if (archive.length > MAX_CODE_SIZE * 2) {
+    throw new MCPError(
+      `Archive exceeds maximum size of ${(MAX_CODE_SIZE * 2) / 1024}KB`,
+      ErrorCodes.INVALID_INPUT,
+    );
+  }
+
+  const body: Record<string, unknown> = {
+    archive,
+    options: {
+      skipZk: options.skipZk ?? true,
+      ...(options.includeBindings && { includeBindings: true }),
+      ...(options.libraries?.length && { libraries: options.libraries }),
+    },
+  };
+  if (options.version) body.version = options.version;
+  if (options.versions) body.versions = options.versions;
+
+  return post("/compile/archive", body);
+}
+
+// ---- Simulate ----
+
+export interface SimulateDeployResult {
+  success: boolean;
+  sessionId: string;
+  circuits?: unknown[];
+  ledger?: unknown;
+}
+
+export async function simulateDeploy(
+  code: string,
+  options: { version?: string } = {},
+): Promise<SimulateDeployResult> {
+  return post("/simulate/deploy", { code, ...options });
+}
+
+export interface SimulateCallResult {
+  success: boolean;
+  result?: unknown;
+  stateChanges?: unknown[];
+  updatedLedger?: unknown;
+}
+
+export async function simulateCall(
+  sessionId: string,
+  circuit: string,
+  args?: Record<string, unknown>,
+): Promise<SimulateCallResult> {
+  return post(`/simulate/${sessionId}/call`, {
+    circuit,
+    ...(args && { arguments: args }),
+  });
+}
+
+export interface SimulateStateResult {
+  success: boolean;
+  ledger?: unknown;
+  circuits?: unknown[];
+  callHistory?: unknown[];
+}
+
+export async function simulateState(sessionId: string): Promise<SimulateStateResult> {
+  return get(`/simulate/${sessionId}/state`);
+}
+
+export interface SimulateDeleteResult {
+  success: boolean;
+}
+
+export async function simulateDelete(sessionId: string): Promise<SimulateDeleteResult> {
+  return del(`/simulate/${sessionId}`);
+}
+
+// ---- Versions ----
+
+export interface VersionsResult {
+  default: string;
+  installed: Array<{ version: string; languageVersion: string }>;
+}
+
+export async function listVersions(): Promise<VersionsResult> {
+  return get("/versions");
+}
+
+// ---- Libraries ----
+
+export interface LibrariesResult {
+  libraries: Array<{ name: string; domain: string; path: string }>;
+}
+
+export async function listLibraries(): Promise<LibrariesResult> {
+  return get("/libraries");
 }
 
 // ---- Health ----
