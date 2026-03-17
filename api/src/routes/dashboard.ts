@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { Bindings, AuthUser, AuthState } from "../interfaces";
-import { getMetrics, loadMetrics } from "../services";
+import { getMetrics } from "../services";
 import { generateDashboardHtml } from "../templates/dashboard";
 import { generateToken } from "../services/oauth";
 
@@ -109,8 +109,7 @@ dashboardRoute.get("/", async (c) => {
   }
 
   // Render dashboard
-  await loadMetrics(c.env.METRICS);
-  const metrics = getMetrics();
+  const metrics = await getMetrics(c.env.DB);
   const authState = c.get("authState") as AuthState;
   const html = generateDashboardHtml(metrics, authState.user?.username);
   return c.html(html);

@@ -5,7 +5,7 @@
 
 import { Hono, type Context } from "hono";
 import type { Bindings } from "../interfaces";
-import { trackPlaygroundCall, persistMetrics, loadMetrics } from "../services";
+import { trackPlaygroundCall } from "../services";
 
 const pg = new Hono<{ Bindings: Bindings }>();
 
@@ -61,7 +61,7 @@ async function proxyRequest(
     const durationMs = Date.now() - start;
 
     if (response.status >= 500) {
-      await trackAndPersist(c, path, false, durationMs, null);
+      trackInBackground(c, path, false, durationMs, null);
       return c.json(
         { error: "Compilation service unavailable", retryAfter: 30 },
         503,
@@ -71,12 +71,12 @@ async function proxyRequest(
     const data = (await response.json()) as Record<string, unknown>;
     const version = extractVersion(data);
 
-    await trackAndPersist(c, path, response.ok, durationMs, version);
+    trackInBackground(c, path, response.ok, durationMs, version);
 
     return c.json(data, response.status as 200);
   } catch {
     const durationMs = Date.now() - start;
-    await trackAndPersist(c, path, false, durationMs, null);
+    trackInBackground(c, path, false, durationMs, null);
     return c.json(
       { error: "Compilation service unavailable", retryAfter: 30 },
       503,
@@ -84,16 +84,16 @@ async function proxyRequest(
   }
 }
 
-async function trackAndPersist(
+function trackInBackground(
   c: Context<{ Bindings: Bindings }>,
   path: string,
   success: boolean,
   durationMs: number,
   version: string | null,
 ) {
-  await loadMetrics(c.env.METRICS);
-  trackPlaygroundCall(`/pg${path}`, success, durationMs, version);
-  await persistMetrics(c.env.METRICS);
+  c.executionCtx.waitUntil(
+    trackPlaygroundCall(c.env.DB, `/pg${path}`, success, durationMs, version),
+  );
 }
 
 // ---- Existing routes (compile, format, analyze, diff, health) ----

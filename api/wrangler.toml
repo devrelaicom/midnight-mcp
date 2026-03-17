@@ -11,15 +11,16 @@ COMPACT_PLAYGROUND_URL = "https://compact-playground.fly.dev"
 binding = "VECTORIZE"
 index_name = "midnight-code"
 
-# KV namespace for metrics storage
+# KV namespace for OAuth/session storage
 [[kv_namespaces]]
 binding = "METRICS"
 id = "adc06e61998c417684ee353791077992"
 
-# KV namespace for embedding cache
-[[kv_namespaces]]
-binding = "EMBEDDING_CACHE"
-id = "REPLACE_WITH_ACTUAL_KV_NAMESPACE_ID"
+# D1 database for metrics, embedding cache, and analytics
+[[d1_databases]]
+binding = "DB"
+database_name = "midnight-mcp"
+database_id = "REPLACE_AFTER_CREATE"
 
 # Rate limiting — anonymous users
 [[unsafe.bindings]]

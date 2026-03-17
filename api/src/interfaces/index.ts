@@ -9,7 +9,8 @@ export type Bindings = {
   VECTORIZE: VectorizeIndex;
   OPENAI_API_KEY: string;
   ENVIRONMENT: string;
-  METRICS: KVNamespace;
+  METRICS: KVNamespace; // OAuth/session storage only
+  DB: D1Database; // Metrics, analytics, embedding cache
   // Auth
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
@@ -17,8 +18,6 @@ export type Bindings = {
   // Rate limiting
   RATE_LIMIT_ANON: RateLimit;
   RATE_LIMIT_AUTH: RateLimit;
-  // Caching
-  EMBEDDING_CACHE: KVNamespace;
   COMPACT_PLAYGROUND_URL: string;
 };
 

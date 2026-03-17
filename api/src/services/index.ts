@@ -7,9 +7,6 @@ export {
   trackQuery,
   trackToolCall,
   trackPlaygroundCall,
-  persistMetrics,
-  loadMetrics,
-  createDefaultMetrics,
 } from "./metrics";
 
 export { getEmbedding } from "./embeddings";

@@ -1,5 +1,5 @@
 /**
- * OpenAI embeddings service with KV caching.
+ * OpenAI embeddings service with D1 caching.
  * Caches embedding vectors by normalized query hash to avoid redundant API calls.
  */
 
@@ -25,23 +25,25 @@ async function hashQuery(text: string): Promise<string> {
 }
 
 /**
- * Generate embedding using OpenAI API, with KV caching.
+ * Generate embedding using OpenAI API, with D1 caching.
  * Cache hit: returns cached vector, skips OpenAI call.
- * Cache miss: calls OpenAI, stores in KV with 24h TTL, returns vector.
+ * Cache miss: calls OpenAI, stores in D1, returns vector.
  */
 export async function getEmbedding(
   text: string,
   apiKey: string,
-  cache: KVNamespace
+  db: D1Database
 ): Promise<number[]> {
   const normalized = normalizeQuery(text);
   const hash = await hashQuery(normalized);
   const cacheKey = `embedding:${hash}`;
 
   // Try cache first
-  const cached = await cache.get(cacheKey);
-  if (cached) {
-    return JSON.parse(cached) as number[];
+  const row = await db.prepare(
+    `SELECT embedding FROM embedding_cache WHERE cache_key = ?1`,
+  ).bind(cacheKey).first<{ embedding: string }>();
+  if (row) {
+    return JSON.parse(row.embedding) as number[];
   }
 
   // Cache miss — call OpenAI
@@ -66,10 +68,11 @@ export async function getEmbedding(
   const data = (await response.json()) as EmbeddingResponse;
   const embedding = data.data[0].embedding;
 
-  // Store in cache with 24h TTL
-  await cache.put(cacheKey, JSON.stringify(embedding), {
-    expirationTtl: 24 * 60 * 60,
-  });
+  // Store in cache
+  await db.prepare(
+    `INSERT OR REPLACE INTO embedding_cache (cache_key, embedding, created_at)
+     VALUES (?1, ?2, datetime('now'))`,
+  ).bind(cacheKey, JSON.stringify(embedding)).run();
 
   return embedding;
 }

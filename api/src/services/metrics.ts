@@ -1,241 +1,232 @@
 /**
- * Metrics service for tracking query analytics
+ * Metrics service backed by Cloudflare D1.
+ * Replaces the previous KV + in-memory approach to eliminate race conditions
+ * and blocking KV I/O on every request.
  */
 
 import type { Metrics, QueryLog, ToolCall } from "../interfaces";
 
-// Initialize default metrics
-export function createDefaultMetrics(): Metrics {
-  return {
-    totalQueries: 0,
-    queriesByEndpoint: {},
-    queriesByLanguage: {},
-    avgRelevanceScore: 0,
-    scoreDistribution: { high: 0, medium: 0, low: 0 },
-    recentQueries: [],
-    documentsByRepo: {},
-    lastUpdated: new Date().toISOString(),
-    // Tool tracking
-    totalToolCalls: 0,
-    toolCallsByName: {},
-    recentToolCalls: [],
-    // Playground tracking
-    playgroundCalls: 0,
-    playgroundByEndpoint: {},
-    playgroundByVersion: {},
-    playgroundErrors: 0,
-  };
+// ---- Counter helpers ----
+
+function upsertCounter(db: D1Database, category: string, name: string, increment: number): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO counters (category, name, value) VALUES (?1, ?2, ?3)
+     ON CONFLICT (category, name) DO UPDATE SET value = value + excluded.value`,
+  ).bind(category, name, increment);
 }
 
-// In-memory metrics (reset on cold start, persisted to KV periodically)
-let metrics: Metrics = createDefaultMetrics();
+// ---- Pruning ----
 
-/**
- * Get current metrics state
- */
-export function getMetrics(): Metrics {
-  return metrics;
+async function pruneIfNeeded(db: D1Database): Promise<void> {
+  if (Math.random() > 0.02) return; // ~2% chance per write
+  try {
+    await db.batch([
+      db.prepare(
+        `DELETE FROM query_log WHERE id NOT IN (SELECT id FROM query_log ORDER BY timestamp DESC LIMIT 200)`,
+      ),
+      db.prepare(
+        `DELETE FROM tool_call_log WHERE id NOT IN (SELECT id FROM tool_call_log ORDER BY timestamp DESC LIMIT 200)`,
+      ),
+      db.prepare(
+        `DELETE FROM embedding_cache WHERE created_at < datetime('now', '-24 hours')`,
+      ),
+    ]);
+  } catch (e) {
+    console.error("Failed to prune event logs:", e);
+  }
 }
 
+// ---- Track functions (async, use db.batch for atomic writes) ----
+
 /**
- * Track a query for analytics
+ * Track a search query. Call inside waitUntil().
  */
-export function trackQuery(
+export async function trackQuery(
+  db: D1Database,
   query: string,
   endpoint: string,
   matches: VectorizeMatches["matches"],
-  language?: string
-): void {
-  const scores = matches.map((m) => m.score);
-  const avgScore =
-    scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-  const topScore = scores.length > 0 ? Math.max(...scores) : 0;
+  language?: string,
+): Promise<void> {
+  try {
+    const scores = matches.map((m) => m.score);
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const topScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const scoreBucket = topScore >= 0.7 ? "high" : topScore >= 0.4 ? "medium" : "low";
 
-  // Update totals
-  metrics.totalQueries++;
-  metrics.queriesByEndpoint[endpoint] =
-    (metrics.queriesByEndpoint[endpoint] || 0) + 1;
-  if (language) {
-    metrics.queriesByLanguage[language] =
-      (metrics.queriesByLanguage[language] || 0) + 1;
-  }
+    const stmts: D1PreparedStatement[] = [
+      upsertCounter(db, "total", "queries", 1),
+      upsertCounter(db, "score", "avg_relevance_sum", avgScore),
+      upsertCounter(db, "score", scoreBucket, 1),
+      upsertCounter(db, "endpoint", endpoint, 1),
+      db.prepare(
+        `INSERT INTO query_log (query, endpoint, timestamp, results_count, avg_score, top_score, language)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+      ).bind(
+        query.slice(0, 100),
+        endpoint,
+        new Date().toISOString(),
+        matches.length,
+        Math.round(avgScore * 1000) / 1000,
+        Math.round(topScore * 1000) / 1000,
+        language ?? null,
+      ),
+    ];
 
-  // Update score distribution (high >= 0.7, medium 0.4-0.7, low < 0.4)
-  if (topScore >= 0.7) metrics.scoreDistribution.high++;
-  else if (topScore >= 0.4) metrics.scoreDistribution.medium++;
-  else metrics.scoreDistribution.low++;
-
-  // Rolling average for relevance score
-  metrics.avgRelevanceScore =
-    (metrics.avgRelevanceScore * (metrics.totalQueries - 1) + avgScore) /
-    metrics.totalQueries;
-
-  // Track repos from results
-  matches.forEach((m) => {
-    const repo = m.metadata?.repository as string;
-    if (repo) {
-      metrics.documentsByRepo[repo] = (metrics.documentsByRepo[repo] || 0) + 1;
+    if (language) {
+      stmts.push(upsertCounter(db, "language", language, 1));
     }
-  });
 
-  // Keep last 100 queries
-  const logEntry: QueryLog = {
-    query: query.slice(0, 100), // Truncate for storage
-    endpoint,
-    timestamp: new Date().toISOString(),
-    resultsCount: matches.length,
-    avgScore: Math.round(avgScore * 1000) / 1000,
-    topScore: Math.round(topScore * 1000) / 1000,
-    language,
-  };
-  metrics.recentQueries.unshift(logEntry);
-  if (metrics.recentQueries.length > 100) {
-    metrics.recentQueries = metrics.recentQueries.slice(0, 100);
+    // Track repos from results (increment by count per repo)
+    const repoCounts = new Map<string, number>();
+    for (const m of matches) {
+      const repo = m.metadata?.repository as string;
+      if (repo) repoCounts.set(repo, (repoCounts.get(repo) ?? 0) + 1);
+    }
+    for (const [repo, count] of repoCounts) {
+      stmts.push(upsertCounter(db, "repo", repo, count));
+    }
+
+    await db.batch(stmts);
+    await pruneIfNeeded(db);
+  } catch (e) {
+    console.error("Failed to track query:", e);
   }
-
-  metrics.lastUpdated = new Date().toISOString();
 }
 
 /**
- * Track a tool call from the MCP
+ * Track a tool call from the MCP. Call inside waitUntil().
  */
-export function trackToolCall(
+export async function trackToolCall(
+  db: D1Database,
   tool: string,
   success: boolean,
   durationMs?: number,
-  version?: string
-): void {
-  // Initialize if needed (for older metrics without tool tracking)
-  if (!metrics.totalToolCalls) metrics.totalToolCalls = 0;
-  if (!metrics.toolCallsByName) metrics.toolCallsByName = {};
-  if (!metrics.recentToolCalls) metrics.recentToolCalls = [];
-
-  metrics.totalToolCalls++;
-  metrics.toolCallsByName[tool] = (metrics.toolCallsByName[tool] || 0) + 1;
-
-  const logEntry: ToolCall = {
-    tool,
-    timestamp: new Date().toISOString(),
-    success,
-    durationMs,
-    version,
-  };
-  metrics.recentToolCalls.unshift(logEntry);
-  if (metrics.recentToolCalls.length > 100) {
-    metrics.recentToolCalls = metrics.recentToolCalls.slice(0, 100);
+  version?: string,
+): Promise<void> {
+  try {
+    await db.batch([
+      upsertCounter(db, "total", "tool_calls", 1),
+      upsertCounter(db, "tool", tool, 1),
+      db.prepare(
+        `INSERT INTO tool_call_log (tool, timestamp, success, duration_ms, version)
+         VALUES (?1, ?2, ?3, ?4, ?5)`,
+      ).bind(tool, new Date().toISOString(), success ? 1 : 0, durationMs ?? null, version ?? null),
+    ]);
+    await pruneIfNeeded(db);
+  } catch (e) {
+    console.error("Failed to track tool call:", e);
   }
-
-  metrics.lastUpdated = new Date().toISOString();
 }
 
 /**
- * Track a playground proxy call with endpoint and version info.
- * Called by API proxy routes — separate from MCP-level tool tracking.
+ * Track a playground proxy call. Call inside waitUntil().
  */
-export function trackPlaygroundCall(
+export async function trackPlaygroundCall(
+  db: D1Database,
   endpoint: string,
   success: boolean,
   durationMs?: number,
   version?: string | null,
-): void {
-  if (!metrics.playgroundCalls) metrics.playgroundCalls = 0;
-  if (!metrics.playgroundByEndpoint) metrics.playgroundByEndpoint = {};
-  if (!metrics.playgroundByVersion) metrics.playgroundByVersion = {};
-  if (!metrics.playgroundErrors) metrics.playgroundErrors = 0;
-
-  metrics.playgroundCalls++;
-  metrics.playgroundByEndpoint[endpoint] =
-    (metrics.playgroundByEndpoint[endpoint] || 0) + 1;
-
-  if (version) {
-    metrics.playgroundByVersion[version] =
-      (metrics.playgroundByVersion[version] || 0) + 1;
-  }
-
-  if (!success) {
-    metrics.playgroundErrors++;
-  }
-
-  const logEntry: ToolCall = {
-    tool: "pg-proxy",
-    timestamp: new Date().toISOString(),
-    success,
-    durationMs,
-    version: version ?? undefined,
-    endpoint,
-  };
-  metrics.recentToolCalls.unshift(logEntry);
-  if (metrics.recentToolCalls.length > 100) {
-    metrics.recentToolCalls = metrics.recentToolCalls.slice(0, 100);
-  }
-
-  metrics.lastUpdated = new Date().toISOString();
-}
-
-/**
- * Save metrics to KV (call periodically)
- */
-export async function persistMetrics(
-  kv: KVNamespace | undefined
 ): Promise<void> {
-  if (!kv) return;
   try {
-    await kv.put("metrics", JSON.stringify(metrics), {
-      expirationTtl: 86400 * 30, // 30 days
-    });
-  } catch (e) {
-    console.error("Failed to persist metrics:", e);
-  }
-}
+    const stmts: D1PreparedStatement[] = [
+      upsertCounter(db, "total", "playground_calls", 1),
+      upsertCounter(db, "pg_endpoint", endpoint, 1),
+      db.prepare(
+        `INSERT INTO tool_call_log (tool, timestamp, success, duration_ms, version, endpoint)
+         VALUES ('pg-proxy', ?1, ?2, ?3, ?4, ?5)`,
+      ).bind(new Date().toISOString(), success ? 1 : 0, durationMs ?? null, version ?? null, endpoint),
+    ];
 
-/**
- * Load metrics from KV
- */
-export async function loadMetrics(kv: KVNamespace | undefined): Promise<void> {
-  if (!kv) return;
-  try {
-    const stored = await kv.get("metrics");
-    if (stored) {
-      const storedMetrics = JSON.parse(stored);
-      // Merge stored metrics, preserving score distribution from persistent storage
-      // Score distribution is tracked incrementally and should NOT be recalculated
-      // from recentQueries (which only has last 100) as that would be inaccurate
-      metrics = {
-        ...metrics,
-        ...storedMetrics,
-      };
+    if (version) {
+      stmts.push(upsertCounter(db, "pg_version", version, 1));
     }
+
+    if (!success) {
+      stmts.push(upsertCounter(db, "total", "playground_errors", 1));
+    }
+
+    await db.batch(stmts);
+    await pruneIfNeeded(db);
   } catch (e) {
-    console.error("Failed to load metrics:", e);
+    console.error("Failed to track playground call:", e);
   }
 }
 
+// ---- Read functions ----
+
 /**
- * Recalculate score distribution and average relevance from recent queries.
- *
- * WARNING: This only uses the last 100 queries (recentQueries array).
- * Use this only for:
- * - Fixing corrupted data
- * - When you want metrics based on recent activity only
- * - NOT for normal operations (would make totalQueries and scoreDistribution inconsistent)
- *
- * The score distribution is normally tracked incrementally in trackQuery() and
- * should represent ALL queries, not just the recent 100.
+ * Read all metrics from D1, returning the full Metrics object.
  */
-export function recalculateScoreDistributionFromRecent(): void {
-  const distribution = { high: 0, medium: 0, low: 0 };
-  let totalAvgScore = 0;
+export async function getMetrics(db: D1Database): Promise<Metrics> {
+  const [countersResult, recentQueriesResult, recentToolCallsResult] = await db.batch([
+    db.prepare(`SELECT category, name, value FROM counters`),
+    db.prepare(`SELECT * FROM query_log ORDER BY timestamp DESC LIMIT 100`),
+    db.prepare(`SELECT * FROM tool_call_log ORDER BY timestamp DESC LIMIT 100`),
+  ]);
 
-  for (const q of metrics.recentQueries) {
-    if (q.topScore >= 0.7) distribution.high++;
-    else if (q.topScore >= 0.4) distribution.medium++;
-    else distribution.low++;
+  // Build counter lookup
+  const c = new Map<string, number>();
+  const byCategory = new Map<string, Record<string, number>>();
 
-    totalAvgScore += q.avgScore;
+  for (const row of countersResult.results as Array<{ category: string; name: string; value: number }>) {
+    c.set(`${row.category}:${row.name}`, row.value);
+    if (!byCategory.has(row.category)) byCategory.set(row.category, {});
+    byCategory.get(row.category)![row.name] = row.value;
   }
 
-  if (metrics.recentQueries.length > 0) {
-    metrics.scoreDistribution = distribution;
-    metrics.avgRelevanceScore = totalAvgScore / metrics.recentQueries.length;
-  }
+  const totalQueries = c.get("total:queries") ?? 0;
+  const avgRelevanceSum = c.get("score:avg_relevance_sum") ?? 0;
+
+  // Map query_log rows
+  const recentQueries: QueryLog[] = (recentQueriesResult.results as Array<{
+    query: string; endpoint: string; timestamp: string;
+    results_count: number; avg_score: number; top_score: number; language: string | null;
+  }>).map((r) => ({
+    query: r.query,
+    endpoint: r.endpoint,
+    timestamp: r.timestamp,
+    resultsCount: r.results_count,
+    avgScore: r.avg_score,
+    topScore: r.top_score,
+    language: r.language ?? undefined,
+  }));
+
+  // Map tool_call_log rows
+  const recentToolCalls: ToolCall[] = (recentToolCallsResult.results as Array<{
+    tool: string; timestamp: string; success: number;
+    duration_ms: number | null; version: string | null; endpoint: string | null;
+  }>).map((r) => ({
+    tool: r.tool,
+    timestamp: r.timestamp,
+    success: r.success === 1,
+    durationMs: r.duration_ms ?? undefined,
+    version: r.version ?? undefined,
+    endpoint: r.endpoint ?? undefined,
+  }));
+
+  const lastTs = recentToolCalls[0]?.timestamp ?? recentQueries[0]?.timestamp ?? new Date().toISOString();
+
+  return {
+    totalQueries,
+    queriesByEndpoint: byCategory.get("endpoint") ?? {},
+    queriesByLanguage: byCategory.get("language") ?? {},
+    avgRelevanceScore: totalQueries > 0 ? Math.round((avgRelevanceSum / totalQueries) * 1000) / 1000 : 0,
+    scoreDistribution: {
+      high: c.get("score:high") ?? 0,
+      medium: c.get("score:medium") ?? 0,
+      low: c.get("score:low") ?? 0,
+    },
+    recentQueries,
+    documentsByRepo: byCategory.get("repo") ?? {},
+    lastUpdated: lastTs,
+    totalToolCalls: c.get("total:tool_calls") ?? 0,
+    toolCallsByName: byCategory.get("tool") ?? {},
+    recentToolCalls,
+    playgroundCalls: c.get("total:playground_calls") ?? 0,
+    playgroundByEndpoint: byCategory.get("pg_endpoint") ?? {},
+    playgroundByVersion: byCategory.get("pg_version") ?? {},
+    playgroundErrors: c.get("total:playground_errors") ?? 0,
+  };
 }
