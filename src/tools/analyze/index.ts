@@ -7,12 +7,24 @@
 export {
   AnalyzeContractInputSchema,
   CompileContractInputSchema,
+  VisualizeContractInputSchema,
+  ProveContractInputSchema,
+  CompileArchiveInputSchema,
   type AnalyzeContractInput,
   type CompileContractInput,
+  type VisualizeContractInput,
+  type ProveContractInput,
+  type CompileArchiveInput,
 } from "./schemas.js";
 
 // Handlers
-export { analyzeContract, compileContract } from "./handlers.js";
+export {
+  analyzeContract,
+  compileContract,
+  visualizeContract,
+  proveContract,
+  compileArchiveHandler,
+} from "./handlers.js";
 
 // Tools
 export { analyzeTools } from "./tools.js";

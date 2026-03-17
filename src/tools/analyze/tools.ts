@@ -5,8 +5,20 @@
 
 import type { ExtendedToolDefinition, OutputSchema } from "../../types/index.js";
 import { zodInputSchema } from "../../utils/schema.js";
-import { AnalyzeContractInputSchema, CompileContractInputSchema } from "./schemas.js";
-import { analyzeContract, compileContract } from "./handlers.js";
+import {
+  AnalyzeContractInputSchema,
+  CompileContractInputSchema,
+  VisualizeContractInputSchema,
+  ProveContractInputSchema,
+  CompileArchiveInputSchema,
+} from "./schemas.js";
+import {
+  analyzeContract,
+  compileContract,
+  visualizeContract,
+  proveContract,
+  compileArchiveHandler,
+} from "./handlers.js";
 
 // ============================================================================
 // Output Schemas
@@ -157,15 +169,19 @@ export const analyzeTools: ExtendedToolDefinition[] = [
     name: "midnight-analyze-contract",
     description: `Analyze Compact contract structure via the playground API.
 
-Options:
-• mode='fast' (default): Regex-based structure extraction — instant, returns pragma, imports, circuits, ledger fields
-• mode='deep': Compile-backed analysis — includes compilation results alongside structure
+Modes:
+• mode='fast' (default): Source-level analysis — returns summary, structure, findings, recommendations, circuit explanations
+• mode='deep': Compile-backed analysis — includes compilation results alongside full analysis
 
-Use this for: understanding structure, pre-compilation checks, circuit discovery.
+Filtering:
+• include: Filter response to specific sections ('diagnostics', 'facts', 'findings', 'recommendations', 'circuits')
+• circuit: Focus analysis on a single circuit by name
+• version/versions: Select compiler version(s) for deep mode
 
 USAGE GUIDANCE:
 • Call once per contract - results are deterministic
-• Use mode='deep' to also get compilation results`,
+• Use include to reduce response size when you only need specific sections
+• Use mode='deep' when you need compilation diagnostics alongside analysis`,
     inputSchema: zodInputSchema(AnalyzeContractInputSchema),
     outputSchema: analyzeContractOutputSchema,
     annotations: {
@@ -203,5 +219,63 @@ USAGE GUIDANCE:
       category: "analyze",
     },
     handler: compileContract,
+  },
+  {
+    name: "midnight-visualize-contract",
+    description: `Generate a visual architecture graph of a Compact contract.
+
+Returns a DAG of circuit call relationships, ledger access patterns, and witness dependencies.
+Includes a Mermaid diagram string that can be rendered by supporting clients.
+
+Use this for: understanding contract architecture, mapping dependencies, documentation.`,
+    inputSchema: zodInputSchema(VisualizeContractInputSchema),
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+      title: "Visualize Contract Architecture",
+      category: "analyze",
+    },
+    handler: visualizeContract,
+  },
+  {
+    name: "midnight-prove-contract",
+    description: `Analyze ZK privacy boundaries for a Compact contract.
+
+Returns per-circuit analysis of what data crosses the proof boundary, public vs private inputs,
+and proof flow. Helps understand the privacy model of a contract.
+
+Use this for: privacy auditing, understanding what's exposed on-chain, proof flow analysis.`,
+    inputSchema: zodInputSchema(ProveContractInputSchema),
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+      title: "Analyze ZK Privacy Boundaries",
+      category: "analyze",
+    },
+    handler: proveContract,
+  },
+  {
+    name: "midnight-compile-archive",
+    description: `Compile a multi-file Compact project.
+
+Accepts a map of relative file paths to source code. Directory structure in the keys is preserved
+so that imports between files resolve correctly. The files are packaged into an archive and
+sent to the compiler.
+
+Example files map:
+  { "src/main.compact": "import ...", "src/lib/utils.compact": "export circuit ..." }
+
+Use this for: projects with multiple Compact source files that import from each other.`,
+    inputSchema: zodInputSchema(CompileArchiveInputSchema),
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+      title: "Compile Multi-File Archive",
+      category: "analyze",
+    },
+    handler: compileArchiveHandler,
   },
 ];

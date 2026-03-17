@@ -1,4 +1,4 @@
-import { diff } from "../../services/playground.js";
+import { diff, buildCacheUrl } from "../../services/playground.js";
 import { logger } from "../../utils/index.js";
 import type { DiffContractsInput } from "./schemas.js";
 
@@ -11,5 +11,9 @@ export async function diffContracts(input: DiffContractsInput) {
     ledger: result.ledger,
     pragma: result.pragma,
     imports: result.imports,
+    ...(result.cacheKey && {
+      cacheKey: result.cacheKey,
+      cacheUrl: buildCacheUrl(result.cacheKey),
+    }),
   };
 }
