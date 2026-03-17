@@ -42,10 +42,28 @@ export async function analyzeContract(input: AnalyzeContractInput) {
   };
 }
 
+interface CompileContractResult {
+  success: boolean;
+  output?: string;
+  errors?: Array<{
+    file?: string;
+    line?: number;
+    column?: number;
+    severity?: string;
+    message: string;
+  }>;
+  executionTime?: number;
+  compiledAt?: string;
+  cacheKey?: string;
+  cacheUrl?: string;
+  compilationMode: "syntax-only" | "full";
+  [key: string]: unknown;
+}
+
 /**
  * Compile a Compact smart contract via the playground API proxy
  */
-export async function compileContract(input: CompileContractInput): Promise<object> {
+export async function compileContract(input: CompileContractInput): Promise<CompileContractResult> {
   logger.info("Compiling Compact contract via API proxy", {
     codeLength: input.code.length,
     skipZk: input.skipZk,

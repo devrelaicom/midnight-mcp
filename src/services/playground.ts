@@ -19,19 +19,25 @@ export function buildCacheUrl(cacheKey: string): string {
 
 // ---- HTTP helpers ----
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function request<T>(
+  method: "GET" | "POST" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, TIMEOUT);
 
   try {
-    const response = await fetch(apiUrl(path), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    const options: RequestInit = { method, signal: controller.signal };
+
+    if (body !== undefined) {
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(apiUrl(path), options);
 
     if (response.status === 503) {
       throw new MCPError(
@@ -60,82 +66,16 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT);
-
-  try {
-    const response = await fetch(apiUrl(path), {
-      method: "GET",
-      signal: controller.signal,
-    });
-
-    if (response.status === 503) {
-      throw new MCPError(
-        "Compilation service unavailable — try again later",
-        ErrorCodes.INTERNAL_ERROR,
-      );
-    }
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => "Unknown error");
-      throw new MCPError(`API error (${response.status}): ${text}`, ErrorCodes.INTERNAL_ERROR);
-    }
-
-    return (await response.json()) as T;
-  } catch (error) {
-    if (error instanceof MCPError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new MCPError("Request timed out", ErrorCodes.INTERNAL_ERROR);
-    }
-    throw new MCPError(
-      `Failed to connect to API: ${error instanceof Error ? error.message : "Unknown error"}`,
-      ErrorCodes.INTERNAL_ERROR,
-    );
-  } finally {
-    clearTimeout(timeoutId);
-  }
+function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>("POST", path, body);
 }
 
-async function del<T>(path: string): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT);
+function get<T>(path: string): Promise<T> {
+  return request<T>("GET", path);
+}
 
-  try {
-    const response = await fetch(apiUrl(path), {
-      method: "DELETE",
-      signal: controller.signal,
-    });
-
-    if (response.status === 503) {
-      throw new MCPError(
-        "Compilation service unavailable — try again later",
-        ErrorCodes.INTERNAL_ERROR,
-      );
-    }
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => "Unknown error");
-      throw new MCPError(`API error (${response.status}): ${text}`, ErrorCodes.INTERNAL_ERROR);
-    }
-
-    return (await response.json()) as T;
-  } catch (error) {
-    if (error instanceof MCPError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new MCPError("Request timed out", ErrorCodes.INTERNAL_ERROR);
-    }
-    throw new MCPError(
-      `Failed to connect to API: ${error instanceof Error ? error.message : "Unknown error"}`,
-      ErrorCodes.INTERNAL_ERROR,
-    );
-  } finally {
-    clearTimeout(timeoutId);
-  }
+function del<T>(path: string): Promise<T> {
+  return request<T>("DELETE", path);
 }
 
 // ---- Compile ----
@@ -245,6 +185,39 @@ export interface AnalyzeOptions {
 export interface AnalyzeResult {
   success: boolean;
   mode: "fast" | "deep";
+  summary?: {
+    hasLedger?: boolean;
+    hasCircuits?: boolean;
+    hasWitnesses?: boolean;
+    totalLines?: number;
+    publicCircuits?: number;
+    privateCircuits?: number;
+    publicState?: number;
+    privateState?: number;
+  };
+  structure?: {
+    imports?: unknown[];
+    exports?: unknown[];
+    ledger?: unknown[];
+    circuits?: unknown[];
+    witnesses?: unknown[];
+    types?: unknown[];
+  };
+  facts?: Record<string, unknown>;
+  findings?: Array<{
+    code?: string;
+    severity?: string;
+    message?: string;
+    suggestion?: string;
+  }>;
+  recommendations?: Array<{
+    message?: string;
+    priority?: string;
+    relatedFindings?: string[];
+  }>;
+  circuits?: unknown[];
+  compilation?: Record<string, unknown>;
+  cacheKey?: string;
   [key: string]: unknown;
 }
 
@@ -330,6 +303,13 @@ export async function compileArchive(
   archive: string,
   options: ArchiveCompileOptions = {},
 ): Promise<CompileResult | MultiVersionCompileResult> {
+  if (archive.length > MAX_CODE_SIZE * 2) {
+    throw new MCPError(
+      `Archive exceeds maximum size of ${(MAX_CODE_SIZE * 2) / 1024}KB`,
+      ErrorCodes.INVALID_INPUT,
+    );
+  }
+
   const body: Record<string, unknown> = {
     archive,
     options: {

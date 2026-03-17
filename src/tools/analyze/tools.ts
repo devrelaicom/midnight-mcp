@@ -27,99 +27,44 @@ import {
 const analyzeContractOutputSchema: OutputSchema = {
   type: "object",
   properties: {
+    success: { type: "boolean", description: "Whether analysis succeeded" },
+    mode: { type: "string", description: "Analysis mode used: 'fast' or 'deep'" },
     summary: {
       type: "object",
-      description: "Summary statistics of the contract",
-      properties: {
-        hasLedger: { type: "boolean" },
-        hasCircuits: { type: "boolean" },
-        hasWitnesses: { type: "boolean" },
-        totalLines: { type: "number" },
-        publicCircuits: { type: "number" },
-        privateCircuits: { type: "number" },
-        publicState: { type: "number" },
-        privateState: { type: "number" },
-      },
+      description:
+        "High-level contract summary: hasLedger, hasCircuits, hasWitnesses, line counts, public/private counts",
     },
     structure: {
       type: "object",
-      description: "Contract structure breakdown",
-      properties: {
-        imports: { type: "array", items: { type: "string" } },
-        exports: { type: "array", items: { type: "string" } },
-        ledger: {
-          type: "array",
-          description: "Ledger state fields",
-          items: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              type: { type: "string" },
-              isPrivate: { type: "boolean" },
-            },
-          },
-        },
-        circuits: {
-          type: "array",
-          description: "Circuit definitions",
-          items: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              isPublic: { type: "boolean" },
-              parameters: { type: "array", items: { type: "object" } },
-              returnType: { type: "string" },
-            },
-          },
-        },
-        witnesses: {
-          type: "array",
-          description: "Witness functions",
-          items: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              parameters: { type: "array", items: { type: "object" } },
-              returnType: { type: "string" },
-            },
-          },
-        },
-        types: {
-          type: "array",
-          description: "Type definitions",
-          items: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              definition: { type: "string" },
-            },
-          },
-        },
-      },
+      description:
+        "Contract structure: imports, exports, ledger entries, circuits, witnesses, types",
     },
-    securityFindings: {
+    facts: {
+      type: "object",
+      description: "Factual observations: hasStdLibImport, unusedWitnesses, etc.",
+    },
+    findings: {
       type: "array",
-      description: "Security analysis findings",
-      items: {
-        type: "object",
-        properties: {
-          severity: {
-            type: "string",
-            enum: ["info", "warning", "error"],
-          },
-          message: { type: "string" },
-          suggestion: { type: "string" },
-        },
-      },
+      description: "Analysis findings with code, severity, message, and suggestion",
     },
     recommendations: {
       type: "array",
-      items: { type: "string" },
-      description: "Recommendations for improvement",
+      description: "Prioritized recommendations with related findings",
     },
+    circuits: {
+      type: "array",
+      description: "Per-circuit analysis with structure, explanation, facts, and findings",
+    },
+    compilation: {
+      type: "object",
+      description:
+        "Compilation results (deep mode only): success, diagnostics, executionTime, compilerVersion",
+    },
+    cacheKey: { type: "string", description: "Cache key for retrieving this result" },
+    cacheUrl: { type: "string", description: "URL to retrieve this cached result" },
   },
-  required: ["summary", "structure", "securityFindings", "recommendations"],
-  description: "Detailed contract analysis with security findings",
+  required: ["success", "mode"],
+  description: "Full contract analysis results from the playground API",
 };
 
 const compileContractOutputSchema: OutputSchema = {
