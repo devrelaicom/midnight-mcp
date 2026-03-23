@@ -39,8 +39,7 @@ midnight-mcp/
 ├── api/                  # Cloudflare Workers API (hosted backend)
 │   ├── src/              # API source
 │   └── scripts/          # Indexing scripts
-├── tests/                # Test files
-└── docs/                 # Documentation
+└── tests/                # Test files
 ```
 
 ## 🛠️ Development Workflow
