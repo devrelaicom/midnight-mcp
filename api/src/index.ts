@@ -21,16 +21,25 @@ import { bodyLimit, auth, rateLimit } from "./middleware";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// CORS — allow all origins for public API, include Authorization header
-app.use(
-  "*",
-  cors({
-    origin: "*",
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
-    maxAge: 86400, // 24 hours
-  })
-);
+// CORS — scoped per route group, not applied globally.
+// /dashboard is browser same-origin only and needs no CORS headers.
+const apiCors = cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  maxAge: 86400,
+});
+const pgCors = cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  maxAge: 86400,
+});
+app.use("/v1/*", apiCors);
+app.use("/pg/*", pgCors);
+app.use("/health", apiCors);
+app.use("/.well-known/*", apiCors);
+app.use("/oauth/*", apiCors);
 
 // Middleware chain (order matters):
 // 1. Body limit — reject oversized payloads before any KV/auth work
