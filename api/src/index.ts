@@ -38,10 +38,13 @@ app.use(
 app.use("*", bodyLimit);
 app.use("*", auth);
 
-// Rate limiting — applied only to search and track routes
+// Rate limiting — applied to all public API surfaces
 app.use("/v1/search/*", rateLimit);
 app.use("/v1/track/*", rateLimit);
+app.use("/v1/stats/*", rateLimit);
 app.use("/pg/*", rateLimit);
+app.use("/oauth/*", rateLimit);
+app.use("/.well-known/*", rateLimit);
 
 // Mount routes
 app.route("/", healthRoutes);
