@@ -146,7 +146,7 @@ npx wrangler secret put DASHBOARD_ALLOWED_ORGS
 npm run deploy
 ```
 
-This runs `wrangler deploy` which bundles the TypeScript source and deploys it to Cloudflare Workers.
+This runs a configuration check (verifying `wrangler.toml` has a valid D1 database ID) followed by `wrangler deploy`. Always use `npm run deploy` instead of calling `wrangler deploy` directly to ensure the pre-deploy validation runs.
 
 Verify the deployment:
 

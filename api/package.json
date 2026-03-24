@@ -7,6 +7,8 @@
   },
   "scripts": {
     "dev": "wrangler dev",
+    "check-config": "node -e \"const fs=require('fs');const t=fs.readFileSync('wrangler.toml','utf8');if(/REPLACE_AFTER_CREATE/.test(t)){console.error('ERROR: Unresolved D1 placeholder in wrangler.toml.\\nRun: npx wrangler d1 create midnight-mcp — then update database_id in wrangler.toml.\\nSee README.md Step 4.');process.exit(1)}\"",
+    "predeploy": "npm run check-config",
     "deploy": "wrangler deploy",
     "create-index": "wrangler vectorize create midnight-code --dimensions=1536 --metric=cosine",
     "delete-index": "wrangler vectorize delete midnight-code",
