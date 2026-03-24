@@ -35,10 +35,7 @@ oauthRoutes.get("/.well-known/oauth-authorization-server", (c) => {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: [
-      "client_secret_post",
-      "none",
-    ],
+    token_endpoint_auth_methods_supported: ["none"],
   });
 });
 
@@ -86,21 +83,18 @@ oauthRoutes.post("/oauth/register", async (c) => {
     }
 
     const clientId = generateUUID();
-    const clientSecret = generateToken();
 
     await c.env.METRICS.put(
       `client:${clientId}`,
       JSON.stringify({
         clientName: body.client_name,
         redirectUris: body.redirect_uris,
-        clientSecret,
       }),
       { expirationTtl: 30 * 24 * 60 * 60 } // 30 days
     );
 
     return c.json({
       client_id: clientId,
-      client_secret: clientSecret,
       client_name: body.client_name,
       redirect_uris: body.redirect_uris,
     });
@@ -115,6 +109,7 @@ oauthRoutes.post("/oauth/register", async (c) => {
 // ============================================================================
 
 oauthRoutes.get("/oauth/authorize", async (c) => {
+  const responseType = c.req.query("response_type");
   const clientId = c.req.query("client_id");
   const redirectUri = c.req.query("redirect_uri");
   const codeChallenge = c.req.query("code_challenge");
@@ -123,6 +118,27 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
 
   if (!clientId || !redirectUri) {
     return c.json({ error: "client_id and redirect_uri are required" }, 400);
+  }
+
+  if (responseType !== "code") {
+    return c.json(
+      { error: "invalid_request", error_description: "response_type must be 'code'" },
+      400
+    );
+  }
+
+  // PKCE is required for all clients (OAuth 2.1)
+  if (!codeChallenge) {
+    return c.json(
+      { error: "invalid_request", error_description: "code_challenge is required" },
+      400
+    );
+  }
+  if (codeChallengeMethod !== "S256") {
+    return c.json(
+      { error: "invalid_request", error_description: "code_challenge_method must be S256" },
+      400
+    );
   }
 
   // Validate client registration
@@ -138,19 +154,12 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
     return c.json({ error: "redirect_uri not registered for this client" }, 400);
   }
 
-  if (codeChallengeMethod && codeChallengeMethod !== "S256") {
-    return c.json(
-      { error: "Only S256 code_challenge_method is supported" },
-      400
-    );
-  }
-
   // Generate state for CSRF protection
   const state = generateToken();
   await c.env.METRICS.put(
     `state:${state}`,
     JSON.stringify({
-      codeChallenge: codeChallenge || null,
+      codeChallenge,
       redirectUri,
       clientId,
       clientState: clientState || null,
@@ -193,7 +202,7 @@ oauthRoutes.get("/oauth/callback", async (c) => {
     clientId,
     clientState,
   } = JSON.parse(stateData) as {
-    codeChallenge: string | null;
+    codeChallenge: string;
     redirectUri: string;
     clientId: string;
     clientState: string | null;
@@ -284,7 +293,7 @@ oauthRoutes.post("/oauth/token", async (c) => {
     clientId: storedClientId,
   } = JSON.parse(codeData) as {
     user: AuthUser;
-    codeChallenge: string | null;
+    codeChallenge: string;
     redirectUri: string;
     clientId: string;
   };
@@ -297,15 +306,16 @@ oauthRoutes.post("/oauth/token", async (c) => {
     return c.json({ error: "invalid_grant" }, 400);
   }
 
-  // Verify PKCE if a code_challenge was provided during authorization
-  if (codeChallenge) {
-    if (!codeVerifier) {
-      return c.json({ error: "invalid_grant" }, 400);
-    }
-    const valid = await verifyPKCE(codeVerifier, codeChallenge);
-    if (!valid) {
-      return c.json({ error: "invalid_grant" }, 400);
-    }
+  // PKCE verification is mandatory (OAuth 2.1)
+  if (!codeVerifier) {
+    return c.json(
+      { error: "invalid_request", error_description: "code_verifier is required" },
+      400
+    );
+  }
+  const valid = await verifyPKCE(codeVerifier, codeChallenge);
+  if (!valid) {
+    return c.json({ error: "invalid_grant" }, 400);
   }
 
   // Generate access token and store session
