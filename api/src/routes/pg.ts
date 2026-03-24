@@ -72,11 +72,9 @@ async function proxyRequest(
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
       const text = await response.text().catch(() => "Non-JSON response");
+      console.error("Unexpected upstream response", { path, contentType, body: text.slice(0, 500) });
       trackInBackground(c, path, false, durationMs, null);
-      return c.json(
-        { error: `Unexpected response type: ${contentType || "unknown"}`, detail: text.slice(0, 200) },
-        502,
-      );
+      return c.json({ error: "Unexpected upstream response" }, 502);
     }
 
     const data = (await response.json()) as Record<string, unknown>;
