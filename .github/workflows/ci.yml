@@ -47,6 +47,9 @@ jobs:
       - name: Run tests
         run: npm test -- --run
 
+      - name: Audit dependencies (high severity)
+        run: npm audit --audit-level=high
+
       - name: Install API dependencies
         working-directory: api
         run: npm ci
@@ -54,6 +57,10 @@ jobs:
       - name: Typecheck API
         working-directory: api
         run: npx tsc --noEmit
+
+      - name: Audit API dependencies (high severity)
+        working-directory: api
+        run: npm audit --audit-level=high
 
   publish-check:
     runs-on: ubuntu-latest
