@@ -6,6 +6,7 @@
  */
 
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { cors } from "hono/cors";
 import type { Bindings } from "./interfaces";
 import {
@@ -63,5 +64,15 @@ app.route("/v1/stats", statsRoutes);
 app.route("/v1/track", trackRoutes);
 app.route("/dashboard", dashboardRoute);
 app.route("/pg", pgRoutes);
+
+// Global error handler — catches unhandled exceptions from any route
+app.onError((err, c) => {
+  // Preserve intentional HTTP errors (e.g. from Hono middleware)
+  if (err instanceof HTTPException) {
+    return err.getResponse();
+  }
+  console.error("Unhandled worker error", { path: c.req.path, method: c.req.method, error: String(err) });
+  return c.json({ error: "Internal server error" }, 500);
+});
 
 export default app;
