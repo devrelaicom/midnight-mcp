@@ -46,6 +46,14 @@ jobs:
       - name: Run tests
         run: npm test -- --run
 
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Typecheck API
+        working-directory: api
+        run: npx tsc --noEmit
+
   publish-check:
     runs-on: ubuntu-latest
     needs: test
