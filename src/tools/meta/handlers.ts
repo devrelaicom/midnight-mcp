@@ -214,7 +214,7 @@ export async function suggestTool(input: SuggestToolInput) {
   if (matchedTools.length === 0 && matchedCategories.length === 0) {
     return {
       intent: input.intent,
-      suggestions: [],
+      suggestions: [] as Array<{ tool: string; reason: string; confidence: string }>,
       fallback: {
         tool: "midnight-list-tool-categories",
         reason: "No specific match found. Start by exploring available tool categories.",
