@@ -58,6 +58,13 @@ function loadConfig(): Config {
 
 export const config = loadConfig();
 
+// Log active mode on startup (stderr so it doesn't interfere with MCP protocol on stdout)
+if (config.mode === "hosted") {
+  console.error(`[midnight-mcp] Mode: hosted (API: ${config.hostedApiUrl})`);
+} else {
+  console.error(`[midnight-mcp] Mode: local (ChromaDB: ${config.chromaUrl})`);
+}
+
 /**
  * Check if running in hosted mode (default)
  */

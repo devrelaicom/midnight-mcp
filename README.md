@@ -167,6 +167,16 @@ npx midnight-mcp --http --port 3000
 
 The server binds to `127.0.0.1` (localhost only). Endpoints: `/health`, `/mcp` (Streamable HTTP), `/sse` (Server-Sent Events)
 
+### Operating Modes
+
+By default, the MCP server runs in **hosted mode** — all search, analysis, and compilation requests are sent to the production Cloudflare Workers API (`midnight-mcp-api.midnightmcp.workers.dev`). No local infrastructure is needed.
+
+To point at a different API endpoint (e.g., staging), set `MIDNIGHT_API_URL`:
+
+```json
+"env": { "MIDNIGHT_API_URL": "https://your-staging-api.workers.dev" }
+```
+
 ### Local Mode
 
 Run everything locally for privacy or offline use:
