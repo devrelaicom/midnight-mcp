@@ -17,7 +17,8 @@
   "dependencies": {
     "@types/tar-stream": "^3.1.4",
     "hono": "^4.12.7",
-    "tar-stream": "^3.1.8"
+    "tar-stream": "^3.1.8",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260310.1",

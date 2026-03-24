@@ -77,8 +77,10 @@ async function checkForUpdates(): Promise<void> {
 
     if (!response.ok) return;
 
-    const data = (await response.json()) as { version: string };
-    const latestVersion = data.version;
+    const raw: unknown = await response.json();
+    const parsed = z.object({ version: z.string() }).safeParse(raw);
+    if (!parsed.success) return;
+    const latestVersion = parsed.data.version;
 
     if (
       semver.valid(latestVersion) &&

@@ -3,8 +3,24 @@
  * All compact-playground interactions go through the API layer's /pg/* routes.
  */
 
+import { z } from "zod";
 import { config } from "../utils/config.js";
 import { MCPError, ErrorCodes } from "../utils/index.js";
+import {
+  CompileResponseSchema,
+  FormatResultSchema,
+  AnalyzeResultSchema,
+  DiffResultSchema,
+  VisualizeResultSchema,
+  ProveResultSchema,
+  SimulateDeployResultSchema,
+  SimulateCallResultSchema,
+  SimulateStateResultSchema,
+  SimulateDeleteResultSchema,
+  VersionsResultSchema,
+  LibrariesResultSchema,
+  PlaygroundHealthSchema,
+} from "./playground-schemas.js";
 
 const TIMEOUT = 30000;
 const MAX_CODE_SIZE = 100 * 1024;
@@ -22,7 +38,8 @@ export function buildCacheUrl(cacheKey: string): string {
 async function request<T>(
   method: "GET" | "POST" | "DELETE",
   path: string,
-  body?: unknown,
+  body: unknown,
+  schema: z.ZodType,
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -51,7 +68,16 @@ async function request<T>(
       throw new MCPError(`API error (${response.status}): ${text}`, ErrorCodes.INTERNAL_ERROR);
     }
 
-    return (await response.json()) as T;
+    const raw: unknown = await response.json();
+    const result = schema.safeParse(raw);
+    if (!result.success) {
+      const detail = result.error.issues[0]?.message ?? "unexpected shape";
+      throw new MCPError(
+        `Invalid response from playground${path}: ${detail}`,
+        ErrorCodes.INTERNAL_ERROR,
+      );
+    }
+    return result.data as T;
   } catch (error) {
     if (error instanceof MCPError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
@@ -66,16 +92,16 @@ async function request<T>(
   }
 }
 
-function post<T>(path: string, body: unknown): Promise<T> {
-  return request<T>("POST", path, body);
+function post<T>(path: string, body: unknown, schema: z.ZodType): Promise<T> {
+  return request<T>("POST", path, body, schema);
 }
 
-function get<T>(path: string): Promise<T> {
-  return request<T>("GET", path);
+function get<T>(path: string, schema: z.ZodType): Promise<T> {
+  return request<T>("GET", path, undefined, schema);
 }
 
-function del<T>(path: string): Promise<T> {
-  return request<T>("DELETE", path);
+function del<T>(path: string, schema: z.ZodType): Promise<T> {
+  return request<T>("DELETE", path, undefined, schema);
 }
 
 // ---- Compile ----
@@ -148,7 +174,7 @@ export async function compile(
     body.versions = options.versions;
   }
 
-  return post("/compile", body);
+  return post("/compile", body, CompileResponseSchema);
 }
 
 // ---- Format ----
@@ -169,7 +195,7 @@ export async function format(
   if (options.versions) {
     body.versions = options.versions;
   }
-  return post("/format", body);
+  return post("/format", body, FormatResultSchema);
 }
 
 // ---- Analyze ----
@@ -231,7 +257,7 @@ export async function analyze(code: string, options: AnalyzeOptions = {}): Promi
   if (options.version) body.version = options.version;
   if (options.versions) body.versions = options.versions;
 
-  return post("/analyze", body);
+  return post("/analyze", body, AnalyzeResultSchema);
 }
 
 // ---- Diff ----
@@ -255,7 +281,7 @@ export interface DiffResult {
 }
 
 export async function diff(before: string, after: string): Promise<DiffResult> {
-  return post("/diff", { before, after });
+  return post("/diff", { before, after }, DiffResultSchema);
 }
 
 // ---- Visualize ----
@@ -271,7 +297,7 @@ export async function visualize(
   code: string,
   options: { version?: string } = {},
 ): Promise<VisualizeResult> {
-  return post("/visualize", { code, ...options });
+  return post("/visualize", { code, ...options }, VisualizeResultSchema);
 }
 
 // ---- Prove ----
@@ -286,7 +312,7 @@ export async function prove(
   code: string,
   options: { version?: string } = {},
 ): Promise<ProveResult> {
-  return post("/prove", { code, ...options });
+  return post("/prove", { code, ...options }, ProveResultSchema);
 }
 
 // ---- Compile Archive ----
@@ -321,7 +347,7 @@ export async function compileArchive(
   if (options.version) body.version = options.version;
   if (options.versions) body.versions = options.versions;
 
-  return post("/compile/archive", body);
+  return post("/compile/archive", body, CompileResponseSchema);
 }
 
 // ---- Simulate ----
@@ -337,7 +363,7 @@ export async function simulateDeploy(
   code: string,
   options: { version?: string } = {},
 ): Promise<SimulateDeployResult> {
-  return post("/simulate/deploy", { code, ...options });
+  return post("/simulate/deploy", { code, ...options }, SimulateDeployResultSchema);
 }
 
 export interface SimulateCallResult {
@@ -352,10 +378,11 @@ export async function simulateCall(
   circuit: string,
   args?: Record<string, string>,
 ): Promise<SimulateCallResult> {
-  return post(`/simulate/${sessionId}/call`, {
-    circuit,
-    ...(args && { parameters: args }),
-  });
+  return post(
+    `/simulate/${sessionId}/call`,
+    { circuit, ...(args && { parameters: args }) },
+    SimulateCallResultSchema,
+  );
 }
 
 export interface SimulateStateResult {
@@ -366,7 +393,7 @@ export interface SimulateStateResult {
 }
 
 export async function simulateState(sessionId: string): Promise<SimulateStateResult> {
-  return get(`/simulate/${sessionId}/state`);
+  return get(`/simulate/${sessionId}/state`, SimulateStateResultSchema);
 }
 
 export interface SimulateDeleteResult {
@@ -374,7 +401,7 @@ export interface SimulateDeleteResult {
 }
 
 export async function simulateDelete(sessionId: string): Promise<SimulateDeleteResult> {
-  return del(`/simulate/${sessionId}`);
+  return del(`/simulate/${sessionId}`, SimulateDeleteResultSchema);
 }
 
 // ---- Versions ----
@@ -385,7 +412,7 @@ export interface VersionsResult {
 }
 
 export async function listVersions(): Promise<VersionsResult> {
-  return get("/versions");
+  return get("/versions", VersionsResultSchema);
 }
 
 // ---- Libraries ----
@@ -395,7 +422,7 @@ export interface LibrariesResult {
 }
 
 export async function listLibraries(): Promise<LibrariesResult> {
-  return get("/libraries");
+  return get("/libraries", LibrariesResultSchema);
 }
 
 // ---- Health ----
@@ -415,10 +442,12 @@ export async function healthCheck(): Promise<{
     if (!response.ok) {
       return { status: "unavailable" };
     }
-    return (await response.json()) as {
-      status: string;
-      compactCli?: { installed: boolean; version?: string };
-    };
+    const raw: unknown = await response.json();
+    const parsed = PlaygroundHealthSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { status: "unavailable" };
+    }
+    return parsed.data;
   } catch {
     return { status: "unavailable" };
   } finally {

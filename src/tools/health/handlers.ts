@@ -20,7 +20,10 @@ import type {
   ListLibrariesInput,
 } from "./schemas.js";
 
+import { z } from "zod";
 import { CURRENT_VERSION } from "../../utils/version.js";
+
+const NpmVersionSchema = z.object({ version: z.string() });
 
 /**
  * Perform health check on the MCP server
@@ -95,8 +98,17 @@ export async function checkVersion(_input: CheckVersionInput) {
       };
     }
 
-    const data = (await response.json()) as { version: string };
-    const latestVersion = data.version;
+    const raw: unknown = await response.json();
+    const parsed = NpmVersionSchema.safeParse(raw);
+    if (!parsed.success) {
+      return {
+        currentVersion: CURRENT_VERSION,
+        latestVersion: "unknown",
+        isUpToDate: true,
+        error: "Invalid response from npm registry",
+      };
+    }
+    const latestVersion = parsed.data.version;
     const isUpToDate = CURRENT_VERSION === latestVersion;
 
     return {

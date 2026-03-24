@@ -3,7 +3,14 @@
  * Caches embedding vectors by normalized query hash to avoid redundant API calls.
  */
 
-import type { EmbeddingResponse } from "../interfaces";
+import { z } from "zod";
+
+/** Zod schema for OpenAI embeddings API response. Requires at least one embedding. */
+const EmbeddingResponseSchema = z.object({
+  data: z
+    .array(z.object({ embedding: z.array(z.number()) }))
+    .min(1, "OpenAI returned empty embeddings array"),
+});
 
 /**
  * Normalize a query for consistent cache keys.
@@ -65,8 +72,13 @@ export async function getEmbedding(
     throw new Error(`OpenAI API error: ${response.status}`);
   }
 
-  const data = (await response.json()) as EmbeddingResponse;
-  const embedding = data.data[0].embedding;
+  const raw: unknown = await response.json();
+  const parsed = EmbeddingResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    const detail = parsed.error.issues[0]?.message ?? "unexpected shape";
+    throw new Error(`Invalid OpenAI embeddings response: ${detail}`);
+  }
+  const embedding = parsed.data.data[0]!.embedding;
 
   // Store in cache
   await db.prepare(

@@ -3,6 +3,28 @@
  * Handles token generation, PKCE verification, and GitHub API calls.
  */
 
+import { z } from "zod";
+
+// --- GitHub API response schemas ---
+
+const GitHubTokenResponseSchema = z.object({
+  access_token: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
+const GitHubUserSchema = z.object({
+  id: z.number(),
+  login: z.string(),
+  email: z.string().nullable(),
+});
+
+const GitHubEmailsSchema = z.array(
+  z.object({ email: z.string(), primary: z.boolean() }),
+);
+
+const GitHubOrgsSchema = z.array(z.object({ login: z.string() }));
+
 /**
  * Generate a cryptographically random hex string.
  */
@@ -64,11 +86,12 @@ export async function exchangeCodeWithGitHub(
     throw new Error(`GitHub token exchange failed: ${response.status}`);
   }
 
-  const data = (await response.json()) as {
-    access_token?: string;
-    error?: string;
-    error_description?: string;
-  };
+  const raw: unknown = await response.json();
+  const parsed = GitHubTokenResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error("Invalid GitHub token response");
+  }
+  const data = parsed.data;
 
   if (data.error || !data.access_token) {
     throw new Error(
@@ -97,11 +120,12 @@ export async function getGitHubUser(
     throw new Error(`GitHub user fetch failed: ${response.status}`);
   }
 
-  const user = (await response.json()) as {
-    id: number;
-    login: string;
-    email: string | null;
-  };
+  const rawUser: unknown = await response.json();
+  const userParsed = GitHubUserSchema.safeParse(rawUser);
+  if (!userParsed.success) {
+    throw new Error("Invalid GitHub user response");
+  }
+  const user = userParsed.data;
 
   // If email is null (private), try the emails endpoint
   let email = user.email || "";
@@ -115,12 +139,12 @@ export async function getGitHubUser(
         },
       });
       if (emailsResponse.ok) {
-        const emails = (await emailsResponse.json()) as Array<{
-          email: string;
-          primary: boolean;
-        }>;
-        const primary = emails.find((e) => e.primary);
-        email = primary?.email || emails[0]?.email || "";
+        const rawEmails: unknown = await emailsResponse.json();
+        const emailsParsed = GitHubEmailsSchema.safeParse(rawEmails);
+        if (emailsParsed.success) {
+          const primary = emailsParsed.data.find((e) => e.primary);
+          email = primary?.email || emailsParsed.data[0]?.email || "";
+        }
       }
     } catch {
       // Non-critical, proceed without email
@@ -148,6 +172,10 @@ export async function getGitHubOrgs(
     return []; // Non-critical — user may have no orgs
   }
 
-  const orgs = (await response.json()) as Array<{ login: string }>;
-  return orgs.map((o) => o.login);
+  const rawOrgs: unknown = await response.json();
+  const orgsParsed = GitHubOrgsSchema.safeParse(rawOrgs);
+  if (!orgsParsed.success) {
+    return []; // Non-critical — treat parse failure as empty
+  }
+  return orgsParsed.data.map((o) => o.login);
 }

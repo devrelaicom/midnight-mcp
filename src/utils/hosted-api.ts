@@ -3,8 +3,50 @@
  * Used when running in hosted mode (default)
  */
 
+import { z } from "zod";
 import { config, logger } from "./index.js";
 import { CURRENT_VERSION } from "./version.js";
+
+// --- Response schemas for hosted API ---
+
+const ApiErrorSchema = z.object({
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
+export const HostedSearchResponseSchema = z
+  .object({
+    results: z.array(
+      z
+        .object({
+          relevanceScore: z.number(),
+          source: z
+            .object({
+              repository: z.string(),
+              filePath: z.string(),
+            })
+            .loose(),
+        })
+        .loose(),
+    ),
+    totalResults: z.number(),
+    query: z.string(),
+  })
+  .loose();
+
+const HostedHealthSchema = z
+  .object({
+    status: z.string(),
+    vectorStore: z.object({ documentsIndexed: z.number() }).optional(),
+  })
+  .loose();
+
+const HostedStatsSchema = z
+  .object({
+    documentsIndexed: z.number(),
+    repositories: z.number(),
+  })
+  .loose();
 
 const API_TIMEOUT = 15000; // 15 seconds (increased from 10s for reliability)
 const MAX_RETRIES = 2; // Retry up to 2 times (3 total attempts)
@@ -55,11 +97,11 @@ async function parseApiError(response: Response, endpoint: string): Promise<Erro
   let serverMessage: string | undefined;
 
   try {
-    const errorData = (await response.json()) as {
-      error?: string;
-      message?: string;
-    };
-    serverMessage = errorData.error || errorData.message;
+    const raw: unknown = await response.json();
+    const parsed = ApiErrorSchema.safeParse(raw);
+    if (parsed.success) {
+      serverMessage = parsed.data.error || parsed.data.message;
+    }
   } catch {
     // JSON parsing failed, that's okay
   }
@@ -130,7 +172,12 @@ function sleep(ms: number): Promise<void> {
 /**
  * Make a single request attempt to the hosted API
  */
-async function makeRequest<T>(url: string, endpoint: string, options: RequestInit): Promise<T> {
+async function makeRequest<T>(
+  url: string,
+  endpoint: string,
+  options: RequestInit,
+  schema?: z.ZodType<T>,
+): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
@@ -151,7 +198,16 @@ async function makeRequest<T>(url: string, endpoint: string, options: RequestIni
       throw await parseApiError(response, endpoint);
     }
 
-    return (await response.json()) as T;
+    const raw: unknown = await response.json();
+    if (schema) {
+      const result = schema.safeParse(raw);
+      if (!result.success) {
+        const detail = result.error.issues[0]?.message ?? "unexpected shape";
+        throw new Error(`Invalid response from ${endpoint}: ${detail}`);
+      }
+      return result.data;
+    }
+    return raw as T;
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Request to ${endpoint} timed out after ${API_TIMEOUT / 1000}s.`, {
@@ -167,13 +223,17 @@ async function makeRequest<T>(url: string, endpoint: string, options: RequestIni
 /**
  * Make a request to the hosted API with automatic retry on transient failures
  */
-async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  schema?: z.ZodType<T>,
+): Promise<T> {
   const url = `${config.hostedApiUrl}${endpoint}`;
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      return await makeRequest<T>(url, endpoint, options);
+      return await makeRequest<T>(url, endpoint, options, schema);
     } catch (error: unknown) {
       lastError = error as Error;
 
@@ -236,10 +296,14 @@ export async function searchCompactHosted(
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching Compact code via hosted API", { query });
 
-  return apiRequest<HostedSearchResponse>("/v1/search/compact", {
-    method: "POST",
-    body: JSON.stringify({ query, limit }),
-  });
+  return apiRequest(
+    "/v1/search/compact",
+    {
+      method: "POST",
+      body: JSON.stringify({ query, limit }),
+    },
+    HostedSearchResponseSchema,
+  );
 }
 
 /**
@@ -252,10 +316,14 @@ export async function searchTypeScriptHosted(
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching TypeScript code via hosted API", { query });
 
-  return apiRequest<HostedSearchResponse>("/v1/search/typescript", {
-    method: "POST",
-    body: JSON.stringify({ query, limit, includeTypes }),
-  });
+  return apiRequest(
+    "/v1/search/typescript",
+    {
+      method: "POST",
+      body: JSON.stringify({ query, limit, includeTypes }),
+    },
+    HostedSearchResponseSchema,
+  );
 }
 
 /**
@@ -268,10 +336,14 @@ export async function searchDocsHosted(
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching documentation via hosted API", { query });
 
-  return apiRequest<HostedSearchResponse>("/v1/search/docs", {
-    method: "POST",
-    body: JSON.stringify({ query, limit, category }),
-  });
+  return apiRequest(
+    "/v1/search/docs",
+    {
+      method: "POST",
+      body: JSON.stringify({ query, limit, category }),
+    },
+    HostedSearchResponseSchema,
+  );
 }
 
 /**
@@ -284,10 +356,14 @@ export async function searchHosted(
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching via hosted API", { query, filter });
 
-  return apiRequest<HostedSearchResponse>("/v1/search", {
-    method: "POST",
-    body: JSON.stringify({ query, limit, filter }),
-  });
+  return apiRequest(
+    "/v1/search",
+    {
+      method: "POST",
+      body: JSON.stringify({ query, limit, filter }),
+    },
+    HostedSearchResponseSchema,
+  );
 }
 
 /**
@@ -299,10 +375,7 @@ export async function checkHostedApiHealth(): Promise<{
   error?: string;
 }> {
   try {
-    const response = await apiRequest<{
-      status: string;
-      vectorStore?: { documentsIndexed: number };
-    }>("/health");
+    const response = await apiRequest("/health", {}, HostedHealthSchema);
 
     return {
       available: response.status === "healthy",
@@ -323,7 +396,7 @@ export async function getHostedApiStats(): Promise<{
   documentsIndexed: number;
   repositories: number;
 }> {
-  return apiRequest<{ documentsIndexed: number; repositories: number }>("/v1/stats");
+  return apiRequest("/v1/stats", {}, HostedStatsSchema);
 }
 
 /**
