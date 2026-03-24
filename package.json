@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsup && node --import tsx scripts/update-server-json.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "start": "node dist/bin.js --stdio",
     "start:http": "node dist/bin.js --http",
     "dev": "NODE_ENV=development tsup --watch",
@@ -22,7 +23,7 @@
     "format:check": "prettier --check src/**/*.ts",
     "update-server-json": "node --import tsx scripts/update-server-json.ts",
     "prepublishOnly": "npm run ci",
-    "ci": "npm run typecheck && npm run lint -- --max-warnings 0 && npm run format:check && npm run build && npm run test:run",
+    "ci": "npm run typecheck && npm run typecheck:tests && npm run lint -- --max-warnings 0 && npm run format:check && npm run build && npm run test:run",
     "prepare": "husky"
   },
   "keywords": [

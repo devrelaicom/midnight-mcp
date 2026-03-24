@@ -78,8 +78,8 @@ describe("Contract Analyzer", () => {
 
     expect(result.success).toBe(true);
     expect(result.mode).toBe("fast");
-    expect(result.circuits.length).toBe(1);
-    expect(result.circuits[0].name).toBe("increment");
+    expect(result.circuits!.length).toBe(1);
+    expect((result.circuits![0] as Record<string, unknown>).name).toBe("increment");
   });
 
   it("should pass mode to the API", async () => {
@@ -134,6 +134,8 @@ describe("Compile Contract", () => {
     const result = (await compileContract({
       code: `pragma language_version >= 0.18.0;`,
       skipZk: true,
+      fullCompile: false,
+      includeBindings: false,
     })) as Record<string, unknown>;
 
     expect(result.success).toBe(true);
@@ -147,13 +149,13 @@ describe("Compile Contract", () => {
     });
 
     await expect(
-      compileContract({ code: "pragma language_version >= 0.18.0;" }),
+      compileContract({ code: "pragma language_version >= 0.18.0;", skipZk: true, fullCompile: false, includeBindings: false }),
     ).rejects.toThrow(/unavailable/);
   });
 
   it("should throw MCPError for oversized code", async () => {
     await expect(
-      compileContract({ code: "x".repeat(200 * 1024) }),
+      compileContract({ code: "x".repeat(200 * 1024), skipZk: true, fullCompile: false, includeBindings: false }),
     ).rejects.toThrow(/exceeds maximum size/);
   });
 
@@ -168,13 +170,15 @@ describe("Compile Contract", () => {
 
     const result = (await compileContract({
       code: "test code",
+      skipZk: true,
       fullCompile: true,
+      includeBindings: false,
     })) as Record<string, unknown>;
 
     expect(result.compilationMode).toBe("full");
 
     // Verify that fetch was called with skipZk: false
-    const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body as string) as Record<string, unknown>;
+    const fetchBody = JSON.parse(mockFetch.mock.calls[0]![1]!.body as string) as Record<string, unknown>;
     const options = fetchBody.options as Record<string, unknown>;
     expect(options.skipZk).toBe(false);
   });

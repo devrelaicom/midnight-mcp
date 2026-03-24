@@ -77,7 +77,7 @@ async function suggestTool(input: { intent: string }) {
   if (matchedTools.length === 0 && matchedCategories.length === 0) {
     return {
       intent: input.intent,
-      suggestions: [],
+      suggestions: [] as Array<{ tool: string; reason: string; confidence: string }>,
       fallback: {
         tool: "midnight-list-tool-categories",
         reason:
@@ -133,9 +133,9 @@ describe("suggestTool", () => {
       });
 
       expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-search-compact");
+      expect(result.suggestions[0]!.tool).toBe("midnight-search-compact");
       // Single keyword match = medium confidence, which is correct behavior
-      expect(["high", "medium"]).toContain(result.suggestions[0].confidence);
+      expect(["high", "medium"]).toContain(result.suggestions[0]!.confidence);
     });
 
     it("should match security intents to analyze-contract", async () => {
@@ -144,8 +144,8 @@ describe("suggestTool", () => {
       });
 
       expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-analyze-contract");
-      expect(result.suggestions[0].confidence).toBe("high");
+      expect(result.suggestions[0]!.tool).toBe("midnight-analyze-contract");
+      expect(result.suggestions[0]!.confidence).toBe("high");
     });
 
     it("should match upgrade intents to upgrade-check", async () => {
@@ -154,7 +154,7 @@ describe("suggestTool", () => {
       });
 
       expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-upgrade-check");
+      expect(result.suggestions[0]!.tool).toBe("midnight-upgrade-check");
     });
 
   });
@@ -175,7 +175,7 @@ describe("suggestTool", () => {
         intent: "token transfer balance mint",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-search-compact");
+      expect(result.suggestions[0]!.tool).toBe("midnight-search-compact");
     });
 
     it("should match DAO/governance intents", async () => {
@@ -193,7 +193,7 @@ describe("suggestTool", () => {
         intent: "typescript sdk integration",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-search-typescript");
+      expect(result.suggestions[0]!.tool).toBe("midnight-search-typescript");
     });
   });
 
@@ -203,7 +203,7 @@ describe("suggestTool", () => {
         intent: "simple beginner hello world",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-list-examples");
+      expect(result.suggestions[0]!.tool).toBe("midnight-list-examples");
     });
 
     it("should match onboarding intents to get-repo-context", async () => {
@@ -223,7 +223,7 @@ describe("suggestTool", () => {
         intent: "server not working broken error",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-health-check");
+      expect(result.suggestions[0]!.tool).toBe("midnight-health-check");
     });
 
     it("should match rate limit intents to health-check", async () => {
@@ -231,7 +231,7 @@ describe("suggestTool", () => {
         intent: "getting 429 rate limit errors",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-health-check");
+      expect(result.suggestions[0]!.tool).toBe("midnight-health-check");
     });
 
     it("should match server status intents", async () => {
@@ -310,7 +310,7 @@ describe("suggestTool", () => {
         intent: "get file content from repo",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-get-file");
+      expect(result.suggestions[0]!.tool).toBe("midnight-get-file");
     });
 
     it("should match recent updates intents", async () => {
