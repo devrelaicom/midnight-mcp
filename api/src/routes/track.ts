@@ -20,18 +20,19 @@ trackRoutes.post("/tool", async (c) => {
   try {
     const body = await c.req.json<TrackRequest>();
 
-    if (!body.tool || typeof body.tool !== "string") {
+    const tool = typeof body.tool === "string" ? body.tool.trim().slice(0, 100) : "";
+    if (!tool) {
       return c.json({ error: "tool name is required" }, 400);
     }
 
+    const version = typeof body.version === "string" ? body.version.trim().slice(0, 50) : undefined;
+    const durationMs =
+      typeof body.durationMs === "number" && body.durationMs >= 0 && body.durationMs <= 600_000
+        ? Math.round(body.durationMs)
+        : undefined;
+
     c.executionCtx.waitUntil(
-      trackToolCall(
-        c.env.DB,
-        body.tool,
-        body.success !== false,
-        body.durationMs,
-        body.version,
-      ),
+      trackToolCall(c.env.DB, tool, body.success !== false, durationMs, version),
     );
 
     return c.json({ tracked: true });
