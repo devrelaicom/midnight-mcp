@@ -25,7 +25,8 @@ jobs:
       - name: Check for unresolved infrastructure placeholders
         run: |
           if grep -q 'REPLACE_AFTER_CREATE' api/wrangler.toml; then
-            echo "::warning file=api/wrangler.toml::Unresolved D1 database placeholder. Run: npx wrangler d1 create midnight-mcp — then update database_id. See api/README.md Step 4."
+            echo "::error file=api/wrangler.toml::Unresolved D1 database placeholder. Run: npx wrangler d1 create midnight-mcp — then update database_id. See api/README.md Step 4."
+            exit 1
           fi
 
       - name: Install dependencies
