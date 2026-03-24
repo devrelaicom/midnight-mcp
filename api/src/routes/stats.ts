@@ -1,16 +1,19 @@
 /**
  * Stats API routes
+ *
+ * Public aggregate statistics only — no raw query data is exposed.
+ * Raw queries are available only through the auth-protected dashboard.
  */
 
 import { Hono } from "hono";
 import type { Bindings } from "../interfaces";
-import { getMetrics } from "../services";
+import { getAggregateMetrics } from "../services";
 
 const statsRoutes = new Hono<{ Bindings: Bindings }>();
 
-// Stats endpoint (JSON API)
+// Stats endpoint (JSON API) — aggregate metrics only
 statsRoutes.get("/", async (c) => {
-  const metrics = await getMetrics(c.env.DB);
+  const metrics = await getAggregateMetrics(c.env.DB);
 
   return c.json({
     service: "midnight-mcp-api",
@@ -25,16 +28,6 @@ statsRoutes.get("/", async (c) => {
       documentHitsByRepo: metrics.documentsByRepo,
       lastUpdated: metrics.lastUpdated,
     },
-  });
-});
-
-// Recent queries endpoint
-statsRoutes.get("/queries", async (c) => {
-  const metrics = await getMetrics(c.env.DB);
-
-  return c.json({
-    recentQueries: metrics.recentQueries,
-    total: metrics.totalQueries,
   });
 });
 

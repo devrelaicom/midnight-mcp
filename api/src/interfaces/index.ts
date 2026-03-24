@@ -56,24 +56,29 @@ export interface ToolCall {
   endpoint?: string;
 }
 
-export interface Metrics {
+/** Aggregate-only metrics safe for public consumption (no raw query/tool data). */
+export interface AggregateMetrics {
   totalQueries: number;
   queriesByEndpoint: Record<string, number>;
   queriesByLanguage: Record<string, number>;
   avgRelevanceScore: number;
   scoreDistribution: { high: number; medium: number; low: number };
-  recentQueries: QueryLog[];
   documentsByRepo: Record<string, number>;
   lastUpdated: string;
   // Tool tracking
   totalToolCalls: number;
   toolCallsByName: Record<string, number>;
-  recentToolCalls: ToolCall[];
   // Playground tracking
   playgroundCalls: number;
   playgroundByEndpoint: Record<string, number>;
   playgroundByVersion: Record<string, number>;
   playgroundErrors: number;
+}
+
+/** Full metrics including raw query/tool call logs — auth-protected only. */
+export interface Metrics extends AggregateMetrics {
+  recentQueries: QueryLog[];
+  recentToolCalls: ToolCall[];
 }
 
 // ============== Search Types ==============

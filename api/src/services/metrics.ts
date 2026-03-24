@@ -4,7 +4,7 @@
  * and blocking KV I/O on every request.
  */
 
-import type { Metrics, QueryLog, ToolCall } from "../interfaces";
+import type { AggregateMetrics, Metrics, QueryLog, ToolCall } from "../interfaces";
 
 // ---- Counter helpers ----
 
@@ -157,7 +157,50 @@ export async function trackPlaygroundCall(
 // ---- Read functions ----
 
 /**
+ * Read aggregate counters only — no raw query or tool-call logs.
+ * Safe for public, unauthenticated endpoints.
+ */
+export async function getAggregateMetrics(db: D1Database): Promise<AggregateMetrics> {
+  const [countersResult] = await db.batch([
+    db.prepare(`SELECT category, name, value FROM counters`),
+  ]);
+
+  const c = new Map<string, number>();
+  const byCategory = new Map<string, Record<string, number>>();
+
+  for (const row of countersResult.results as Array<{ category: string; name: string; value: number }>) {
+    c.set(`${row.category}:${row.name}`, row.value);
+    if (!byCategory.has(row.category)) byCategory.set(row.category, {});
+    byCategory.get(row.category)![row.name] = row.value;
+  }
+
+  const totalQueries = c.get("total:queries") ?? 0;
+  const avgRelevanceSum = c.get("score:avg_relevance_sum") ?? 0;
+
+  return {
+    totalQueries,
+    queriesByEndpoint: byCategory.get("endpoint") ?? {},
+    queriesByLanguage: byCategory.get("language") ?? {},
+    avgRelevanceScore: totalQueries > 0 ? Math.round((avgRelevanceSum / totalQueries) * 1000) / 1000 : 0,
+    scoreDistribution: {
+      high: c.get("score:high") ?? 0,
+      medium: c.get("score:medium") ?? 0,
+      low: c.get("score:low") ?? 0,
+    },
+    documentsByRepo: byCategory.get("repo") ?? {},
+    lastUpdated: new Date().toISOString(),
+    totalToolCalls: c.get("total:tool_calls") ?? 0,
+    toolCallsByName: byCategory.get("tool") ?? {},
+    playgroundCalls: c.get("total:playground_calls") ?? 0,
+    playgroundByEndpoint: byCategory.get("pg_endpoint") ?? {},
+    playgroundByVersion: byCategory.get("pg_version") ?? {},
+    playgroundErrors: c.get("total:playground_errors") ?? 0,
+  };
+}
+
+/**
  * Read all metrics from D1, returning the full Metrics object.
+ * Includes raw query and tool-call logs — use only behind auth.
  */
 export async function getMetrics(db: D1Database): Promise<Metrics> {
   const [countersResult, recentQueriesResult, recentToolCallsResult] = await db.batch([
