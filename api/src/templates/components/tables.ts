@@ -126,7 +126,7 @@ export function formatDateTime(timestamp: string | number): string {
  */
 export function generateQueriesTable(
   queries: Array<{
-    query: string;
+    queryHash: string;
     endpoint: string;
     topScore: number;
     timestamp: string;
@@ -141,10 +141,10 @@ export function generateQueriesTable(
 
   const columns: TableColumn<(typeof queries)[0]>[] = [
     {
-      key: "query",
-      label: "Query",
+      key: "queryHash",
+      label: "Query Hash",
       render: (q) =>
-        `<span style="word-break: break-word; white-space: normal;">${escapeHtml(q.query)}</span>`,
+        `<code style="font-size: 0.85em; color: var(--muted)">${escapeHtml(q.queryHash)}</code>`,
     },
     { key: "endpoint", label: "Type" },
     {

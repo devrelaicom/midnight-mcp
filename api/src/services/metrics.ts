@@ -6,6 +6,26 @@
 
 import type { AggregateMetrics, Metrics, QueryLog, ToolCall } from "../interfaces";
 
+// ---- Privacy helpers ----
+
+/**
+ * Hash a query string for analytics. Raw query text is never stored —
+ * only this truncated SHA-256 hex digest is persisted, enabling
+ * frequency/dedup analysis without retaining user input.
+ */
+function hashQuery(query: string): string {
+  // Use a fast, synchronous hash for the hot path. Web Crypto is async
+  // and overkill here — we just need a non-reversible digest, not
+  // cryptographic security. FNV-1a 64-bit produces a compact 16-char hex.
+  let h = 0xcbf29ce484222325n;
+  const encoder = new TextEncoder();
+  for (const byte of encoder.encode(query.toLowerCase().trim())) {
+    h ^= BigInt(byte);
+    h = BigInt.asUintN(64, h * 0x100000001b3n);
+  }
+  return h.toString(16).padStart(16, "0");
+}
+
 // ---- Counter helpers ----
 
 function upsertCounter(db: D1Database, category: string, name: string, increment: number): D1PreparedStatement {
@@ -63,7 +83,7 @@ export async function trackQuery(
         `INSERT INTO query_log (query, endpoint, timestamp, results_count, avg_score, top_score, language)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
       ).bind(
-        query.slice(0, 100),
+        hashQuery(query),
         endpoint,
         new Date().toISOString(),
         matches.length,
@@ -222,12 +242,12 @@ export async function getMetrics(db: D1Database): Promise<Metrics> {
   const totalQueries = c.get("total:queries") ?? 0;
   const avgRelevanceSum = c.get("score:avg_relevance_sum") ?? 0;
 
-  // Map query_log rows
+  // Map query_log rows (query column now stores a hash, not raw text)
   const recentQueries: QueryLog[] = (recentQueriesResult.results as Array<{
     query: string; endpoint: string; timestamp: string;
     results_count: number; avg_score: number; top_score: number; language: string | null;
   }>).map((r) => ({
-    query: r.query,
+    queryHash: r.query,
     endpoint: r.endpoint,
     timestamp: r.timestamp,
     resultsCount: r.results_count,

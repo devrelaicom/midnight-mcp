@@ -37,7 +37,7 @@ export interface AuthState {
 // ============== Metrics Types ==============
 
 export interface QueryLog {
-  query: string;
+  queryHash: string;
   endpoint: string;
   timestamp: string;
   resultsCount: number;
