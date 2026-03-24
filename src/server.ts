@@ -21,9 +21,11 @@ import semver from "semver";
 
 import { z } from "zod";
 import {
+  config,
   logger,
   formatErrorResponse,
-  setMCPLogCallback,
+  setMCPLogFunction,
+  initLogging,
   trackToolCall,
   serialize,
 } from "./utils/index.js";
@@ -384,7 +386,7 @@ function registerToolHandlers(server: Server): void {
   // Handle tool calls
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    logger.info(`Tool called: ${name}`, { args });
+    logger.info(`Tool called: ${name}`, { argKeys: Object.keys(args ?? {}) });
     const startTime = Date.now();
 
     const tool = allTools.find((t) => t.name === name);
@@ -771,12 +773,15 @@ function setupSampling(server: Server): void {
  * Called once at startup regardless of transport mode.
  */
 export async function initializeSharedResources(): Promise<void> {
+  // Initialize LogTape logging before any log calls
+  await initLogging({ level: config.logLevel, format: process.env.LOG_FORMAT });
+
   logger.info("Initializing Midnight MCP Server...");
 
-  // Wire up MCP logging once — sendLogToClient resolves the correct
+  // Wire up MCP log forwarding — sendLogToClient resolves the correct
   // server via AsyncLocalStorage (inside handler chains) or activeServer
   // (background/startup), so we don't need a per-server callback.
-  setMCPLogCallback((level, loggerName, data) => {
+  setMCPLogFunction((level, loggerName, data) => {
     sendLogToClient(level as LoggingLevel, loggerName, data);
   });
 
