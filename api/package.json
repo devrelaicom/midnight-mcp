@@ -12,7 +12,9 @@
     "deploy": "wrangler deploy",
     "create-index": "wrangler vectorize create midnight-code --dimensions=1536 --metric=cosine",
     "delete-index": "wrangler vectorize delete midnight-code",
-    "index": "npx tsx scripts/index-repos.ts"
+    "index": "npx tsx scripts/index-repos.ts",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@types/tar-stream": "^3.1.4",
@@ -27,6 +29,7 @@
     "openai": "^6.27.0",
     "tsx": "^4.6.0",
     "typescript": "^5.3.0",
+    "vitest": "^4.1.1",
     "wrangler": "^4.72.0"
   }
 }
