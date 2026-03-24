@@ -159,13 +159,13 @@ Add a `GITHUB_TOKEN` for higher GitHub API rate limits (60 > 5,000 requests/hour
 
 ### HTTP Mode
 
-Run as an HTTP server for web integrations or remote deployment:
+Run as a local HTTP server for tool integrations on your development machine:
 
 ```bash
 npx midnight-mcp --http --port 3000
 ```
 
-Endpoints: `/health`, `/mcp` (Streamable HTTP), `/sse` (Server-Sent Events)
+The server binds to `127.0.0.1` (localhost only). Endpoints: `/health`, `/mcp` (Streamable HTTP), `/sse` (Server-Sent Events)
 
 ### Local Mode
 
