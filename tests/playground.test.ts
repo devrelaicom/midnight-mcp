@@ -258,13 +258,13 @@ describe("playground API client", () => {
       const result = { success: true, result: null, stateChanges: [] };
       mockFetchOk(result);
 
-      const res = await simulateCall("sess-1", "increment", { amount: 1 });
+      const res = await simulateCall("sess-1", "increment", { amount: "1" });
 
       const [url, init] = fetchSpy.mock.calls[0];
       expect(url).toBe(`${BASE_URL}/simulate/sess-1/call`);
       const parsed = JSON.parse(init?.body as string);
       expect(parsed.circuit).toBe("increment");
-      expect(parsed.arguments).toEqual({ amount: 1 });
+      expect(parsed.parameters).toEqual({ amount: "1" });
       expect(res).toEqual(result);
     });
   });

@@ -350,11 +350,11 @@ export interface SimulateCallResult {
 export async function simulateCall(
   sessionId: string,
   circuit: string,
-  args?: Record<string, unknown>,
+  args?: Record<string, string>,
 ): Promise<SimulateCallResult> {
   return post(`/simulate/${sessionId}/call`, {
     circuit,
-    ...(args && { arguments: args }),
+    ...(args && { parameters: args }),
   });
 }
 

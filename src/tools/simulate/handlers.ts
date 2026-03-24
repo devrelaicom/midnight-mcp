@@ -22,7 +22,13 @@ export async function handleSimulateCall(input: SimulateCallInput) {
     sessionId: input.sessionId,
     circuit: input.circuit,
   });
-  return simulateCall(input.sessionId, input.circuit, input.arguments);
+
+  // Coerce argument values to strings — the playground expects Record<string, string>
+  const stringArgs = input.arguments
+    ? Object.fromEntries(Object.entries(input.arguments).map(([k, v]) => [k, String(v)]))
+    : undefined;
+
+  return simulateCall(input.sessionId, input.circuit, stringArgs);
 }
 
 export async function handleSimulateState(input: SimulateStateInput) {
