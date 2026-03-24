@@ -227,7 +227,8 @@ export async function getFile(input: GetFileInput) {
 
   const repoInfo = resolveRepo(input.repo);
   if (!repoInfo) {
-    return SelfCorrectionHints.UNKNOWN_REPO(input.repo, Object.keys(REPO_ALIASES));
+    const hint = SelfCorrectionHints.UNKNOWN_REPO(input.repo, Object.keys(REPO_ALIASES));
+    throw new MCPError(hint.error, hint.code, hint.suggestion);
   }
 
   const file = await githubClient.getFileContent(
@@ -238,7 +239,11 @@ export async function getFile(input: GetFileInput) {
   );
 
   if (!file) {
-    return SelfCorrectionHints.FILE_NOT_FOUND(input.path, `${repoInfo.owner}/${repoInfo.repo}`);
+    const hint = SelfCorrectionHints.FILE_NOT_FOUND(
+      input.path,
+      `${repoInfo.owner}/${repoInfo.repo}`,
+    );
+    throw new MCPError(hint.error, hint.code, hint.suggestion);
   }
 
   let content = file.content;
@@ -252,10 +257,11 @@ export async function getFile(input: GetFileInput) {
     const end = Math.min(lines.length, input.endLine || lines.length);
 
     if (start > end) {
-      return {
-        error: `Invalid line range: startLine (${start}) > endLine (${end})`,
-        suggestion: "Ensure startLine is less than or equal to endLine",
-      };
+      throw new MCPError(
+        `Invalid line range: startLine (${start}) > endLine (${end})`,
+        ErrorCodes.INVALID_INPUT,
+        "Ensure startLine is less than or equal to endLine",
+      );
     }
 
     content = lines.slice(start - 1, end).join("\n");
