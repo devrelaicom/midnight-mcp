@@ -31,13 +31,16 @@ Thank you for your interest in contributing to Midnight MCP! This guide will hel
 midnight-mcp/
 ├── src/
 │   ├── index.ts          # Entry point
-│   ├── tools/            # MCP tools (search, analyze, etc.)
+│   ├── tools/            # MCP tools (search, analyze, simulate, etc.)
 │   ├── resources/        # MCP resources (docs, code, schemas)
-│   ├── prompts/          # MCP prompts
+│   ├── services/         # Playground API client
+│   ├── pipeline/         # GitHub indexing pipeline
+│   ├── config/           # Runtime configuration
+│   ├── types/            # Shared type definitions
 │   ├── utils/            # Shared utilities
 │   └── db/               # Vector store (local mode)
 ├── api/                  # Cloudflare Workers API (hosted backend)
-│   ├── src/              # API source
+│   ├── src/              # API source (routes, middleware, services)
 │   └── scripts/          # Indexing scripts
 └── tests/                # Test files
 ```
@@ -86,8 +89,7 @@ test: add tests for analyze tool
 
 ### PR Checklist
 
-- [ ] Tests pass (`npm test`)
-- [ ] Build succeeds (`npm run build`)
+- [ ] Full CI passes (`npm run ci`)
 - [ ] Code follows existing style
 - [ ] Documentation updated if needed
 
