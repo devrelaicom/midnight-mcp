@@ -19,6 +19,8 @@ export type Bindings = {
   RATE_LIMIT_ANON: RateLimit;
   RATE_LIMIT_AUTH: RateLimit;
   COMPACT_PLAYGROUND_URL: string;
+  // Optional CORS restriction — defaults to "*" (public API)
+  CORS_ORIGINS?: string;
 };
 
 export interface AuthUser {
