@@ -76,7 +76,16 @@ export async function getStatus(_input: GetStatusInput) {
  */
 export async function checkVersion(_input: CheckVersionInput) {
   try {
-    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 5000);
+
+    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       return {
         currentVersion: CURRENT_VERSION,
