@@ -102,6 +102,7 @@ function startCleanupTimer(): void {
       cleanupInterval = null;
     }
   }, 60_000); // Check every minute
+  cleanupInterval.unref(); // Allow process to exit cleanly
 }
 
 function touchSession(session: SimulationSession): void {
@@ -211,7 +212,6 @@ export async function localSimulateDeploy(
         try {
           const { createConstructorContext, emptyZswapLocalState } =
             await import("@midnight-ntwrk/compact-runtime");
-          // Use a dummy coin public key (32 zero bytes as hex) for simulation
           const dummyCoinKey = "0".repeat(64);
           const zswapState = emptyZswapLocalState(dummyCoinKey);
           const ctx = createConstructorContext(
@@ -219,9 +219,14 @@ export async function localSimulateDeploy(
             zswapState.coinPublicKey as unknown as string,
           );
           const initFn = contractModule.initialState as (...a: unknown[]) => unknown;
-          const initialResult = initFn(ctx);
-          if (initialResult != null && typeof initialResult === "object") {
-            session.ledger = { ...(initialResult as Record<string, unknown>) };
+          const constructorResult = initFn(ctx);
+          // constructorResult is a CircuitResults object — extract state if present
+          if (constructorResult != null && typeof constructorResult === "object") {
+            const resultObj = constructorResult as Record<string, unknown>;
+            // The contract state is in the 'state' property of CircuitResults
+            if (resultObj.state != null && typeof resultObj.state === "object") {
+              session.ledger = { ...(resultObj.state as Record<string, unknown>) };
+            }
           }
           logger.info("Contract initialized with compact-runtime", { sessionId });
         } catch (initError) {
@@ -284,18 +289,21 @@ export async function localSimulateCall(
   // Try real circuit execution if the contract module is loaded
   if (session.contractModule && typeof session.contractModule[circuit] === "function") {
     try {
-      const { createCircuitContext, emptyZswapLocalState, ContractState } =
+      const { createCircuitContext, emptyZswapLocalState, ContractState, dummyContractAddress } =
         await import("@midnight-ntwrk/compact-runtime");
-      // Create a simulation circuit context with mock blockchain primitives
+      // Create a simulation circuit context with proper compact-runtime primitives
       const dummyCoinKey = "0".repeat(64);
       const zswapState = emptyZswapLocalState(dummyCoinKey);
-      const mockAddress = "0".repeat(64); // hex-encoded mock address
+      const addr = dummyContractAddress();
       const contractState = new ContractState();
       const ctx = createCircuitContext(
-        mockAddress as unknown as Parameters<typeof createCircuitContext>[0],
-        zswapState,
-        contractState,
-        session.ledger,
+        addr, // contractAddress
+        zswapState, // coinPublicKey / zswap state
+        contractState, // on-chain contract state
+        session.ledger, // private state
+        undefined, // gasLimit (no limit for simulation)
+        undefined, // costModel (not needed for simulation)
+        undefined, // time (defaults to 0)
       );
       const circuitFn = session.contractModule[circuit] as (...circuitArgs: unknown[]) => unknown;
 
