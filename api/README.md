@@ -151,10 +151,10 @@ This runs a configuration check (verifying `wrangler.toml` has a valid D1 databa
 Verify the deployment:
 
 ```bash
-curl https://midnight-mcp-api.<your-subdomain>.workers.dev/health
+curl https://midnight-mcp-api.<your-subdomain>.workers.dev/ready
 ```
 
-You should get a JSON response with `"status": "ok"`.
+You should get a JSON response with `"status": "ready"` and all checks passing. A `503` with `"status": "degraded"` means one or more dependencies (D1, playground) are not responding.
 
 ---
 
@@ -228,6 +228,7 @@ This token needs `repo` scope and access to the `midnightntwrk` org.
 | Endpoint                       | Method | Auth     | Description                      |
 | ------------------------------ | ------ | -------- | -------------------------------- |
 | `/health`                      | GET    | None     | Health check                     |
+| `/ready`                       | GET    | None     | Readiness check (D1 + playground)|
 | `/v1/search/compact`           | POST   | Optional | Search Compact code              |
 | `/v1/search/typescript`        | POST   | Optional | Search TypeScript SDK code       |
 | `/v1/search/docs`              | POST   | Optional | Search documentation             |

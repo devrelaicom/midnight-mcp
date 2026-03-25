@@ -21,4 +21,34 @@ healthRoutes.get("/health", (c) =>
   })
 );
 
+// Readiness check — verifies critical dependencies are responsive
+healthRoutes.get("/ready", async (c) => {
+  const checks: Record<string, { ok: boolean; error?: string }> = {};
+
+  const [db, playground] = await Promise.allSettled([
+    c.env.DB.prepare("SELECT 1").first(),
+    fetch(`${c.env.COMPACT_PLAYGROUND_URL}/health`, { signal: AbortSignal.timeout(5000) }),
+  ]);
+
+  checks.d1 =
+    db.status === "fulfilled"
+      ? { ok: true }
+      : { ok: false, error: db.reason?.message ?? "D1 unreachable" };
+
+  checks.playground =
+    playground.status === "fulfilled" && playground.value.ok
+      ? { ok: true }
+      : {
+          ok: false,
+          error:
+            playground.status === "rejected"
+              ? (playground.reason?.message ?? "Playground unreachable")
+              : `Playground returned ${playground.value.status}`,
+        };
+
+  const ready = Object.values(checks).every((ch) => ch.ok);
+
+  return c.json({ status: ready ? "ready" : "degraded", checks }, ready ? 200 : 503);
+});
+
 export default healthRoutes;
