@@ -138,23 +138,8 @@ function validateParam(c: Context<{ Bindings: Bindings }>, name: string): string
   return value;
 }
 
-// Simulation
-pg.post("/simulate/deploy", (c) => proxyRequest(c, "/simulate/deploy"));
-pg.post("/simulate/:id/call", (c) => {
-  const id = validateParam(c, "id");
-  if (id instanceof Response) return id;
-  return proxyRequest(c, `/simulate/${id}/call`);
-});
-pg.get("/simulate/:id/state", (c) => {
-  const id = validateParam(c, "id");
-  if (id instanceof Response) return id;
-  return proxyRequest(c, `/simulate/${id}/state`, "GET");
-});
-pg.delete("/simulate/:id", (c) => {
-  const id = validateParam(c, "id");
-  if (id instanceof Response) return id;
-  return proxyRequest(c, `/simulate/${id}`, "DELETE");
-});
+// Simulation routes removed — simulation is now handled locally by the MCP server.
+// See src/services/simulator.ts in the main package.
 
 // Reference data
 pg.get("/versions", (c) => proxyRequest(c, "/versions", "GET"));

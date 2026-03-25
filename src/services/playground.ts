@@ -13,10 +13,6 @@ import {
   DiffResultSchema,
   VisualizeResultSchema,
   ProveResultSchema,
-  SimulateDeployResultSchema,
-  SimulateCallResultSchema,
-  SimulateStateResultSchema,
-  SimulateDeleteResultSchema,
   VersionsResultSchema,
   LibrariesResultSchema,
   PlaygroundHealthSchema,
@@ -101,10 +97,6 @@ function post<T>(path: string, body: unknown, schema: z.ZodType): Promise<T> {
 
 function get<T>(path: string, schema: z.ZodType): Promise<T> {
   return request<T>("GET", path, undefined, schema);
-}
-
-function del<T>(path: string, schema: z.ZodType): Promise<T> {
-  return request<T>("DELETE", path, undefined, schema);
 }
 
 // ---- Compile ----
@@ -354,58 +346,8 @@ export async function compileArchive(
 }
 
 // ---- Simulate ----
-
-export interface SimulateDeployResult {
-  success: boolean;
-  sessionId: string;
-  circuits?: unknown[];
-  ledger?: unknown;
-}
-
-export async function simulateDeploy(
-  code: string,
-  options: { version?: string } = {},
-): Promise<SimulateDeployResult> {
-  return post("/simulate/deploy", { code, ...options }, SimulateDeployResultSchema);
-}
-
-export interface SimulateCallResult {
-  success: boolean;
-  result?: unknown;
-  stateChanges?: unknown[];
-  updatedLedger?: unknown;
-}
-
-export async function simulateCall(
-  sessionId: string,
-  circuit: string,
-  args?: Record<string, string>,
-): Promise<SimulateCallResult> {
-  return post(
-    `/simulate/${sessionId}/call`,
-    { circuit, ...(args && { parameters: args }) },
-    SimulateCallResultSchema,
-  );
-}
-
-export interface SimulateStateResult {
-  success: boolean;
-  ledger?: unknown;
-  circuits?: unknown[];
-  callHistory?: unknown[];
-}
-
-export async function simulateState(sessionId: string): Promise<SimulateStateResult> {
-  return get(`/simulate/${sessionId}/state`, SimulateStateResultSchema);
-}
-
-export interface SimulateDeleteResult {
-  success: boolean;
-}
-
-export async function simulateDelete(sessionId: string): Promise<SimulateDeleteResult> {
-  return del(`/simulate/${sessionId}`, SimulateDeleteResultSchema);
-}
+// Simulation has moved to src/services/simulator.ts (local execution).
+// The playground no longer hosts /simulate/* endpoints.
 
 // ---- Versions ----
 

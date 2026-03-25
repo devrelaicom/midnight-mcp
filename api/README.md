@@ -250,10 +250,7 @@ This token needs `repo` scope and access to the `midnightntwrk` org.
 | `/pg/visualize`                | POST   | Optional | Proxy to contract visualizer     |
 | `/pg/prove`                    | POST   | Optional | Proxy to ZK proof analyzer       |
 | `/pg/compile/archive`          | POST   | Optional | Proxy to multi-file compiler     |
-| `/pg/simulate/deploy`          | POST   | Optional | Deploy simulation session        |
-| `/pg/simulate/:id/call`        | POST   | Optional | Execute circuit in simulation    |
-| `/pg/simulate/:id/state`       | GET    | Optional | Read simulation state            |
-| `/pg/simulate/:id`             | DELETE | Optional | End simulation session           |
+| ~~`/pg/simulate/*`~~           | —      | —        | Removed — simulation is now local to the MCP server |
 | `/pg/versions`                 | GET    | Optional | List compiler versions           |
 | `/pg/libraries`                | GET    | Optional | List available OZ libraries      |
 | `/pg/cached-response/:hash`    | GET    | Optional | Retrieve cached playground result|

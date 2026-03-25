@@ -72,16 +72,8 @@ export const VisualizeResultSchema = z.object({ success: z.boolean() }).loose();
 export const ProveResultSchema = z.object({ success: z.boolean() }).loose();
 
 // ---- Simulate ----
-
-export const SimulateDeployResultSchema = z
-  .object({ success: z.boolean(), sessionId: z.string() })
-  .loose();
-
-export const SimulateCallResultSchema = z.object({ success: z.boolean() }).loose();
-
-export const SimulateStateResultSchema = z.object({ success: z.boolean() }).loose();
-
-export const SimulateDeleteResultSchema = z.object({ success: z.boolean() }).loose();
+// Simulation has moved to src/services/simulator.ts (local execution).
+// Schemas removed — the playground no longer hosts /simulate/* endpoints.
 
 // ---- Versions ----
 
