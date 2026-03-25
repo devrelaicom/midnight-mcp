@@ -4,7 +4,7 @@
  */
 
 import { Hono } from "hono";
-import { getCookie } from "hono/cookie";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Bindings, AuthUser } from "../interfaces";
 import {
   generateToken,
@@ -16,6 +16,25 @@ import {
 } from "../services/oauth";
 
 const oauthRoutes = new Hono<{ Bindings: Bindings }>();
+
+/**
+ * Constant-time string comparison to prevent timing side-channel attacks.
+ * Compares SHA-256 digests byte-by-byte to avoid short-circuit evaluation.
+ */
+async function constantTimeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [digestA, digestB] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(a)),
+    crypto.subtle.digest("SHA-256", encoder.encode(b)),
+  ]);
+  const viewA = new Uint8Array(digestA);
+  const viewB = new Uint8Array(digestB);
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    result |= viewA[i]! ^ viewB[i]!;
+  }
+  return result === 0;
+}
 
 // ============================================================================
 // Discovery
@@ -153,8 +172,18 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
     return c.json({ error: "redirect_uri not registered for this client" }, 400);
   }
 
-  // Generate state for CSRF protection
+  // Generate state for CSRF protection and browser-session binding
   const state = generateToken();
+  const browserState = generateToken();
+
+  setCookie(c, "oauth_browser_state", browserState, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: 300,
+    path: "/",
+  });
+
   await c.env.METRICS.put(
     `state:${state}`,
     JSON.stringify({
@@ -162,6 +191,7 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
       redirectUri,
       clientId,
       clientState: clientState || null,
+      browserState,
     }),
     { expirationTtl: 300 }, // 5 minutes
   );
@@ -191,16 +221,28 @@ oauthRoutes.get("/oauth/callback", async (c) => {
   // Verify state (CSRF protection) — lookup and delete to prevent reuse
   const stateData = await c.env.METRICS.get(`state:${state}`);
   if (!stateData) {
+    deleteCookie(c, "oauth_browser_state", { path: "/" });
     return c.json({ error: "Invalid or expired state parameter" }, 400);
   }
   await c.env.METRICS.delete(`state:${state}`);
 
-  const { codeChallenge, redirectUri, clientId, clientState } = JSON.parse(stateData) as {
+  const { codeChallenge, redirectUri, clientId, clientState, browserState } = JSON.parse(
+    stateData,
+  ) as {
     codeChallenge: string;
     redirectUri: string;
     clientId: string;
     clientState: string | null;
+    browserState: string;
   };
+
+  // Verify browser-session binding — the cookie must match the stored nonce
+  const cookieBrowserState = getCookie(c, "oauth_browser_state");
+  deleteCookie(c, "oauth_browser_state", { path: "/" });
+
+  if (!cookieBrowserState || !(await constantTimeEqual(cookieBrowserState, browserState))) {
+    return c.json({ error: "CSRF validation failed" }, 403);
+  }
 
   try {
     // Exchange code with GitHub

@@ -185,7 +185,7 @@ describe("GET /oauth/authorize", () => {
     expect(body.error).toContain("Unknown client_id");
   });
 
-  it("stores state in KV with code_challenge data", async () => {
+  it("stores state in KV with code_challenge and browserState data", async () => {
     const res = await get(
       "/oauth/authorize?response_type=code&client_id=test-client-id&redirect_uri=http://localhost:3000/callback&code_challenge=test-challenge&code_challenge_method=S256",
       env,
@@ -201,6 +201,22 @@ describe("GET /oauth/authorize", () => {
     const parsed = JSON.parse(stateData!);
     expect(parsed.codeChallenge).toBe("test-challenge");
     expect(parsed.redirectUri).toBe("http://localhost:3000/callback");
+    expect(parsed.browserState).toBeDefined();
+    expect(typeof parsed.browserState).toBe("string");
+    expect(parsed.browserState.length).toBeGreaterThan(0);
+  });
+
+  it("sets a browser-state cookie on authorize", async () => {
+    const res = await get(
+      "/oauth/authorize?response_type=code&client_id=test-client-id&redirect_uri=http://localhost:3000/callback&code_challenge=test-challenge&code_challenge_method=S256",
+      env,
+    );
+    expect(res.status).toBe(302);
+    const setCookie = res.headers.get("set-cookie");
+    expect(setCookie).toContain("oauth_browser_state=");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("Secure");
+    expect(setCookie).toContain("Max-Age=300");
   });
 });
 
@@ -211,21 +227,25 @@ describe("GET /oauth/authorize", () => {
 describe("GET /oauth/callback", () => {
   let env: ReturnType<typeof createMockBindings>;
   let kv: KVNamespace;
+  const validBrowserState = "browser-nonce-abc123";
 
   beforeEach(async () => {
     kv = createMockKV();
-    // Pre-store state for callback
+    // Pre-store state for callback (now includes browserState)
     await kv.put("state:valid-state", JSON.stringify({
       codeChallenge: "test-challenge",
       redirectUri: "http://localhost:3000/callback",
       clientId: "test-client-id",
       clientState: "user-state-123",
+      browserState: validBrowserState,
     }));
     env = createMockBindings({ METRICS: kv });
   });
 
-  it("exchanges code and redirects with auth code", async () => {
-    const res = await get("/oauth/callback?code=github-code&state=valid-state", env);
+  it("exchanges code and redirects with auth code (matching cookie)", async () => {
+    const res = await get("/oauth/callback?code=github-code&state=valid-state", env, {
+      Cookie: `oauth_browser_state=${validBrowserState}`,
+    });
     expect(res.status).toBe(302);
     const location = res.headers.get("location")!;
     expect(location).toContain("localhost:3000/callback");
@@ -234,7 +254,9 @@ describe("GET /oauth/callback", () => {
   });
 
   it("stores auth code in KV with user data", async () => {
-    const res = await get("/oauth/callback?code=github-code&state=valid-state", env);
+    const res = await get("/oauth/callback?code=github-code&state=valid-state", env, {
+      Cookie: `oauth_browser_state=${validBrowserState}`,
+    });
     expect(res.status).toBe(302);
     const location = res.headers.get("location")!;
     const url = new URL(location);
@@ -247,7 +269,9 @@ describe("GET /oauth/callback", () => {
   });
 
   it("deletes state from KV after use (prevents reuse)", async () => {
-    await get("/oauth/callback?code=github-code&state=valid-state", env);
+    await get("/oauth/callback?code=github-code&state=valid-state", env, {
+      Cookie: `oauth_browser_state=${validBrowserState}`,
+    });
     const stateData = await kv.get("state:valid-state");
     expect(stateData).toBeNull();
   });
@@ -262,6 +286,32 @@ describe("GET /oauth/callback", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("Invalid or expired state");
+  });
+
+  it("rejects callback with missing browser-state cookie", async () => {
+    const res = await get("/oauth/callback?code=github-code&state=valid-state", env);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("CSRF validation failed");
+  });
+
+  it("rejects callback with mismatched browser-state cookie", async () => {
+    const res = await get("/oauth/callback?code=github-code&state=valid-state", env, {
+      Cookie: "oauth_browser_state=wrong-nonce-value",
+    });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("CSRF validation failed");
+  });
+
+  it("clears browser-state cookie after successful validation", async () => {
+    const res = await get("/oauth/callback?code=github-code&state=valid-state", env, {
+      Cookie: `oauth_browser_state=${validBrowserState}`,
+    });
+    expect(res.status).toBe(302);
+    const setCookie = res.headers.get("set-cookie");
+    expect(setCookie).toContain("oauth_browser_state=");
+    expect(setCookie).toContain("Max-Age=0");
   });
 });
 
