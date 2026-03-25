@@ -218,7 +218,6 @@ Requires ChromaDB (`docker run -d -p 8000:8000 chromadb/chroma`) and an OpenAI A
 npx midnight-mcp --help
 
 Options:
-  --stdio          Use stdio transport (default, for Claude Desktop)
   --http           Use HTTP transport with SSE support
   --port <number>  HTTP port (default: 3000)
   --json           Output in JSON (default: YAML for better LLM efficiency)
@@ -226,6 +225,8 @@ Options:
   -h, --help       Show help
   -v, --version    Show version
 ```
+
+Stdio is the default transport when no flags are provided.
 
 ---
 

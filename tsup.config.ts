@@ -16,5 +16,5 @@ export default defineConfig({
   define: {
     "process.env.NPM_PACKAGE_VERSION": JSON.stringify(packageJson.version),
   },
-  onSuccess: isDev ? "node dist/bin.js --stdio" : undefined,
+  onSuccess: isDev ? "node dist/bin.js" : undefined,
 });

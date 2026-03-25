@@ -413,8 +413,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - SSE endpoint at `/sse`
 
 - **CLI with yargs** - Rich command-line interface
-  - `--stdio` - Use stdio transport (default, for Claude Desktop)
-  - `--http` - Use HTTP transport
+  - `--http` - Use HTTP transport (stdio is the default)
   - `--port <number>` - HTTP port (default: 3000)
   - `--json` - Output in JSON format (default: YAML)
   - `--github-token <token>` - Override GITHUB_TOKEN env var

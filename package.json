@@ -11,7 +11,7 @@
     "build": "tsup && node --import tsx scripts/update-server-json.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
-    "start": "node dist/bin.js --stdio",
+    "start": "node dist/bin.js",
     "start:http": "node dist/bin.js --http",
     "dev": "NODE_ENV=development tsup --watch",
     "test": "vitest",
