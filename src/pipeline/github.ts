@@ -416,7 +416,10 @@ export class GitHubClient {
         params.since = since;
       }
 
-      const { data } = await this.octokit.rest.repos.listCommits(params);
+      const { data } = await withRetry(
+        () => this.octokit.rest.repos.listCommits(params),
+        `getRecentCommits(${owner}/${repo})`,
+      );
 
       return data.map((commit) => ({
         sha: commit.sha,
@@ -442,11 +445,10 @@ export class GitHubClient {
       const changedFiles = new Set<string>();
 
       for (const commit of commits) {
-        const { data } = await this.octokit.rest.repos.getCommit({
-          owner,
-          repo,
-          ref: commit.sha,
-        });
+        const { data } = await withRetry(
+          () => this.octokit.rest.repos.getCommit({ owner, repo, ref: commit.sha }),
+          `getCommit(${owner}/${repo}@${commit.sha.slice(0, 7)})`,
+        );
 
         data.files?.forEach((file) => {
           if (file.filename) {

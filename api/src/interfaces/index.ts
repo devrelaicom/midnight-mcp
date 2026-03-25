@@ -19,6 +19,8 @@ export type Bindings = {
   RATE_LIMIT_ANON: RateLimit;
   RATE_LIMIT_AUTH: RateLimit;
   COMPACT_PLAYGROUND_URL: string;
+  // Optional CORS restriction — defaults to "*" (public API)
+  CORS_ORIGINS?: string;
 };
 
 export interface AuthUser {
@@ -37,7 +39,7 @@ export interface AuthState {
 // ============== Metrics Types ==============
 
 export interface QueryLog {
-  query: string;
+  queryHash: string;
   endpoint: string;
   timestamp: string;
   resultsCount: number;
@@ -56,19 +58,18 @@ export interface ToolCall {
   endpoint?: string;
 }
 
-export interface Metrics {
+/** Aggregate-only metrics safe for public consumption (no raw query/tool data). */
+export interface AggregateMetrics {
   totalQueries: number;
   queriesByEndpoint: Record<string, number>;
   queriesByLanguage: Record<string, number>;
   avgRelevanceScore: number;
   scoreDistribution: { high: number; medium: number; low: number };
-  recentQueries: QueryLog[];
   documentsByRepo: Record<string, number>;
   lastUpdated: string;
   // Tool tracking
   totalToolCalls: number;
   toolCallsByName: Record<string, number>;
-  recentToolCalls: ToolCall[];
   // Playground tracking
   playgroundCalls: number;
   playgroundByEndpoint: Record<string, number>;
@@ -76,12 +77,20 @@ export interface Metrics {
   playgroundErrors: number;
 }
 
+/** Full metrics including raw query/tool call logs — auth-protected only. */
+export interface Metrics extends AggregateMetrics {
+  recentQueries: QueryLog[];
+  recentToolCalls: ToolCall[];
+}
+
 // ============== Search Types ==============
 
 export interface SearchRequestBody {
   query: string;
   limit?: number;
-  filter?: { language?: string };
+  includeTypes?: boolean;
+  category?: "guides" | "api" | "concepts" | "all";
+  filter?: { language?: string; repository?: string };
 }
 
 export interface SearchResult {

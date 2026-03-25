@@ -16,8 +16,9 @@ import {
 export const simulateTools: ExtendedToolDefinition[] = [
   {
     name: "midnight-simulate-deploy",
-    description: `Deploy a Compact contract for interactive simulation.
+    description: `Deploy a Compact contract for local interactive simulation.
 
+Compiles the contract locally and creates an in-memory simulation session.
 Returns a sessionId that MUST be passed to subsequent simulate calls (midnight-simulate-call,
 midnight-simulate-state, midnight-simulate-delete). Sessions expire after 15 minutes of inactivity.
 

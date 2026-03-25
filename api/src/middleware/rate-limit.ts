@@ -11,10 +11,7 @@ interface RateLimit {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
-export const rateLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (
-  c,
-  next
-) => {
+export const rateLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   const authState = c.get("authState") as AuthState;
 
   let limiter: RateLimit;
@@ -30,6 +27,7 @@ export const rateLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (
 
   const { success } = await limiter.limit({ key });
   if (!success) {
+    c.header("Retry-After", "60");
     return c.json({ error: "Rate limited", retryAfter: 60 }, 429);
   }
 

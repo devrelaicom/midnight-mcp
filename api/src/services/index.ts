@@ -3,6 +3,7 @@
  */
 
 export {
+  getAggregateMetrics,
   getMetrics,
   trackQuery,
   trackToolCall,

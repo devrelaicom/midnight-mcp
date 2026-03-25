@@ -7,6 +7,7 @@ vi.mock("../src/utils/config.js", () => ({
     hostedApiUrl: "https://test-api.example.com",
     logLevel: "error",
   },
+  clientId: "test-client-id",
 }));
 
 vi.mock("../src/utils/logger.js", () => ({
@@ -27,10 +28,6 @@ import {
   visualize,
   prove,
   compileArchive,
-  simulateDeploy,
-  simulateCall,
-  simulateState,
-  simulateDelete,
   listVersions,
   listLibraries,
 } from "../src/services/playground.js";
@@ -76,7 +73,7 @@ describe("playground API client", () => {
       const [url, init] = fetchSpy.mock.calls[0];
       expect(url).toBe(`${BASE_URL}/compile`);
       expect(init?.method).toBe("POST");
-      expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+      expect(init?.headers).toEqual({ "Content-Type": "application/json", "X-Client-ID": "test-client-id" });
 
       const parsed = JSON.parse(init?.body as string);
       expect(parsed.code).toBe("export circuit main() {}");
@@ -237,65 +234,8 @@ describe("playground API client", () => {
   });
 
   // ---- simulate ----
-
-  describe("simulateDeploy", () => {
-    it("sends POST to /pg/simulate/deploy", async () => {
-      const result = { success: true, sessionId: "sess-1", circuits: [], ledger: {} };
-      mockFetchOk(result);
-
-      const res = await simulateDeploy("code");
-
-      const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe(`${BASE_URL}/simulate/deploy`);
-      const parsed = JSON.parse(init?.body as string);
-      expect(parsed.code).toBe("code");
-      expect(res).toEqual(result);
-    });
-  });
-
-  describe("simulateCall", () => {
-    it("sends POST to /pg/simulate/:id/call", async () => {
-      const result = { success: true, result: null, stateChanges: [] };
-      mockFetchOk(result);
-
-      const res = await simulateCall("sess-1", "increment", { amount: 1 });
-
-      const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe(`${BASE_URL}/simulate/sess-1/call`);
-      const parsed = JSON.parse(init?.body as string);
-      expect(parsed.circuit).toBe("increment");
-      expect(parsed.arguments).toEqual({ amount: 1 });
-      expect(res).toEqual(result);
-    });
-  });
-
-  describe("simulateState", () => {
-    it("sends GET to /pg/simulate/:id/state", async () => {
-      const result = { success: true, ledger: {}, circuits: [], callHistory: [] };
-      mockFetchOk(result);
-
-      const res = await simulateState("sess-1");
-
-      const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe(`${BASE_URL}/simulate/sess-1/state`);
-      expect(init?.method).toBe("GET");
-      expect(res).toEqual(result);
-    });
-  });
-
-  describe("simulateDelete", () => {
-    it("sends DELETE to /pg/simulate/:id", async () => {
-      const result = { success: true };
-      mockFetchOk(result);
-
-      const res = await simulateDelete("sess-1");
-
-      const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe(`${BASE_URL}/simulate/sess-1`);
-      expect(init?.method).toBe("DELETE");
-      expect(res).toEqual(result);
-    });
-  });
+  // Simulation has moved to src/services/simulator.ts (local execution).
+  // See tests/simulator.test.ts for local simulation tests.
 
   // ---- compileArchive ----
 

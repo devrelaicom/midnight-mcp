@@ -7,15 +7,20 @@
   },
   "scripts": {
     "dev": "wrangler dev",
+    "check-config": "node -e \"const fs=require('fs');if(!fs.existsSync('wrangler.toml')){console.error('ERROR: wrangler.toml not found. Copy wrangler.toml.example and fill in your Cloudflare IDs.\\nSee README.md Step 4.');process.exit(1)}const t=fs.readFileSync('wrangler.toml','utf8');if(/__D1_DATABASE_ID__|__KV_NAMESPACE_ID__|REPLACE_AFTER_CREATE/.test(t)){console.error('ERROR: Unresolved placeholders in wrangler.toml.\\nReplace __D1_DATABASE_ID__ and __KV_NAMESPACE_ID__ with real IDs.\\nSee README.md Step 4.');process.exit(1)}\"",
+    "predeploy": "npm run check-config",
     "deploy": "wrangler deploy",
     "create-index": "wrangler vectorize create midnight-code --dimensions=1536 --metric=cosine",
     "delete-index": "wrangler vectorize delete midnight-code",
-    "index": "npx tsx scripts/index-repos.ts"
+    "index": "npx tsx scripts/index-repos.ts",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@types/tar-stream": "^3.1.4",
     "hono": "^4.12.7",
-    "tar-stream": "^3.1.8"
+    "tar-stream": "^3.1.8",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260310.1",
@@ -24,6 +29,7 @@
     "openai": "^6.27.0",
     "tsx": "^4.6.0",
     "typescript": "^5.3.0",
+    "vitest": "^4.1.1",
     "wrangler": "^4.72.0"
   }
 }

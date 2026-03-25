@@ -4,6 +4,7 @@
  */
 
 import type { ExtendedToolDefinition, ToolCategory } from "../../types/index.js";
+import { MCPError, ErrorCodes } from "../../utils/index.js";
 import type {
   ListToolCategoriesInput,
   ListCategoryToolsInput,
@@ -98,11 +99,11 @@ export async function listCategoryTools(input: ListCategoryToolsInput) {
   const tools = toolsByCategory.get(input.category) || [];
 
   if (tools.length === 0) {
-    return {
-      error: `Unknown or empty category: ${input.category}`,
-      availableCategories: Object.keys(CATEGORY_INFO),
-      suggestion: "Use midnight-list-tool-categories to see available categories.",
-    };
+    throw new MCPError(
+      `Unknown or empty category: ${input.category}`,
+      ErrorCodes.INVALID_INPUT,
+      "Use midnight-list-tool-categories to see available categories.",
+    );
   }
 
   const categoryInfo = CATEGORY_INFO[input.category];
@@ -214,7 +215,7 @@ export async function suggestTool(input: SuggestToolInput) {
   if (matchedTools.length === 0 && matchedCategories.length === 0) {
     return {
       intent: input.intent,
-      suggestions: [],
+      suggestions: [] as Array<{ tool: string; reason: string; confidence: string }>,
       fallback: {
         tool: "midnight-list-tool-categories",
         reason: "No specific match found. Start by exploring available tool categories.",

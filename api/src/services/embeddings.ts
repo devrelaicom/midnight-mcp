@@ -3,7 +3,15 @@
  * Caches embedding vectors by normalized query hash to avoid redundant API calls.
  */
 
-import type { EmbeddingResponse } from "../interfaces";
+import { z } from "zod";
+import { fetchWithTimeout } from "../utils";
+
+/** Zod schema for OpenAI embeddings API response. Requires at least one embedding. */
+const EmbeddingResponseSchema = z.object({
+  data: z
+    .array(z.object({ embedding: z.array(z.number()) }))
+    .min(1, "OpenAI returned empty embeddings array"),
+});
 
 /**
  * Normalize a query for consistent cache keys.
@@ -32,16 +40,17 @@ async function hashQuery(text: string): Promise<string> {
 export async function getEmbedding(
   text: string,
   apiKey: string,
-  db: D1Database
+  db: D1Database,
 ): Promise<number[]> {
   const normalized = normalizeQuery(text);
   const hash = await hashQuery(normalized);
   const cacheKey = `embedding:${hash}`;
 
   // Try cache first
-  const row = await db.prepare(
-    `SELECT embedding FROM embedding_cache WHERE cache_key = ?1`,
-  ).bind(cacheKey).first<{ embedding: string }>();
+  const row = await db
+    .prepare(`SELECT embedding FROM embedding_cache WHERE cache_key = ?1`)
+    .bind(cacheKey)
+    .first<{ embedding: string }>();
   if (row) {
     return JSON.parse(row.embedding) as number[];
   }
@@ -49,7 +58,7 @@ export async function getEmbedding(
   // Cache miss — call OpenAI
   const truncatedText = text.slice(0, 8000);
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const response = await fetchWithTimeout("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -65,14 +74,22 @@ export async function getEmbedding(
     throw new Error(`OpenAI API error: ${response.status}`);
   }
 
-  const data = (await response.json()) as EmbeddingResponse;
-  const embedding = data.data[0].embedding;
+  const raw: unknown = await response.json();
+  const parsed = EmbeddingResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    const detail = parsed.error.issues[0]?.message ?? "unexpected shape";
+    throw new Error(`Invalid OpenAI embeddings response: ${detail}`);
+  }
+  const embedding = parsed.data.data[0]!.embedding;
 
   // Store in cache
-  await db.prepare(
-    `INSERT OR REPLACE INTO embedding_cache (cache_key, embedding, created_at)
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO embedding_cache (cache_key, embedding, created_at)
      VALUES (?1, ?2, datetime('now'))`,
-  ).bind(cacheKey, JSON.stringify(embedding)).run();
+    )
+    .bind(cacheKey, JSON.stringify(embedding))
+    .run();
 
   return embedding;
 }

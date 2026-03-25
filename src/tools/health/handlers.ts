@@ -20,7 +20,10 @@ import type {
   ListLibrariesInput,
 } from "./schemas.js";
 
+import { z } from "zod";
 import { CURRENT_VERSION } from "../../utils/version.js";
+
+const NpmVersionSchema = z.object({ version: z.string() });
 
 /**
  * Perform health check on the MCP server
@@ -76,7 +79,16 @@ export async function getStatus(_input: GetStatusInput) {
  */
 export async function checkVersion(_input: CheckVersionInput) {
   try {
-    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 5000);
+
+    const response = await fetch("https://registry.npmjs.org/midnight-mcp/latest", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       return {
         currentVersion: CURRENT_VERSION,
@@ -86,8 +98,17 @@ export async function checkVersion(_input: CheckVersionInput) {
       };
     }
 
-    const data = (await response.json()) as { version: string };
-    const latestVersion = data.version;
+    const raw: unknown = await response.json();
+    const parsed = NpmVersionSchema.safeParse(raw);
+    if (!parsed.success) {
+      return {
+        currentVersion: CURRENT_VERSION,
+        latestVersion: "unknown",
+        isUpToDate: true,
+        error: "Invalid response from npm registry",
+      };
+    }
+    const latestVersion = parsed.data.version;
     const isUpToDate = CURRENT_VERSION === latestVersion;
 
     return {

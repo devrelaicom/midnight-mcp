@@ -45,7 +45,7 @@ const argv = yargs(hideBin(process.argv))
     description: "Output results in JSON format (default: YAML for better LLM efficiency)",
     default: false,
   })
-  .example("$0 --stdio", "Start server with stdio transport (for Claude Desktop)")
+  .example("$0", "Start server with stdio transport (default, for Claude Desktop)")
   .example("$0 --http --port 3000", "Start HTTP server on port 3000")
   .help()
   .alias("h", "help")

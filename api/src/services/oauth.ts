@@ -3,6 +3,27 @@
  * Handles token generation, PKCE verification, and GitHub API calls.
  */
 
+import { z } from "zod";
+import { fetchWithTimeout } from "../utils";
+
+// --- GitHub API response schemas ---
+
+const GitHubTokenResponseSchema = z.object({
+  access_token: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
+const GitHubUserSchema = z.object({
+  id: z.number(),
+  login: z.string(),
+  email: z.string().nullable(),
+});
+
+const GitHubEmailsSchema = z.array(z.object({ email: z.string(), primary: z.boolean() }));
+
+const GitHubOrgsSchema = z.array(z.object({ login: z.string() }));
+
 /**
  * Generate a cryptographically random hex string.
  */
@@ -25,10 +46,7 @@ export function generateUUID(): string {
  * Verify a PKCE code_verifier against a stored code_challenge (S256 method).
  * Returns true if the verifier hashes to the challenge.
  */
-export async function verifyPKCE(
-  codeVerifier: string,
-  codeChallenge: string
-): Promise<boolean> {
+export async function verifyPKCE(codeVerifier: string, codeChallenge: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const data = encoder.encode(codeVerifier);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -45,9 +63,9 @@ export async function verifyPKCE(
 export async function exchangeCodeWithGitHub(
   code: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<string> {
-  const response = await fetch("https://github.com/login/oauth/access_token", {
+  const response = await fetchWithTimeout("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -64,16 +82,15 @@ export async function exchangeCodeWithGitHub(
     throw new Error(`GitHub token exchange failed: ${response.status}`);
   }
 
-  const data = (await response.json()) as {
-    access_token?: string;
-    error?: string;
-    error_description?: string;
-  };
+  const raw: unknown = await response.json();
+  const parsed = GitHubTokenResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error("Invalid GitHub token response");
+  }
+  const data = parsed.data;
 
   if (data.error || !data.access_token) {
-    throw new Error(
-      data.error_description || data.error || "GitHub token exchange failed"
-    );
+    throw new Error(data.error_description || data.error || "GitHub token exchange failed");
   }
 
   return data.access_token;
@@ -83,9 +100,9 @@ export async function exchangeCodeWithGitHub(
  * Fetch the authenticated GitHub user's profile.
  */
 export async function getGitHubUser(
-  accessToken: string
+  accessToken: string,
 ): Promise<{ id: number; login: string; email: string }> {
-  const response = await fetch("https://api.github.com/user", {
+  const response = await fetchWithTimeout("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github+json",
@@ -97,17 +114,18 @@ export async function getGitHubUser(
     throw new Error(`GitHub user fetch failed: ${response.status}`);
   }
 
-  const user = (await response.json()) as {
-    id: number;
-    login: string;
-    email: string | null;
-  };
+  const rawUser: unknown = await response.json();
+  const userParsed = GitHubUserSchema.safeParse(rawUser);
+  if (!userParsed.success) {
+    throw new Error("Invalid GitHub user response");
+  }
+  const user = userParsed.data;
 
   // If email is null (private), try the emails endpoint
   let email = user.email || "";
   if (!email) {
     try {
-      const emailsResponse = await fetch("https://api.github.com/user/emails", {
+      const emailsResponse = await fetchWithTimeout("https://api.github.com/user/emails", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/vnd.github+json",
@@ -115,12 +133,12 @@ export async function getGitHubUser(
         },
       });
       if (emailsResponse.ok) {
-        const emails = (await emailsResponse.json()) as Array<{
-          email: string;
-          primary: boolean;
-        }>;
-        const primary = emails.find((e) => e.primary);
-        email = primary?.email || emails[0]?.email || "";
+        const rawEmails: unknown = await emailsResponse.json();
+        const emailsParsed = GitHubEmailsSchema.safeParse(rawEmails);
+        if (emailsParsed.success) {
+          const primary = emailsParsed.data.find((e) => e.primary);
+          email = primary?.email || emailsParsed.data[0]?.email || "";
+        }
       }
     } catch {
       // Non-critical, proceed without email
@@ -133,10 +151,8 @@ export async function getGitHubUser(
 /**
  * Fetch the authenticated GitHub user's organization memberships.
  */
-export async function getGitHubOrgs(
-  accessToken: string
-): Promise<string[]> {
-  const response = await fetch("https://api.github.com/user/orgs", {
+export async function getGitHubOrgs(accessToken: string): Promise<string[]> {
+  const response = await fetchWithTimeout("https://api.github.com/user/orgs", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github+json",
@@ -148,6 +164,10 @@ export async function getGitHubOrgs(
     return []; // Non-critical — user may have no orgs
   }
 
-  const orgs = (await response.json()) as Array<{ login: string }>;
-  return orgs.map((o) => o.login);
+  const rawOrgs: unknown = await response.json();
+  const orgsParsed = GitHubOrgsSchema.safeParse(rawOrgs);
+  if (!orgsParsed.success) {
+    return []; // Non-critical — treat parse failure as empty
+  }
+  return orgsParsed.data.map((o) => o.login);
 }

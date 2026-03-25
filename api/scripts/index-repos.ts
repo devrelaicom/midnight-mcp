@@ -14,6 +14,7 @@
  * - GITHUB_TOKEN env var (recommended - increases rate limit from 60 to 5000 req/hr)
  */
 
+import { createHash } from "crypto";
 import { config } from "dotenv";
 import { resolve } from "path";
 
@@ -56,6 +57,18 @@ if (!GITHUB_TOKEN) {
 
 // Timestamp for when this indexing run started
 const INDEXED_AT = new Date().toISOString();
+
+/**
+ * Generate a deterministic, globally unique vector ID from the chunk's identity.
+ * Uses SHA-256 truncated to 32 hex chars (128 bits) for compactness while
+ * maintaining collision resistance across the full corpus.
+ */
+function vectorId(owner: string, repo: string, filePath: string, chunkIndex: number): string {
+  return createHash("sha256")
+    .update(`${owner}/${repo}:${filePath}:${chunkIndex}`)
+    .digest("hex")
+    .slice(0, 32);
+}
 
 /**
  * Index a single repository
@@ -119,7 +132,6 @@ async function indexRepository(owner: string, repo: string, branch: string) {
   // Create document chunks and track vector IDs per file
   const documents: Document[] = [];
   const fileVectorIds: Map<string, string[]> = new Map();
-  let docCounter = 0;
 
   for (const file of files) {
     const language = getLanguageFromPath(file.path);
@@ -127,10 +139,10 @@ async function indexRepository(owner: string, repo: string, branch: string) {
     const vectorIds: string[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
-      const shortId = `${repo.substring(0, 10)}-${docCounter++}`;
-      vectorIds.push(shortId);
+      const id = vectorId(owner, repo, file.path, i);
+      vectorIds.push(id);
       documents.push({
-        id: shortId,
+        id,
         content: chunks[i],
         metadata: {
           repository: repoKey,

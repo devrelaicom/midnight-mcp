@@ -20,8 +20,7 @@ export interface MetricCardData {
 export function generateMetricCard(data: MetricCardData): string {
   const { value, label, tooltip, change, icon } = data;
 
-  const formattedValue =
-    typeof value === "number" ? value.toLocaleString() : value;
+  const formattedValue = typeof value === "number" ? value.toLocaleString() : value;
 
   const changeHtml = change
     ? `<span class="metric-change ${change.isPositive ? "positive" : "negative"}">
@@ -71,13 +70,7 @@ export function generateDashboardMetrics(data: {
   avgRelevance?: number;
   distributionTotal?: number;
 }): string {
-  const {
-    totalToolCalls,
-    totalQueries,
-    qualityScore,
-    successRate,
-    avgRelevance,
-  } = data;
+  const { totalToolCalls, totalQueries, qualityScore, successRate, avgRelevance } = data;
 
   const metrics: MetricCardData[] = [
     {
@@ -89,14 +82,12 @@ export function generateDashboardMetrics(data: {
     {
       value: totalQueries,
       label: "Search Queries",
-      tooltip:
-        "Semantic search queries through the hosted API (compact, typescript, docs).",
+      tooltip: "Semantic search queries through the hosted API (compact, typescript, docs).",
     },
     {
       value: `${qualityScore}%`,
       label: "Search Quality",
-      tooltip:
-        "Weighted score: (High×100 + Medium×50) / Total searches. Higher is better.",
+      tooltip: "Weighted score: (High×100 + Medium×50) / Total searches. Higher is better.",
     },
   ];
 
@@ -105,8 +96,7 @@ export function generateDashboardMetrics(data: {
     metrics.push({
       value: `${successRate}%`,
       label: "Success Rate",
-      tooltip:
-        "Percentage of tool calls that completed successfully (based on last 100 calls).",
+      tooltip: "Percentage of tool calls that completed successfully (based on last 100 calls).",
     });
   }
 
@@ -115,8 +105,7 @@ export function generateDashboardMetrics(data: {
     metrics.push({
       value: `${avgRelevance}%`,
       label: "Avg Relevance",
-      tooltip:
-        "Average relevance score across all search results. Higher means better matches.",
+      tooltip: "Average relevance score across all search results. Higher means better matches.",
     });
   }
 
@@ -133,8 +122,7 @@ export function generateStatBox(data: {
   color?: string;
 }): string {
   const { value, label, icon, color = "var(--accent)" } = data;
-  const formattedValue =
-    typeof value === "number" ? value.toLocaleString() : value;
+  const formattedValue = typeof value === "number" ? value.toLocaleString() : value;
 
   return `
     <div class="stat-box">
@@ -163,7 +151,7 @@ export function generateSummaryCard(data: {
         <span class="summary-value">${typeof stat.value === "number" ? stat.value.toLocaleString() : stat.value}</span>
         <span class="summary-label">${stat.label}</span>
       </div>
-    `
+    `,
     )
     .join("");
 
@@ -198,21 +186,16 @@ export function calculateQualityScore(scoreDistribution: {
   medium: number;
   low: number;
 }): number {
-  const total =
-    scoreDistribution.high + scoreDistribution.medium + scoreDistribution.low;
+  const total = scoreDistribution.high + scoreDistribution.medium + scoreDistribution.low;
   if (total === 0) return 0;
 
-  return Math.round(
-    (scoreDistribution.high * 100 + scoreDistribution.medium * 50) / total
-  );
+  return Math.round((scoreDistribution.high * 100 + scoreDistribution.medium * 50) / total);
 }
 
 /**
  * Calculate success rate from tool calls
  */
-export function calculateSuccessRate(
-  toolCalls: Array<{ success: boolean }>
-): number {
+export function calculateSuccessRate(toolCalls: Array<{ success: boolean }>): number {
   if (!toolCalls || toolCalls.length === 0) return 100;
 
   const successful = toolCalls.filter((t) => t.success).length;

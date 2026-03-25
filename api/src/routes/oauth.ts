@@ -4,7 +4,7 @@
  */
 
 import { Hono } from "hono";
-import { getCookie } from "hono/cookie";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Bindings, AuthUser } from "../interfaces";
 import {
   generateToken,
@@ -16,6 +16,25 @@ import {
 } from "../services/oauth";
 
 const oauthRoutes = new Hono<{ Bindings: Bindings }>();
+
+/**
+ * Constant-time string comparison to prevent timing side-channel attacks.
+ * Compares SHA-256 digests byte-by-byte to avoid short-circuit evaluation.
+ */
+async function constantTimeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [digestA, digestB] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(a)),
+    crypto.subtle.digest("SHA-256", encoder.encode(b)),
+  ]);
+  const viewA = new Uint8Array(digestA);
+  const viewB = new Uint8Array(digestB);
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    result |= viewA[i]! ^ viewB[i]!;
+  }
+  return result === 0;
+}
 
 // ============================================================================
 // Discovery
@@ -35,10 +54,7 @@ oauthRoutes.get("/.well-known/oauth-authorization-server", (c) => {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: [
-      "client_secret_post",
-      "none",
-    ],
+    token_endpoint_auth_methods_supported: ["none"],
   });
 });
 
@@ -69,15 +85,14 @@ oauthRoutes.post("/oauth/register", async (c) => {
     for (const uri of body.redirect_uris) {
       try {
         const parsed = new URL(uri);
-        const isLocalhost =
-          parsed.protocol === "http:" && parsed.hostname === "localhost";
+        const isLocalhost = parsed.protocol === "http:" && parsed.hostname === "localhost";
         const isHttps = parsed.protocol === "https:";
         if (!isLocalhost && !isHttps) {
           return c.json(
             {
               error: `Invalid redirect_uri: ${uri}. Must use http://localhost or https://`,
             },
-            400
+            400,
           );
         }
       } catch {
@@ -86,21 +101,18 @@ oauthRoutes.post("/oauth/register", async (c) => {
     }
 
     const clientId = generateUUID();
-    const clientSecret = generateToken();
 
     await c.env.METRICS.put(
       `client:${clientId}`,
       JSON.stringify({
         clientName: body.client_name,
         redirectUris: body.redirect_uris,
-        clientSecret,
       }),
-      { expirationTtl: 30 * 24 * 60 * 60 } // 30 days
+      { expirationTtl: 30 * 24 * 60 * 60 }, // 30 days
     );
 
     return c.json({
       client_id: clientId,
-      client_secret: clientSecret,
       client_name: body.client_name,
       redirect_uris: body.redirect_uris,
     });
@@ -115,6 +127,7 @@ oauthRoutes.post("/oauth/register", async (c) => {
 // ============================================================================
 
 oauthRoutes.get("/oauth/authorize", async (c) => {
+  const responseType = c.req.query("response_type");
   const clientId = c.req.query("client_id");
   const redirectUri = c.req.query("redirect_uri");
   const codeChallenge = c.req.query("code_challenge");
@@ -123,6 +136,27 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
 
   if (!clientId || !redirectUri) {
     return c.json({ error: "client_id and redirect_uri are required" }, 400);
+  }
+
+  if (responseType !== "code") {
+    return c.json(
+      { error: "invalid_request", error_description: "response_type must be 'code'" },
+      400,
+    );
+  }
+
+  // PKCE is required for all clients (OAuth 2.1)
+  if (!codeChallenge) {
+    return c.json(
+      { error: "invalid_request", error_description: "code_challenge is required" },
+      400,
+    );
+  }
+  if (codeChallengeMethod !== "S256") {
+    return c.json(
+      { error: "invalid_request", error_description: "code_challenge_method must be S256" },
+      400,
+    );
   }
 
   // Validate client registration
@@ -138,24 +172,28 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
     return c.json({ error: "redirect_uri not registered for this client" }, 400);
   }
 
-  if (codeChallengeMethod && codeChallengeMethod !== "S256") {
-    return c.json(
-      { error: "Only S256 code_challenge_method is supported" },
-      400
-    );
-  }
-
-  // Generate state for CSRF protection
+  // Generate state for CSRF protection and browser-session binding
   const state = generateToken();
+  const browserState = generateToken();
+
+  setCookie(c, "oauth_browser_state", browserState, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: 300,
+    path: "/",
+  });
+
   await c.env.METRICS.put(
     `state:${state}`,
     JSON.stringify({
-      codeChallenge: codeChallenge || null,
+      codeChallenge,
       redirectUri,
       clientId,
       clientState: clientState || null,
+      browserState,
     }),
-    { expirationTtl: 300 } // 5 minutes
+    { expirationTtl: 300 }, // 5 minutes
   );
 
   // Redirect to GitHub OAuth
@@ -183,28 +221,35 @@ oauthRoutes.get("/oauth/callback", async (c) => {
   // Verify state (CSRF protection) — lookup and delete to prevent reuse
   const stateData = await c.env.METRICS.get(`state:${state}`);
   if (!stateData) {
+    deleteCookie(c, "oauth_browser_state", { path: "/" });
     return c.json({ error: "Invalid or expired state parameter" }, 400);
   }
   await c.env.METRICS.delete(`state:${state}`);
 
-  const {
-    codeChallenge,
-    redirectUri,
-    clientId,
-    clientState,
-  } = JSON.parse(stateData) as {
-    codeChallenge: string | null;
+  const { codeChallenge, redirectUri, clientId, clientState, browserState } = JSON.parse(
+    stateData,
+  ) as {
+    codeChallenge: string;
     redirectUri: string;
     clientId: string;
     clientState: string | null;
+    browserState: string;
   };
+
+  // Verify browser-session binding — the cookie must match the stored nonce
+  const cookieBrowserState = getCookie(c, "oauth_browser_state");
+  deleteCookie(c, "oauth_browser_state", { path: "/" });
+
+  if (!cookieBrowserState || !(await constantTimeEqual(cookieBrowserState, browserState))) {
+    return c.json({ error: "CSRF validation failed" }, 403);
+  }
 
   try {
     // Exchange code with GitHub
     const githubAccessToken = await exchangeCodeWithGitHub(
       code,
       c.env.GITHUB_CLIENT_ID,
-      c.env.GITHUB_CLIENT_SECRET
+      c.env.GITHUB_CLIENT_SECRET,
     );
 
     // Fetch user profile and orgs
@@ -231,7 +276,7 @@ oauthRoutes.get("/oauth/callback", async (c) => {
         redirectUri,
         clientId,
       }),
-      { expirationTtl: 60 } // 60 seconds
+      { expirationTtl: 60 }, // 60 seconds
     );
 
     // Redirect back to client with authorization code
@@ -284,7 +329,7 @@ oauthRoutes.post("/oauth/token", async (c) => {
     clientId: storedClientId,
   } = JSON.parse(codeData) as {
     user: AuthUser;
-    codeChallenge: string | null;
+    codeChallenge: string;
     redirectUri: string;
     clientId: string;
   };
@@ -297,15 +342,16 @@ oauthRoutes.post("/oauth/token", async (c) => {
     return c.json({ error: "invalid_grant" }, 400);
   }
 
-  // Verify PKCE if a code_challenge was provided during authorization
-  if (codeChallenge) {
-    if (!codeVerifier) {
-      return c.json({ error: "invalid_grant" }, 400);
-    }
-    const valid = await verifyPKCE(codeVerifier, codeChallenge);
-    if (!valid) {
-      return c.json({ error: "invalid_grant" }, 400);
-    }
+  // PKCE verification is mandatory (OAuth 2.1)
+  if (!codeVerifier) {
+    return c.json(
+      { error: "invalid_request", error_description: "code_verifier is required" },
+      400,
+    );
+  }
+  const valid = await verifyPKCE(codeVerifier, codeChallenge);
+  if (!valid) {
+    return c.json({ error: "invalid_grant" }, 400);
   }
 
   // Generate access token and store session
@@ -313,7 +359,7 @@ oauthRoutes.post("/oauth/token", async (c) => {
   await c.env.METRICS.put(
     `token:${accessToken}`,
     JSON.stringify(user),
-    { expirationTtl: 24 * 60 * 60 } // 24 hours
+    { expirationTtl: 24 * 60 * 60 }, // 24 hours
   );
 
   return c.json({
@@ -342,10 +388,7 @@ oauthRoutes.get("/oauth/logout", async (c) => {
   }
 
   // Clear cookie
-  c.header(
-    "Set-Cookie",
-    "midnight_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
-  );
+  c.header("Set-Cookie", "midnight_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
 
   return c.redirect("/");
 });

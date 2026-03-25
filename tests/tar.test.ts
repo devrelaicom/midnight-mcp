@@ -47,8 +47,8 @@ describe("createTarGzBase64", () => {
     const entries = parseTarEntries(tar);
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].name).toBe("src/main.compact");
-    expect(entries[0].content).toBe("export circuit main() { }");
+    expect(entries[0]!.name).toBe("src/main.compact");
+    expect(entries[0]!.content).toBe("export circuit main() { }");
   });
 
   it("preserves multiple files with directory structure", async () => {
@@ -90,6 +90,6 @@ describe("createTarGzBase64", () => {
     const tar = gunzipSync(Buffer.from(base64, "base64"));
     const entries = parseTarEntries(tar);
 
-    expect(entries[0].content).toBe("// 日本語コメント\nexport circuit test() {}");
+    expect(entries[0]!.content).toBe("// 日本語コメント\nexport circuit test() {}");
   });
 });

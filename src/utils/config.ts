@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { randomUUID } from "crypto";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join } from "path";
 
 const ConfigSchema = z.object({
   // Mode: 'hosted' (default) or 'local'
@@ -57,6 +60,39 @@ function loadConfig(): Config {
 }
 
 export const config = loadConfig();
+
+/**
+ * Stable per-installation client ID for playground rate limiting.
+ * Persisted to {dataDir}/.client-id so it survives restarts.
+ */
+function getOrCreateClientId(dataDir: string): string {
+  const idFile = join(dataDir, ".client-id");
+  try {
+    if (existsSync(idFile)) {
+      const id = readFileSync(idFile, "utf-8").trim();
+      if (id) return id;
+    }
+  } catch {
+    // Fall through to create
+  }
+  const id = randomUUID();
+  try {
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(idFile, id, "utf-8");
+  } catch {
+    // If we can't persist, use the ephemeral ID for this session
+  }
+  return id;
+}
+
+export const clientId = getOrCreateClientId(config.dataDir);
+
+// Log active mode on startup (stderr so it doesn't interfere with MCP protocol on stdout)
+if (config.mode === "hosted") {
+  console.error(`[midnight-mcp] Mode: hosted (API: ${config.hostedApiUrl})`);
+} else {
+  console.error(`[midnight-mcp] Mode: local (ChromaDB: ${config.chromaUrl})`);
+}
 
 /**
  * Check if running in hosted mode (default)

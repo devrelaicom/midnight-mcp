@@ -1,7 +1,7 @@
 export { config, isHostedMode, isLocalMode } from "./config.js";
 export type { Config, RepositoryConfig } from "./config.js";
 export { DEFAULT_REPOSITORIES } from "./config.js";
-export { logger, setMCPLogCallback } from "./logger.js";
+export { logger, initLogging, setMCPLogFunction, resetLoggerState } from "./logger.js";
 export {
   MCPError,
   ErrorCodes,
@@ -68,6 +68,9 @@ export { serialize, setOutputFormat, isJsonOutput, getOutputMimeType } from "./s
 
 // Schema conversion utilities
 export { zodInputSchema } from "./schema.js";
+
+// External boundary validation
+export { parseJsonResponse, validateJson } from "./parse-response.js";
 
 // HTML-to-markdown extraction
 export { extractContentFromHtml } from "./html-to-markdown.js";

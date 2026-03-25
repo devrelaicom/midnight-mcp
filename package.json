@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsup && node --import tsx scripts/update-server-json.ts",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/bin.js --stdio",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
+    "start": "node dist/bin.js",
     "start:http": "node dist/bin.js --http",
     "dev": "NODE_ENV=development tsup --watch",
     "test": "vitest",
@@ -21,9 +22,9 @@
     "format": "prettier --write src/**/*.ts",
     "format:check": "prettier --check src/**/*.ts",
     "update-server-json": "node --import tsx scripts/update-server-json.ts",
-    "prepublishOnly": "npm run typecheck && npm run build",
-    "ci": "npm run typecheck && npm run lint -- --max-warnings 0 && npm run format:check && npm run build && npm run test:run",
-    "prepare": "husky"
+    "prepublishOnly": "npm run ci",
+    "ci": "npm run typecheck && npm run typecheck:tests && npm run lint -- --max-warnings 0 && npm run format:check && npm run build && npm run test:run",
+    "prepare": "husky && npm run build"
   },
   "keywords": [
     "midnight",
@@ -38,6 +39,10 @@
   "author": "Idris Olubisi",
   "license": "MIT",
   "dependencies": {
+    "@logtape/logtape": "^2.0.5",
+    "@logtape/redaction": "^2.0.5",
+    "@midnight-ntwrk/compact-js": "^2.5.0",
+    "@midnight-ntwrk/compact-runtime": "^0.15.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "chromadb": "^3.3.2",
     "dotenv": "^17.3.1",
@@ -62,6 +67,7 @@
     "@types/tar": "^6.1.13",
     "@types/turndown": "^5.0.6",
     "@types/yargs": "^17.0.35",
+    "@vitest/coverage-v8": "^4.1.1",
     "eslint": "^10.0.3",
     "husky": "^9.1.7",
     "prettier": "^3.8.1",
@@ -77,6 +83,7 @@
   },
   "files": [
     "dist/**/*.js",
+    "dist/**/*.js.map",
     "dist/**/*.d.ts",
     "README.md",
     "LICENSE"

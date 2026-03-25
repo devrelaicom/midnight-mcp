@@ -73,7 +73,7 @@ export const SelfCorrectionHints = {
   INVALID_VERSION: (version: string, example: string) => ({
     error: `Invalid version format: '${version}'`,
     code: ErrorCodes.INVALID_VERSION,
-    suggestion: `Version should be like '${example}'. Check available versions with midnight-get-version-info first.`,
+    suggestion: `Version should be like '${example}'. Use midnight-check-breaking-changes or midnight-upgrade-check to inspect versions.`,
     correction: {
       invalidValue: version,
       expectedFormat: "v1.0.0 or 0.21.0",

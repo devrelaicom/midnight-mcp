@@ -18,14 +18,9 @@ export interface BarChartOptions {
 export function generateBarChart(
   data: Record<string, number>,
   total: number,
-  options: BarChartOptions = {}
+  options: BarChartOptions = {},
 ): string {
-  const {
-    maxItems,
-    showPercentage = false,
-    colorScheme = "accent",
-    emptyMessage = "—",
-  } = options;
+  const { maxItems, showPercentage = false, colorScheme = "accent", emptyMessage = "—" } = options;
 
   const entries = Object.entries(data);
   if (entries.length === 0) {
@@ -40,9 +35,7 @@ export function generateBarChart(
   return sortedEntries
     .map(([name, count]) => {
       const percentage = total > 0 ? (count / total) * 100 : 0;
-      const displayValue = showPercentage
-        ? `${percentage.toFixed(0)}%`
-        : count.toString();
+      const displayValue = showPercentage ? `${percentage.toFixed(0)}%` : count.toString();
       const fillClass = getBarFillClass(percentage, colorScheme);
 
       return `
@@ -63,7 +56,7 @@ export function generateBarChart(
  */
 export function generateRepoChart(
   documentsByRepo: Record<string, number>,
-  options: BarChartOptions = {}
+  options: BarChartOptions = {},
 ): string {
   const { maxItems = 5, emptyMessage = "No repositories indexed" } = options;
 
@@ -129,7 +122,7 @@ export function generateQualityBoxes(scoreDistribution: {
 export function generateDonutChart(
   percentage: number,
   label: string,
-  options: { size?: number; strokeWidth?: number; color?: string } = {}
+  options: { size?: number; strokeWidth?: number; color?: string } = {},
 ): string {
   const { size = 120, strokeWidth = 8, color = "var(--accent)" } = options;
   const radius = (size - strokeWidth) / 2;
@@ -173,7 +166,7 @@ export function generateDonutChart(
  */
 export function generateSparkline(
   data: number[],
-  options: { width?: number; height?: number; color?: string } = {}
+  options: { width?: number; height?: number; color?: string } = {},
 ): string {
   const { width = 100, height = 30, color = "var(--accent)" } = options;
 
@@ -213,12 +206,11 @@ export function generateSparkline(
 export function generateProgressBar(
   current: number,
   max: number,
-  options: { showLabel?: boolean; height?: number } = {}
+  options: { showLabel?: boolean; height?: number } = {},
 ): string {
   const { showLabel = true, height = 8 } = options;
   const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0;
-  const colorClass =
-    percentage >= 70 ? "success" : percentage >= 40 ? "warning" : "error";
+  const colorClass = percentage >= 70 ? "success" : percentage >= 40 ? "warning" : "error";
 
   return `
     <div class="progress-container">
@@ -233,10 +225,7 @@ export function generateProgressBar(
 /**
  * Helper to determine bar fill color class
  */
-function getBarFillClass(
-  percentage: number,
-  scheme: "accent" | "status"
-): string {
+function getBarFillClass(percentage: number, scheme: "accent" | "status"): string {
   if (scheme === "accent") return "";
   if (percentage >= 70) return "success";
   if (percentage >= 40) return "warning";

@@ -16,10 +16,7 @@ export interface PageOptions {
 /**
  * Generate the full HTML page wrapper
  */
-export function generatePageWrapper(
-  content: string,
-  options: PageOptions = {}
-): string {
+export function generatePageWrapper(content: string, options: PageOptions = {}): string {
   const {
     title = "MCP Analytics",
     description = "Midnight MCP Analytics Dashboard",
@@ -92,7 +89,7 @@ export function generateHeader(options: {
  */
 export function generateCard(
   content: string,
-  options: { title?: string; fullWidth?: boolean; className?: string } = {}
+  options: { title?: string; fullWidth?: boolean; className?: string } = {},
 ): string {
   const { title, fullWidth = false, className = "" } = options;
 
@@ -112,7 +109,7 @@ export function generateCard(
  */
 export function generateGrid(
   cards: string[],
-  options: { columns?: 2 | 3; gap?: string } = {}
+  options: { columns?: 2 | 3; gap?: string } = {},
 ): string {
   const { columns = 2 } = options;
   const gridClass = columns === 3 ? "grid grid-3" : "grid";
@@ -125,15 +122,13 @@ export function generateGrid(
  */
 export function generateSection(
   content: string,
-  options: { title?: string; subtitle?: string; id?: string } = {}
+  options: { title?: string; subtitle?: string; id?: string } = {},
 ): string {
   const { title, subtitle, id } = options;
 
   const idAttr = id ? `id="${id}"` : "";
   const titleHtml = title ? `<h2 class="section-title">${title}</h2>` : "";
-  const subtitleHtml = subtitle
-    ? `<p class="section-subtitle">${subtitle}</p>`
-    : "";
+  const subtitleHtml = subtitle ? `<p class="section-subtitle">${subtitle}</p>` : "";
 
   return `
     <section ${idAttr}>
@@ -149,7 +144,7 @@ export function generateSection(
  */
 export function generateEmptyState(
   message: string,
-  options: { icon?: string; action?: { label: string; onclick: string } } = {}
+  options: { icon?: string; action?: { label: string; onclick: string } } = {},
 ): string {
   const { icon = "📊", action } = options;
 
@@ -172,7 +167,7 @@ export function generateEmptyState(
  */
 export function generateTabs(
   tabs: Array<{ id: string; label: string; content: string }>,
-  activeTab?: string
+  activeTab?: string,
 ): string {
   const active = activeTab || tabs[0]?.id;
 
@@ -186,7 +181,7 @@ export function generateTabs(
       >
         ${tab.label}
       </button>
-    `
+    `,
     )
     .join("");
 
@@ -199,7 +194,7 @@ export function generateTabs(
       >
         ${tab.content}
       </div>
-    `
+    `,
     )
     .join("");
 

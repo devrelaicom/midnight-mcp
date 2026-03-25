@@ -313,7 +313,7 @@ export async function searchCompact(input: SearchCompactInput) {
   return performSearch(input.query, input.limit, {
     searchType: "compact",
     cacheKeyExtra: [input.filter?.repository],
-    hostedSearchFn: (query, limit) => searchCompactHosted(query, limit),
+    hostedSearchFn: (query, limit) => searchCompactHosted(query, limit, input.filter),
     buildFilter: () => ({ language: "compact", ...input.filter }),
     transformResult: (r) => ({
       code: r.content,
@@ -434,11 +434,11 @@ export async function fetchDocs(input: { path: string; extractSection?: string }
 
   // Validate path doesn't contain suspicious characters or patterns
   if (/[<>"\s]|\.\.\/|^https?:|^\/\//.test(normalizedPath)) {
-    return {
-      error: "Invalid path",
-      details: ["Path contains invalid characters or patterns"],
-      suggestion: `Use a clean path like '/develop/faq' or '/getting-started/installation'`,
-    };
+    throw new MCPError(
+      "Invalid path: contains invalid characters or patterns",
+      ErrorCodes.INVALID_INPUT,
+      "Use a clean path like '/develop/faq' or '/getting-started/installation'",
+    );
   }
 
   // Safely construct URL using URL constructor to prevent injection/traversal
@@ -447,19 +447,20 @@ export async function fetchDocs(input: { path: string; extractSection?: string }
     const constructed = new URL(normalizedPath, DOCS_BASE_URL);
     // Ensure we haven't escaped the docs domain
     if (constructed.origin !== new URL(DOCS_BASE_URL).origin) {
-      return {
-        error: "Invalid path",
-        details: ["Path resulted in a URL outside the documentation domain"],
-        suggestion: `Use a clean path like '/develop/faq' or '/getting-started/installation'`,
-      };
+      throw new MCPError(
+        "Invalid path: resulted in a URL outside the documentation domain",
+        ErrorCodes.INVALID_INPUT,
+        "Use a clean path like '/develop/faq' or '/getting-started/installation'",
+      );
     }
     url = constructed.href;
-  } catch {
-    return {
-      error: "Invalid path",
-      details: ["Could not construct a valid URL from the path"],
-      suggestion: `Use a clean path like '/develop/faq' or '/getting-started/installation'`,
-    };
+  } catch (e) {
+    if (e instanceof MCPError) throw e;
+    throw new MCPError(
+      "Invalid path: could not construct a valid URL",
+      ErrorCodes.INVALID_INPUT,
+      "Use a clean path like '/develop/faq' or '/getting-started/installation'",
+    );
   }
 
   logger.debug("Fetching live documentation", { url, extractSection });
@@ -482,29 +483,28 @@ export async function fetchDocs(input: { path: string; extractSection?: string }
 
     if (!response.ok) {
       if (response.status === 404) {
-        return {
-          error: "Page not found",
-          path: normalizedPath,
-          suggestion: `Try one of these known paths: ${KNOWN_DOC_PATHS.slice(0, 5).join(", ")}`,
-          knownPaths: KNOWN_DOC_PATHS,
-        };
+        throw new MCPError(
+          `Page not found: ${normalizedPath}`,
+          ErrorCodes.NOT_FOUND,
+          `Try one of these known paths: ${KNOWN_DOC_PATHS.slice(0, 5).join(", ")}`,
+        );
       }
-      return {
-        error: `Failed to fetch documentation: ${response.status} ${response.statusText}`,
-        path: normalizedPath,
-        suggestion: "Try again later or check if the URL is correct",
-      };
+      throw new MCPError(
+        `Failed to fetch documentation: ${response.status} ${response.statusText}`,
+        ErrorCodes.NETWORK,
+        "Try again later or check if the URL is correct",
+      );
     }
 
     const html = await response.text();
 
     // Check if we got actual content (SSG should return full HTML)
     if (!html.includes("<article") && !html.includes("<main")) {
-      return {
-        error: "Page returned but content not found",
-        path: normalizedPath,
-        suggestion: "The page may not have main content. Try a different path.",
-      };
+      throw new MCPError(
+        `Page returned but content not found: ${normalizedPath}`,
+        ErrorCodes.NOT_FOUND,
+        "The page may not have main content. Try a different path.",
+      );
     }
 
     const { title, content, headings, lastUpdated } = extractContentFromHtml(html, extractSection);
@@ -530,24 +530,21 @@ export async function fetchDocs(input: { path: string; extractSection?: string }
         : "Full page content",
     };
   } catch (error: unknown) {
+    if (error instanceof MCPError) throw error;
     if (error instanceof Error) {
       if (error.name === "AbortError") {
-        return {
-          error: "Request timed out",
-          path: normalizedPath,
-          suggestion:
-            "The documentation site may be slow. Try again or use midnight-search-docs for cached content.",
-        };
+        throw new MCPError(
+          "Request timed out",
+          ErrorCodes.NETWORK,
+          "The documentation site may be slow. Try again or use midnight-search-docs for cached content.",
+        );
       }
-      return {
-        error: `Failed to fetch: ${error.message}`,
-        path: normalizedPath,
-        suggestion: "Check your network connection or try midnight-search-docs for cached content.",
-      };
+      throw new MCPError(
+        `Failed to fetch: ${error.message}`,
+        ErrorCodes.NETWORK,
+        "Check your network connection or try midnight-search-docs for cached content.",
+      );
     }
-    return {
-      error: "Unknown error fetching documentation",
-      path: normalizedPath,
-    };
+    throw new MCPError("Unknown error fetching documentation", ErrorCodes.INTERNAL_ERROR);
   }
 }

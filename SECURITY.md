@@ -4,7 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.0.x   | :white_check_mark: |
+| 0.2.x   | :white_check_mark: |
 
 ## Reporting a Vulnerability
 
@@ -34,10 +34,11 @@ We will respond within 48 hours and work with you to resolve the issue.
 - `public_repo` scope is sufficient for most operations
 - Consider using fine-grained tokens
 
-### ChromaDB
+### Hosted API (Cloudflare Workers)
 
-- If running ChromaDB, secure it appropriately
-- Don't expose ChromaDB ports publicly without authentication
+- D1 database credentials and KV namespace IDs are stored in `wrangler.toml` — do not commit real secrets
+- OAuth client secrets and API keys are managed via `wrangler secret`
+- Rate limiting is applied to all public API surfaces
 
 ## Dependencies
 

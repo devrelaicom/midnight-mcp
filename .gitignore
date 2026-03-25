@@ -10,3 +10,4 @@ data/
 cache/
 *.tgz
 docs/superpowers/
+api/wrangler.toml

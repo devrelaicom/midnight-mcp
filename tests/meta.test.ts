@@ -1,129 +1,44 @@
 /**
  * Tests for meta/discovery tools
  * Validates the suggestTool intent matching functionality
+ * Uses the real handler — not a copy of the business logic
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
-import { INTENT_TO_TOOL, CATEGORY_INFO } from "../src/tools/meta/schemas.js";
+import { describe, it, expect, vi } from "vitest";
 
-// Direct implementation of suggestTool logic for testing
-// (avoids circular dependency with tools.ts)
-async function suggestTool(input: { intent: string }) {
-  const intentLower = input.intent.toLowerCase();
+// Mock the dependency chain so we can import the real suggestTool handler.
+// The handlers module imports tool arrays that trigger deep circular deps.
+vi.mock("../src/utils/config.js", () => ({
+  config: { hostedApiUrl: "https://api.test", mode: "hosted", embeddingModel: "text-embedding-3-small" },
+  clientId: "test-client-id",
+  isHostedMode: () => true,
+  isLocalMode: () => false,
+  DEFAULT_REPOSITORIES: [],
+}));
+vi.mock("../src/utils/index.js", () => ({
+  config: { hostedApiUrl: "https://api.test", mode: "hosted", embeddingModel: "text-embedding-3-small" },
+  isHostedMode: () => true,
+  isLocalMode: () => false,
+  DEFAULT_REPOSITORIES: [],
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  MCPError: class extends Error { code: string; constructor(m: string, c: string) { super(m); this.code = c; } },
+  ErrorCodes: { INVALID_INPUT: "INVALID_INPUT", INTERNAL_ERROR: "INTERNAL_ERROR" },
+  createErrorResponse: () => ({ content: [{ type: "text", text: "error" }] }),
+  formatErrorResponse: () => ({ content: [{ type: "text", text: "error" }] }),
+  createUserError: () => new Error("user error"),
+}));
+// Stub tool arrays to break circular init — suggestTool only uses schemas, not tool arrays
+vi.mock("../src/tools/search/index.js", () => ({ searchTools: [] }));
+vi.mock("../src/tools/analyze/index.js", () => ({ analyzeTools: [] }));
+vi.mock("../src/tools/repository/index.js", () => ({ repositoryTools: [] }));
+vi.mock("../src/tools/health/index.js", () => ({ healthTools: [] }));
+vi.mock("../src/tools/format/index.js", () => ({ formatTools: [] }));
+vi.mock("../src/tools/diff/index.js", () => ({ diffTools: [] }));
+vi.mock("../src/tools/simulate/index.js", () => ({ simulateTools: [] }));
+// Stub tools.ts to prevent circular setMetaTools call
+vi.mock("../src/tools/meta/tools.js", () => ({ metaTools: [] }));
 
-  const matchedTools: Array<{
-    tool: string;
-    reason: string;
-    confidence: "high" | "medium" | "low";
-    matchScore: number;
-  }> = [];
-
-  for (const mapping of INTENT_TO_TOOL) {
-    const matchedPatterns = mapping.patterns.filter((p) =>
-      intentLower.includes(p.toLowerCase())
-    );
-    const matchCount = matchedPatterns.length;
-
-    if (matchCount > 0) {
-      // Calculate match score: count * 10 + sum of matched pattern lengths
-      // This prefers more specific (longer) patterns when counts are equal
-      const patternLengthScore = matchedPatterns.reduce(
-        (sum, p) => sum + p.length,
-        0
-      );
-      const matchScore = matchCount * 10 + patternLengthScore;
-
-      matchedTools.push({
-        tool: mapping.tool,
-        reason: mapping.reason,
-        confidence: matchCount >= 2 ? "high" : "medium",
-        matchScore,
-      });
-    }
-  }
-
-  const matchedCategories: Array<{
-    category: string;
-    startWith: string;
-    description: string;
-    confidence: "medium" | "low";
-  }> = [];
-
-  for (const [category, info] of Object.entries(CATEGORY_INFO)) {
-    const matchCount = info.intentKeywords.filter((k) =>
-      intentLower.includes(k.toLowerCase())
-    ).length;
-
-    if (matchCount > 0 && info.startWith) {
-      matchedCategories.push({
-        category,
-        startWith: info.startWith,
-        description: info.description,
-        confidence: matchCount >= 2 ? "medium" : "low",
-      });
-    }
-  }
-
-  // Sort by confidence first, then by match score (higher is better)
-  const confidenceOrder = { high: 0, medium: 1, low: 2 };
-  matchedTools.sort((a, b) => {
-    const confDiff =
-      confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
-    if (confDiff !== 0) return confDiff;
-    // Higher match score = better, so sort descending
-    return b.matchScore - a.matchScore;
-  });
-
-  if (matchedTools.length === 0 && matchedCategories.length === 0) {
-    return {
-      intent: input.intent,
-      suggestions: [],
-      fallback: {
-        tool: "midnight-list-tool-categories",
-        reason:
-          "No specific match found. Start by exploring available tool categories.",
-      },
-      tip: "Try rephrasing your intent with keywords like: search, analyze, generate, upgrade, version, security, example",
-    };
-  }
-
-  const seenTools = new Set<string>();
-  const suggestions: Array<{
-    tool: string;
-    reason: string;
-    confidence: string;
-  }> = [];
-
-  for (const match of matchedTools) {
-    if (!seenTools.has(match.tool)) {
-      seenTools.add(match.tool);
-      suggestions.push(match);
-    }
-  }
-
-  for (const match of matchedCategories) {
-    if (!seenTools.has(match.startWith)) {
-      seenTools.add(match.startWith);
-      suggestions.push({
-        tool: match.startWith,
-        reason: `Recommended starting tool for ${match.category}: ${match.description}`,
-        confidence: match.confidence,
-      });
-    }
-  }
-
-  const topSuggestions = suggestions.slice(0, 3);
-
-  return {
-    intent: input.intent,
-    suggestions: topSuggestions,
-    primaryRecommendation: topSuggestions[0],
-    tip:
-      topSuggestions[0]?.confidence === "high"
-        ? `Strong match! Use ${topSuggestions[0].tool} for this task.`
-        : "Multiple tools may help. Consider the suggestions based on your specific needs.",
-  };
-}
+import { suggestTool } from "../src/tools/meta/handlers.js";
 
 describe("suggestTool", () => {
   describe("high confidence matches", () => {
@@ -133,9 +48,9 @@ describe("suggestTool", () => {
       });
 
       expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-search-compact");
+      expect(result.suggestions[0]!.tool).toBe("midnight-search-compact");
       // Single keyword match = medium confidence, which is correct behavior
-      expect(["high", "medium"]).toContain(result.suggestions[0].confidence);
+      expect(["high", "medium"]).toContain(result.suggestions[0]!.confidence);
     });
 
     it("should match security intents to analyze-contract", async () => {
@@ -144,8 +59,8 @@ describe("suggestTool", () => {
       });
 
       expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-analyze-contract");
-      expect(result.suggestions[0].confidence).toBe("high");
+      expect(result.suggestions[0]!.tool).toBe("midnight-analyze-contract");
+      expect(result.suggestions[0]!.confidence).toBe("high");
     });
 
     it("should match upgrade intents to upgrade-check", async () => {
@@ -154,7 +69,7 @@ describe("suggestTool", () => {
       });
 
       expect(result.suggestions.length).toBeGreaterThan(0);
-      expect(result.suggestions[0].tool).toBe("midnight-upgrade-check");
+      expect(result.suggestions[0]!.tool).toBe("midnight-upgrade-check");
     });
 
   });
@@ -175,7 +90,7 @@ describe("suggestTool", () => {
         intent: "token transfer balance mint",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-search-compact");
+      expect(result.suggestions[0]!.tool).toBe("midnight-search-compact");
     });
 
     it("should match DAO/governance intents", async () => {
@@ -193,7 +108,7 @@ describe("suggestTool", () => {
         intent: "typescript sdk integration",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-search-typescript");
+      expect(result.suggestions[0]!.tool).toBe("midnight-search-typescript");
     });
   });
 
@@ -203,7 +118,7 @@ describe("suggestTool", () => {
         intent: "simple beginner hello world",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-list-examples");
+      expect(result.suggestions[0]!.tool).toBe("midnight-list-examples");
     });
 
     it("should match onboarding intents to get-repo-context", async () => {
@@ -223,7 +138,7 @@ describe("suggestTool", () => {
         intent: "server not working broken error",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-health-check");
+      expect(result.suggestions[0]!.tool).toBe("midnight-health-check");
     });
 
     it("should match rate limit intents to health-check", async () => {
@@ -231,7 +146,7 @@ describe("suggestTool", () => {
         intent: "getting 429 rate limit errors",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-health-check");
+      expect(result.suggestions[0]!.tool).toBe("midnight-health-check");
     });
 
     it("should match server status intents", async () => {
@@ -310,7 +225,7 @@ describe("suggestTool", () => {
         intent: "get file content from repo",
       });
 
-      expect(result.suggestions[0].tool).toBe("midnight-get-file");
+      expect(result.suggestions[0]!.tool).toBe("midnight-get-file");
     });
 
     it("should match recent updates intents", async () => {

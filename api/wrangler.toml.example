@@ -12,15 +12,17 @@ binding = "VECTORIZE"
 index_name = "midnight-code"
 
 # KV namespace for OAuth/session storage
+# The deploy workflow resolves the ID by looking up a namespace named "midnight-mcp-metrics".
 [[kv_namespaces]]
 binding = "METRICS"
-id = "adc06e61998c417684ee353791077992"
+id = "__KV_NAMESPACE_ID__"
 
 # D1 database for metrics, embedding cache, and analytics
+# The deploy workflow resolves the ID by looking up a database named "midnight-mcp".
 [[d1_databases]]
 binding = "DB"
 database_name = "midnight-mcp"
-database_id = "REPLACE_AFTER_CREATE"
+database_id = "__D1_DATABASE_ID__"
 
 # Rate limiting — anonymous users
 [[unsafe.bindings]]

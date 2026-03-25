@@ -7,6 +7,7 @@ import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Bindings } from "../interfaces";
 import { trackPlaygroundCall } from "../services";
+import { fetchWithTimeout } from "../utils";
 
 const pg = new Hono<{ Bindings: Bindings }>();
 
@@ -45,6 +46,13 @@ async function proxyRequest(
   const start = Date.now();
 
   const fetchOptions: RequestInit = { method };
+  const headers: Record<string, string> = {};
+
+  // Forward X-Client-ID for per-user rate limiting at the playground
+  const clientId = c.req.header("X-Client-ID");
+  if (clientId) {
+    headers["X-Client-ID"] = clientId;
+  }
 
   if (method === "POST") {
     let body: unknown;
@@ -53,30 +61,31 @@ async function proxyRequest(
     } catch {
       return c.json({ error: "Invalid or missing JSON body" }, 400);
     }
-    fetchOptions.headers = { "Content-Type": "application/json" };
+    headers["Content-Type"] = "application/json";
     fetchOptions.body = JSON.stringify(body);
   }
 
+  fetchOptions.headers = headers;
+
   try {
-    const response = await fetch(`${playgroundUrl}${path}`, fetchOptions);
+    const response = await fetchWithTimeout(`${playgroundUrl}${path}`, fetchOptions);
     const durationMs = Date.now() - start;
 
     if (response.status >= 500) {
       trackInBackground(c, path, false, durationMs, null);
-      return c.json(
-        { error: "Compilation service unavailable", retryAfter: 30 },
-        503,
-      );
+      return c.json({ error: "Compilation service unavailable", retryAfter: 30 }, 503);
     }
 
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
       const text = await response.text().catch(() => "Non-JSON response");
+      console.error("Unexpected upstream response", {
+        path,
+        contentType,
+        body: text.slice(0, 500),
+      });
       trackInBackground(c, path, false, durationMs, null);
-      return c.json(
-        { error: `Unexpected response type: ${contentType || "unknown"}`, detail: text.slice(0, 200) },
-        502,
-      );
+      return c.json({ error: "Unexpected upstream response" }, 502);
     }
 
     const data = (await response.json()) as Record<string, unknown>;
@@ -88,10 +97,7 @@ async function proxyRequest(
   } catch {
     const durationMs = Date.now() - start;
     trackInBackground(c, path, false, durationMs, null);
-    return c.json(
-      { error: "Compilation service unavailable", retryAfter: 30 },
-      503,
-    );
+    return c.json({ error: "Compilation service unavailable", retryAfter: 30 }, 503);
   }
 }
 
@@ -133,23 +139,8 @@ function validateParam(c: Context<{ Bindings: Bindings }>, name: string): string
   return value;
 }
 
-// Simulation
-pg.post("/simulate/deploy", (c) => proxyRequest(c, "/simulate/deploy"));
-pg.post("/simulate/:id/call", (c) => {
-  const id = validateParam(c, "id");
-  if (id instanceof Response) return id;
-  return proxyRequest(c, `/simulate/${id}/call`);
-});
-pg.get("/simulate/:id/state", (c) => {
-  const id = validateParam(c, "id");
-  if (id instanceof Response) return id;
-  return proxyRequest(c, `/simulate/${id}/state`, "GET");
-});
-pg.delete("/simulate/:id", (c) => {
-  const id = validateParam(c, "id");
-  if (id instanceof Response) return id;
-  return proxyRequest(c, `/simulate/${id}`, "DELETE");
-});
+// Simulation routes removed — simulation is now handled locally by the MCP server.
+// See src/services/simulator.ts in the main package.
 
 // Reference data
 pg.get("/versions", (c) => proxyRequest(c, "/versions", "GET"));

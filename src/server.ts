@@ -21,9 +21,11 @@ import semver from "semver";
 
 import { z } from "zod";
 import {
+  config,
   logger,
   formatErrorResponse,
-  setMCPLogCallback,
+  setMCPLogFunction,
+  initLogging,
   trackToolCall,
   serialize,
 } from "./utils/index.js";
@@ -75,8 +77,10 @@ async function checkForUpdates(): Promise<void> {
 
     if (!response.ok) return;
 
-    const data = (await response.json()) as { version: string };
-    const latestVersion = data.version;
+    const raw: unknown = await response.json();
+    const parsed = z.object({ version: z.string() }).safeParse(raw);
+    if (!parsed.success) return;
+    const latestVersion = parsed.data.version;
 
     if (
       semver.valid(latestVersion) &&
@@ -254,23 +258,21 @@ export function sendLogToClient(
   if (LOG_LEVEL_VALUES[level] < LOG_LEVEL_VALUES[ctx.logLevel]) return;
 
   sendingNotification = true;
-  try {
-    void target.notification({
+  target
+    .notification({
       method: "notifications/message",
       params: {
         level,
         logger: loggerName,
         data,
       },
+    })
+    .catch((error: unknown) => {
+      console.error(
+        `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
-  } catch (error: unknown) {
-    // Use console.error to avoid re-entering the MCP log callback
-    console.error(
-      `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  } finally {
-    sendingNotification = false;
-  }
+  sendingNotification = false;
 }
 
 /**
@@ -286,8 +288,8 @@ export function sendProgressNotification(
   const target = serverStorage.getStore() ?? activeServer;
   if (!target) return;
 
-  try {
-    void target.notification({
+  target
+    .notification({
       method: "notifications/progress",
       params: {
         progressToken,
@@ -295,13 +297,12 @@ export function sendProgressNotification(
         ...(total !== undefined && { total }),
         ...(message && { message }),
       },
+    })
+    .catch((error: unknown) => {
+      console.error(
+        `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
-  } catch (error: unknown) {
-    // Use console.error to avoid re-entering the MCP log callback
-    console.error(
-      `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
 }
 
 export function createServer(): Server {
@@ -384,7 +385,7 @@ function registerToolHandlers(server: Server): void {
   // Handle tool calls
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    logger.info(`Tool called: ${name}`, { args });
+    logger.info(`Tool called: ${name}`, { argKeys: Object.keys(args ?? {}) });
     const startTime = Date.now();
 
     const tool = allTools.find((t) => t.name === name);
@@ -693,10 +694,16 @@ export function notifyResourceUpdate(server: Server, uri: string): void {
   const ctx = serverContexts.get(server);
   if (ctx?.subscriptions.has(uri)) {
     logger.info(`Notifying subscribers of update: ${uri}`);
-    void server.notification({
-      method: "notifications/resources/updated",
-      params: { uri },
-    });
+    server
+      .notification({
+        method: "notifications/resources/updated",
+        params: { uri },
+      })
+      .catch((error: unknown) => {
+        console.error(
+          `[midnight-mcp] Failed to send resource update notification: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
   }
 }
 
@@ -771,12 +778,15 @@ function setupSampling(server: Server): void {
  * Called once at startup regardless of transport mode.
  */
 export async function initializeSharedResources(): Promise<void> {
+  // Initialize LogTape logging before any log calls
+  await initLogging({ level: config.logLevel, format: process.env.LOG_FORMAT });
+
   logger.info("Initializing Midnight MCP Server...");
 
-  // Wire up MCP logging once — sendLogToClient resolves the correct
+  // Wire up MCP log forwarding — sendLogToClient resolves the correct
   // server via AsyncLocalStorage (inside handler chains) or activeServer
   // (background/startup), so we don't need a per-server callback.
-  setMCPLogCallback((level, loggerName, data) => {
+  setMCPLogFunction((level, loggerName, data) => {
     sendLogToClient(level as LoggingLevel, loggerName, data);
   });
 
