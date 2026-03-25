@@ -66,6 +66,10 @@ jobs:
         working-directory: api
         run: npx tsc --noEmit
 
+      - name: Run API tests
+        working-directory: api
+        run: npx vitest run
+
       - name: Deploy to Cloudflare Workers
         working-directory: api
         run: npx wrangler deploy
