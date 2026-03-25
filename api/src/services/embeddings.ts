@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { fetchWithTimeout } from "../utils";
 
 /** Zod schema for OpenAI embeddings API response. Requires at least one embedding. */
 const EmbeddingResponseSchema = z.object({
@@ -57,7 +58,7 @@ export async function getEmbedding(
   // Cache miss — call OpenAI
   const truncatedText = text.slice(0, 8000);
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const response = await fetchWithTimeout("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

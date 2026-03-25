@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { fetchWithTimeout } from "../utils";
 
 // --- GitHub API response schemas ---
 
@@ -64,7 +65,7 @@ export async function exchangeCodeWithGitHub(
   clientId: string,
   clientSecret: string,
 ): Promise<string> {
-  const response = await fetch("https://github.com/login/oauth/access_token", {
+  const response = await fetchWithTimeout("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -101,7 +102,7 @@ export async function exchangeCodeWithGitHub(
 export async function getGitHubUser(
   accessToken: string,
 ): Promise<{ id: number; login: string; email: string }> {
-  const response = await fetch("https://api.github.com/user", {
+  const response = await fetchWithTimeout("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github+json",
@@ -124,7 +125,7 @@ export async function getGitHubUser(
   let email = user.email || "";
   if (!email) {
     try {
-      const emailsResponse = await fetch("https://api.github.com/user/emails", {
+      const emailsResponse = await fetchWithTimeout("https://api.github.com/user/emails", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/vnd.github+json",
@@ -151,7 +152,7 @@ export async function getGitHubUser(
  * Fetch the authenticated GitHub user's organization memberships.
  */
 export async function getGitHubOrgs(accessToken: string): Promise<string[]> {
-  const response = await fetch("https://api.github.com/user/orgs", {
+  const response = await fetchWithTimeout("https://api.github.com/user/orgs", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github+json",

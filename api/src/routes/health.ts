@@ -4,6 +4,7 @@
 
 import { Hono } from "hono";
 import type { Bindings } from "../interfaces";
+import { fetchWithTimeout } from "../utils";
 
 const healthRoutes = new Hono<{ Bindings: Bindings }>();
 
@@ -25,7 +26,7 @@ healthRoutes.get("/ready", async (c) => {
 
   const [db, playground] = await Promise.allSettled([
     c.env.DB.prepare("SELECT 1").first(),
-    fetch(`${c.env.COMPACT_PLAYGROUND_URL}/health`, { signal: AbortSignal.timeout(5000) }),
+    fetchWithTimeout(`${c.env.COMPACT_PLAYGROUND_URL}/health`, {}, 5_000),
   ]);
 
   checks.d1 =

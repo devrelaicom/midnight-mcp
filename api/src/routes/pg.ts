@@ -7,6 +7,7 @@ import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Bindings } from "../interfaces";
 import { trackPlaygroundCall } from "../services";
+import { fetchWithTimeout } from "../utils";
 
 const pg = new Hono<{ Bindings: Bindings }>();
 
@@ -67,7 +68,7 @@ async function proxyRequest(
   fetchOptions.headers = headers;
 
   try {
-    const response = await fetch(`${playgroundUrl}${path}`, fetchOptions);
+    const response = await fetchWithTimeout(`${playgroundUrl}${path}`, fetchOptions);
     const durationMs = Date.now() - start;
 
     if (response.status >= 500) {
