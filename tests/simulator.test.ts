@@ -172,13 +172,15 @@ describe("Local simulator — circuit extraction", () => {
     vi.clearAllMocks();
   });
 
-  it("extracts multiple circuits from compilation output", async () => {
+  it("extracts multiple circuits from source code", async () => {
     mockCompile.mockResolvedValueOnce({
       success: true,
-      output: "export circuit deposit(amount: Field) {}\ncircuit internal_check() {}\nexport circuit withdraw(amount: Field, to: Bytes<32>) {}",
+      output: "compiled output",
     });
 
-    const result = await localSimulateDeploy("source code");
+    // Circuits are now extracted from source code, not compilation output
+    const sourceCode = "export circuit deposit(amount: Field) {}\ncircuit internal_check() {}\nexport circuit withdraw(amount: Field, to: Bytes<32>) {}";
+    const result = await localSimulateDeploy(sourceCode);
 
     const names = result.circuits.map((c) => c.name);
     expect(names).toContain("deposit");
@@ -193,13 +195,14 @@ describe("Local simulator — circuit extraction", () => {
     expect(internal.isPublic).toBe(false);
   });
 
-  it("provides fallback circuit when output is binary", async () => {
+  it("provides fallback circuit when source has no circuit declarations", async () => {
     mockCompile.mockResolvedValueOnce({
       success: true,
-      output: "\x00\x01\x02 binary ZKIR output",
+      output: "compiled output",
     });
 
-    const result = await localSimulateDeploy("source code");
+    // Source code with no circuit declarations
+    const result = await localSimulateDeploy("pragma language_version >= 0.30;");
     expect(result.circuits.length).toBeGreaterThan(0);
   });
 });

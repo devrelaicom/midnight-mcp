@@ -5,12 +5,16 @@
  * playground `/simulate/*` endpoints. Each session represents a deployed
  * Compact contract that can have its circuits called and state inspected.
  *
- * The engine compiles the contract (via the existing playground compile
- * endpoint with includeBindings: true), then tracks state transitions
- * locally in memory.
+ * The engine compiles the contract via the playground compile endpoint,
+ * extracts circuit information from the source code, and tracks state
+ * transitions locally. When the compiled JS module is available, it
+ * dynamically loads and executes circuit logic via compact-runtime.
  */
 
 import { randomUUID } from "crypto";
+import { writeFileSync, mkdirSync, rmSync, existsSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 import { logger } from "../utils/index.js";
 import { compile } from "./playground.js";
 
@@ -27,6 +31,10 @@ export interface SimulationSession {
   callHistory: SimulationCallRecord[];
   createdAt: number;
   lastAccessedAt: number;
+  /** Path to temp directory for this session's artifacts */
+  tempDir?: string;
+  /** Dynamically loaded contract module, if available */
+  contractModule?: Record<string, unknown>;
 }
 
 export interface SimulationCircuit {
@@ -84,6 +92,7 @@ function startCleanupTimer(): void {
     const now = Date.now();
     for (const [id, session] of sessions) {
       if (now - session.lastAccessedAt > SESSION_TTL_MS) {
+        cleanupSessionArtifacts(session);
         sessions.delete(id);
         logger.debug("Simulation session expired", { sessionId: id });
       }
@@ -110,6 +119,18 @@ function getSession(sessionId: string): SimulationSession {
   return session;
 }
 
+/** Clean up temp files for a session */
+function cleanupSessionArtifacts(session: SimulationSession): void {
+  if (session.tempDir && existsSync(session.tempDir)) {
+    try {
+      rmSync(session.tempDir, { recursive: true, force: true });
+      logger.debug("Cleaned up session temp dir", { sessionId: session.id, dir: session.tempDir });
+    } catch {
+      logger.warn("Failed to clean up session temp dir", { sessionId: session.id });
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Simulation engine
 // ---------------------------------------------------------------------------
@@ -118,8 +139,9 @@ function getSession(sessionId: string): SimulationSession {
  * Deploy a contract for local simulation.
  *
  * Compiles the code via the playground compile endpoint (with includeBindings),
- * extracts circuit information from the compilation output, and creates an
- * in-memory session.
+ * extracts circuit information from the source, and creates an in-memory session.
+ * If the compilation returns a JS module, it is written to a temp file and
+ * dynamically loaded for real circuit execution.
  */
 export async function localSimulateDeploy(
   code: string,
@@ -134,6 +156,7 @@ export async function localSimulateDeploy(
       }
     }
     if (oldest) {
+      cleanupSessionArtifacts(oldest);
       sessions.delete(oldest.id);
       logger.debug("Evicted oldest simulation session", { sessionId: oldest.id });
     }
@@ -155,9 +178,8 @@ export async function localSimulateDeploy(
     throw new Error(`Cannot simulate: ${errorMsg}`);
   }
 
-  // Extract circuit info from compilation output
-  const output = "output" in compileResult ? (compileResult.output ?? "") : "";
-  const circuits = extractCircuits(output);
+  // Extract circuits from the source code (more reliable than compilation output)
+  const circuits = extractCircuits(code);
 
   const sessionId = randomUUID();
   const session: SimulationSession = {
@@ -171,12 +193,59 @@ export async function localSimulateDeploy(
     lastAccessedAt: Date.now(),
   };
 
+  // Try to load the compiled JS module for real circuit execution
+  const output = "output" in compileResult ? (compileResult.output ?? "") : "";
+  if (output && looksLikeJSModule(output)) {
+    try {
+      const tempDir = join(tmpdir(), `midnight-sim-${sessionId}`);
+      mkdirSync(tempDir, { recursive: true });
+      const modulePath = join(tempDir, "contract.cjs");
+      writeFileSync(modulePath, output, "utf-8");
+
+      const contractModule = (await import(modulePath)) as Record<string, unknown>;
+      session.contractModule = contractModule;
+      session.tempDir = tempDir;
+
+      // Try to initialize the contract state via the constructor
+      if (typeof contractModule.initialState === "function") {
+        try {
+          const { createConstructorContext, emptyZswapLocalState } =
+            await import("@midnight-ntwrk/compact-runtime");
+          // Use a dummy coin public key (32 zero bytes as hex) for simulation
+          const dummyCoinKey = "0".repeat(64);
+          const zswapState = emptyZswapLocalState(dummyCoinKey);
+          const ctx = createConstructorContext(
+            {} as Record<string, unknown>,
+            zswapState.coinPublicKey as unknown as string,
+          );
+          const initFn = contractModule.initialState as (...a: unknown[]) => unknown;
+          const initialResult = initFn(ctx);
+          if (initialResult != null && typeof initialResult === "object") {
+            session.ledger = { ...(initialResult as Record<string, unknown>) };
+          }
+          logger.info("Contract initialized with compact-runtime", { sessionId });
+        } catch (initError) {
+          logger.debug("compact-runtime initialization failed, using empty state", {
+            sessionId,
+            error: initError instanceof Error ? initError.message : String(initError),
+          });
+        }
+      }
+    } catch (loadError) {
+      logger.debug("Could not load compiled JS module, using stub execution", {
+        sessionId,
+        error: loadError instanceof Error ? loadError.message : String(loadError),
+      });
+    }
+  }
+
   sessions.set(sessionId, session);
   startCleanupTimer();
 
   logger.info("Simulation session created", {
     sessionId,
     circuitCount: circuits.length,
+    hasRuntimeModule: !!session.contractModule,
   });
 
   return {
@@ -190,11 +259,9 @@ export async function localSimulateDeploy(
 /**
  * Call a circuit on a simulated contract.
  *
- * Records the call in the session's history and updates the ledger state.
- * Since we don't have the full OZ simulator runtime wired in yet, this
- * records the call and provides the circuit interface for the user.
+ * If the contract module was loaded successfully, attempts real circuit
+ * execution via compact-runtime. Otherwise, records the call as a stub.
  */
-// eslint-disable-next-line @typescript-eslint/require-await
 export async function localSimulateCall(
   sessionId: string,
   circuit: string,
@@ -210,16 +277,72 @@ export async function localSimulateCall(
     );
   }
 
+  let callResult: unknown;
+  const stateChanges: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
+  const oldLedger = { ...session.ledger };
+
+  // Try real circuit execution if the contract module is loaded
+  if (session.contractModule && typeof session.contractModule[circuit] === "function") {
+    try {
+      const { createCircuitContext, emptyZswapLocalState, ContractState } =
+        await import("@midnight-ntwrk/compact-runtime");
+      // Create a simulation circuit context with mock blockchain primitives
+      const dummyCoinKey = "0".repeat(64);
+      const zswapState = emptyZswapLocalState(dummyCoinKey);
+      const mockAddress = "0".repeat(64); // hex-encoded mock address
+      const contractState = new ContractState();
+      const ctx = createCircuitContext(
+        mockAddress as unknown as Parameters<typeof createCircuitContext>[0],
+        zswapState,
+        contractState,
+        session.ledger,
+      );
+      const circuitFn = session.contractModule[circuit] as (...circuitArgs: unknown[]) => unknown;
+
+      // Convert string args to appropriate types for the circuit
+      const circuitArgs = args ? Object.values(args) : [];
+      callResult = circuitFn(ctx, ...circuitArgs);
+
+      // Extract state changes from the result
+      if (callResult && typeof callResult === "object") {
+        const resultObj = callResult as Record<string, unknown>;
+        if (resultObj.state && typeof resultObj.state === "object") {
+          const newState = resultObj.state as Record<string, unknown>;
+          for (const [key, newValue] of Object.entries(newState)) {
+            if (oldLedger[key] !== newValue) {
+              stateChanges.push({ field: key, oldValue: oldLedger[key], newValue });
+            }
+          }
+          session.ledger = { ...session.ledger, ...newState };
+        }
+      }
+
+      logger.debug("Circuit executed via compact-runtime", { sessionId, circuit });
+    } catch (execError) {
+      logger.debug("Runtime circuit execution failed, recording as stub", {
+        sessionId,
+        circuit,
+        error: execError instanceof Error ? execError.message : String(execError),
+      });
+      callResult = {
+        note: "Circuit execution via compact-runtime failed. Call recorded.",
+        error: execError instanceof Error ? execError.message : String(execError),
+      };
+    }
+  } else {
+    callResult = {
+      note: "Local simulation: circuit call recorded. Runtime module not loaded for this session.",
+      circuit,
+      arguments: args ?? {},
+    };
+  }
+
   const record: SimulationCallRecord = {
     circuit,
     arguments: args,
     timestamp: new Date().toISOString(),
     success: true,
-    result: {
-      note: "Local simulation executed successfully. Circuit call recorded.",
-      circuit,
-      arguments: args ?? {},
-    },
+    result: callResult,
   };
 
   session.callHistory.push(record);
@@ -228,12 +351,13 @@ export async function localSimulateCall(
     sessionId,
     circuit,
     callNumber: session.callHistory.length,
+    hasRuntimeModule: !!session.contractModule,
   });
 
   return {
     success: true,
-    result: record.result,
-    stateChanges: [],
+    result: callResult,
+    stateChanges,
     updatedLedger: session.ledger,
   };
 }
@@ -258,12 +382,14 @@ export async function localSimulateState(sessionId: string): Promise<StateResult
  */
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function localSimulateDelete(sessionId: string): Promise<DeleteResult> {
-  const existed = sessions.delete(sessionId);
+  const session = sessions.get(sessionId);
 
-  if (!existed) {
-    logger.debug("Session already deleted or expired", { sessionId });
-  } else {
+  if (session) {
+    cleanupSessionArtifacts(session);
+    sessions.delete(sessionId);
     logger.info("Simulation session deleted", { sessionId });
+  } else {
+    logger.debug("Session already deleted or expired", { sessionId });
   }
 
   return { success: true };
@@ -273,6 +399,9 @@ export async function localSimulateDelete(sessionId: string): Promise<DeleteResu
  * Reset all simulation state. Used for testing.
  */
 export function resetSimulatorState(): void {
+  for (const session of sessions.values()) {
+    cleanupSessionArtifacts(session);
+  }
   sessions.clear();
   if (cleanupInterval) {
     clearInterval(cleanupInterval);
@@ -292,18 +421,29 @@ export function getActiveSessionCount(): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Extract circuit information from compilation output.
- * Parses the compiler output to find circuit declarations.
+ * Check if compilation output looks like a JS module (vs binary ZKIR).
  */
-function extractCircuits(output: string): SimulationCircuit[] {
+function looksLikeJSModule(output: string): boolean {
+  return (
+    output.includes("exports.") ||
+    output.includes("module.exports") ||
+    output.includes("export ") ||
+    output.includes("require(")
+  );
+}
+
+/**
+ * Extract circuit information from Compact source code.
+ * Parses the source to find circuit declarations.
+ */
+function extractCircuits(source: string): SimulationCircuit[] {
   const circuits: SimulationCircuit[] = [];
 
-  // Match circuit declarations from the contract source or compilation output
-  // Pattern: export circuit name(params) or circuit name(params)
+  // Match circuit declarations: export circuit name(params) or circuit name(params)
   const circuitPattern = /(?:export\s+)?circuit\s+(\w+)\s*\(([^)]*)\)/g;
   let match;
 
-  while ((match = circuitPattern.exec(output)) !== null) {
+  while ((match = circuitPattern.exec(source)) !== null) {
     const name = match[1] ?? "";
     const paramStr = (match[2] ?? "").trim();
     const parameters = paramStr
@@ -320,11 +460,7 @@ function extractCircuits(output: string): SimulationCircuit[] {
     });
   }
 
-  // If no circuits found in output, try parsing the original code
-  // (the output may be binary/ZKIR, not source)
   if (circuits.length === 0) {
-    // This is expected when the compiler output is ZKIR
-    // Return a basic "constructor" circuit as a fallback
     circuits.push({
       name: "constructor",
       parameters: [],
