@@ -216,7 +216,7 @@ export async function localSimulateDeploy(
           const zswapState = emptyZswapLocalState(dummyCoinKey);
           const ctx = createConstructorContext(
             {} as Record<string, unknown>,
-            zswapState.coinPublicKey as unknown as string,
+            zswapState.coinPublicKey,
           );
           const initFn = contractModule.initialState as (...a: unknown[]) => unknown;
           const constructorResult = initFn(ctx);
