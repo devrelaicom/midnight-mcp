@@ -258,23 +258,21 @@ export function sendLogToClient(
   if (LOG_LEVEL_VALUES[level] < LOG_LEVEL_VALUES[ctx.logLevel]) return;
 
   sendingNotification = true;
-  try {
-    void target.notification({
+  target
+    .notification({
       method: "notifications/message",
       params: {
         level,
         logger: loggerName,
         data,
       },
+    })
+    .catch((error: unknown) => {
+      console.error(
+        `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
-  } catch (error: unknown) {
-    // Use console.error to avoid re-entering the MCP log callback
-    console.error(
-      `[midnight-mcp] Failed to send log notification: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  } finally {
-    sendingNotification = false;
-  }
+  sendingNotification = false;
 }
 
 /**
@@ -290,8 +288,8 @@ export function sendProgressNotification(
   const target = serverStorage.getStore() ?? activeServer;
   if (!target) return;
 
-  try {
-    void target.notification({
+  target
+    .notification({
       method: "notifications/progress",
       params: {
         progressToken,
@@ -299,13 +297,12 @@ export function sendProgressNotification(
         ...(total !== undefined && { total }),
         ...(message && { message }),
       },
+    })
+    .catch((error: unknown) => {
+      console.error(
+        `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
-  } catch (error: unknown) {
-    // Use console.error to avoid re-entering the MCP log callback
-    console.error(
-      `[midnight-mcp] Failed to send progress notification: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
 }
 
 export function createServer(): Server {
@@ -697,10 +694,16 @@ export function notifyResourceUpdate(server: Server, uri: string): void {
   const ctx = serverContexts.get(server);
   if (ctx?.subscriptions.has(uri)) {
     logger.info(`Notifying subscribers of update: ${uri}`);
-    void server.notification({
-      method: "notifications/resources/updated",
-      params: { uri },
-    });
+    server
+      .notification({
+        method: "notifications/resources/updated",
+        params: { uri },
+      })
+      .catch((error: unknown) => {
+        console.error(
+          `[midnight-mcp] Failed to send resource update notification: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
   }
 }
 

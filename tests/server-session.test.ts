@@ -215,6 +215,25 @@ describe("Log notification routing", () => {
     // Should not throw
     expect(() => sendLogToClient("info", "test", "hello")).not.toThrow();
   });
+
+  it("catches rejected notification promise without unhandled rejection", async () => {
+    const server = createServer();
+    setServerConnected(true, server);
+    const spy = vi.spyOn(server, "notification").mockRejectedValue(new Error("transport closed"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    sendLogToClient("info", "test", "hello", server);
+
+    // Allow the microtask (.catch handler) to run
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to send log notification: transport closed"),
+    );
+
+    spy.mockRestore();
+    consoleSpy.mockRestore();
+  });
 });
 
 describe("Progress notification routing", () => {
