@@ -45,6 +45,7 @@ describe("Rate limit middleware", () => {
       ctx,
     );
     expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("60");
     const body = await res.json();
     expect(body).toHaveProperty("error", "Rate limited");
     expect(body).toHaveProperty("retryAfter", 60);
