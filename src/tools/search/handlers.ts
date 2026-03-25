@@ -313,7 +313,7 @@ export async function searchCompact(input: SearchCompactInput) {
   return performSearch(input.query, input.limit, {
     searchType: "compact",
     cacheKeyExtra: [input.filter?.repository],
-    hostedSearchFn: (query, limit) => searchCompactHosted(query, limit),
+    hostedSearchFn: (query, limit) => searchCompactHosted(query, limit, input.filter),
     buildFilter: () => ({ language: "compact", ...input.filter }),
     transformResult: (r) => ({
       code: r.content,

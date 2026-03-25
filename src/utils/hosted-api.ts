@@ -293,6 +293,7 @@ async function apiRequest<T>(
 export async function searchCompactHosted(
   query: string,
   limit: number = 10,
+  filter?: { repository?: string; isPublic?: boolean },
 ): Promise<HostedSearchResponse> {
   logger.debug("Searching Compact code via hosted API", { query });
 
@@ -300,7 +301,11 @@ export async function searchCompactHosted(
     "/v1/search/compact",
     {
       method: "POST",
-      body: JSON.stringify({ query, limit }),
+      body: JSON.stringify({
+        query,
+        limit,
+        ...(filter?.repository ? { filter: { repository: filter.repository } } : {}),
+      }),
     },
     HostedSearchResponseSchema,
   );

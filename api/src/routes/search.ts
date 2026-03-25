@@ -19,10 +19,13 @@ const searchRoutes = new Hono<{ Bindings: Bindings }>();
  * Shared search handler.
  * Encapsulates: metrics, validation, cached embedding, Vectorize query,
  * keyword boost, tracking, and response formatting.
+ *
+ * Endpoint filters (e.g. language:"compact") are merged with request-body
+ * filters (e.g. filter.repository) so the MCP tool contract is honored.
  */
 async function handleSearch(
   c: Context<{ Bindings: Bindings }>,
-  filter: Record<string, string> | undefined,
+  endpointFilter: Record<string, string> | undefined,
   endpoint: string
 ): Promise<Response> {
   try {
@@ -40,19 +43,47 @@ async function handleSearch(
       c.env.DB
     );
 
-    const resolvedFilter =
-      filter ??
-      (body.filter?.language ? { language: body.filter.language } : undefined);
+    // Merge endpoint-level filter with request-body filter.
+    // Endpoint language takes precedence; body language only applies to the generic endpoint.
+    const resolvedFilter: Record<string, string> = {
+      ...(endpointFilter ?? {}),
+      ...(!endpointFilter?.language && body.filter?.language ? { language: body.filter.language } : {}),
+      ...(body.filter?.repository ? { repository: body.filter.repository } : {}),
+    };
 
     const results = await c.env.VECTORIZE.query(embedding, {
       topK: limit,
       returnMetadata: "all",
-      filter: resolvedFilter,
+      filter: Object.keys(resolvedFilter).length > 0 ? resolvedFilter : undefined,
     });
 
-    const boostedMatches = applyKeywordBoost(results.matches, query);
+    let boostedMatches = applyKeywordBoost(results.matches, query);
+
+    // TypeScript: filter out type/interface results when includeTypes is false
+    if (body.includeTypes === false) {
+      boostedMatches = boostedMatches.filter((m) => {
+        const codeType = (m.metadata as Record<string, unknown>)?.codeType as string | undefined;
+        return codeType !== "type" && codeType !== "interface";
+      });
+    }
+
+    // Docs: filter by category using file path conventions
+    if (body.category && body.category !== "all") {
+      boostedMatches = boostedMatches.filter((m) => {
+        const filePath = (m.metadata as Record<string, unknown>)?.filePath as string | undefined;
+        if (!filePath) return true;
+        const categoryPrefixes: Record<string, string[]> = {
+          guides: ["/develop/", "/getting-started/", "/build/"],
+          api: ["/api/", "/reference/"],
+          concepts: ["/learn/", "/concepts/", "/compact/"],
+        };
+        const prefixes = categoryPrefixes[body.category!];
+        return prefixes ? prefixes.some((p) => filePath.includes(p)) : true;
+      });
+    }
+
     c.executionCtx.waitUntil(
-      trackQuery(c.env.DB, query, endpoint, boostedMatches, filter?.language),
+      trackQuery(c.env.DB, query, endpoint, boostedMatches, resolvedFilter.language),
     );
 
     const response = formatResults(boostedMatches, query);

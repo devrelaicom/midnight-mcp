@@ -88,7 +88,9 @@ export interface Metrics extends AggregateMetrics {
 export interface SearchRequestBody {
   query: string;
   limit?: number;
-  filter?: { language?: string };
+  includeTypes?: boolean;
+  category?: "guides" | "api" | "concepts" | "all";
+  filter?: { language?: string; repository?: string };
 }
 
 export interface SearchResult {
