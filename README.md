@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/midnight-mcp)](https://npm-stat.com/charts.html?package=midnight-mcp)
 [![License](https://img.shields.io/npm/l/midnight-mcp)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![CI](https://github.com/devrelaicom/midnight-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/devrelaicom/midnight-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/Olanetsoft/midnight-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Olanetsoft/midnight-mcp/actions/workflows/ci.yml)
 
 MCP server that gives AI assistants access to Midnight blockchain — search contracts, analyze code, compile Compact, simulate deployments, and explore documentation.
 
@@ -289,4 +289,4 @@ MIT
 
 ## Stargazers
 
-[![Star History Chart](https://api.star-history.com/svg?repos=devrelaicom/midnight-mcp&type=Date)](https://star-history.com/#devrelaicom/midnight-mcp&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Olanetsoft/midnight-mcp&type=Date)](https://star-history.com/#Olanetsoft/midnight-mcp&Date)

@@ -40,6 +40,17 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Guard canonical repo URL
+        run: |
+          if grep -r --include='*.ts' --include='*.md' --include='*.json' \
+               --include='*.yml' --include='*.yaml' --include='*.toml' \
+               --exclude-dir='node_modules' \
+               -l 'devrelaicom/midnight-mcp' \
+               . 2>/dev/null | grep -v 'ci.yml'; then
+            echo "::error::Found references to devrelaicom/midnight-mcp — use Olanetsoft/midnight-mcp instead"
+            exit 1
+          fi
+
       - name: Audit dependencies (high severity)
         run: npm audit --audit-level=high
 
