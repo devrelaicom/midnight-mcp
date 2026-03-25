@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "wrangler dev",
-    "check-config": "node -e \"const fs=require('fs');const t=fs.readFileSync('wrangler.toml','utf8');if(/REPLACE_AFTER_CREATE/.test(t)){console.error('ERROR: Unresolved D1 placeholder in wrangler.toml.\\nRun: npx wrangler d1 create midnight-mcp — then update database_id in wrangler.toml.\\nSee README.md Step 4.');process.exit(1)}\"",
+    "check-config": "node -e \"const fs=require('fs');if(!fs.existsSync('wrangler.toml')){console.error('ERROR: wrangler.toml not found. Copy wrangler.toml.example and fill in your Cloudflare IDs.\\nSee README.md Step 4.');process.exit(1)}const t=fs.readFileSync('wrangler.toml','utf8');if(/__D1_DATABASE_ID__|__KV_NAMESPACE_ID__|REPLACE_AFTER_CREATE/.test(t)){console.error('ERROR: Unresolved placeholders in wrangler.toml.\\nReplace __D1_DATABASE_ID__ and __KV_NAMESPACE_ID__ with real IDs.\\nSee README.md Step 4.');process.exit(1)}\"",
     "predeploy": "npm run check-config",
     "deploy": "wrangler deploy",
     "create-index": "wrangler vectorize create midnight-code --dimensions=1536 --metric=cosine",

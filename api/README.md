@@ -67,7 +67,7 @@ npx wrangler vectorize create midnight-code --dimensions=1536 --metric=cosine
 
 ---
 
-## Step 4: Create the D1 database
+## Step 4: Create the D1 database and configure wrangler.toml
 
 D1 is Cloudflare's SQL database. It stores metrics, query logs, tool call logs, and the embedding cache.
 
@@ -75,14 +75,23 @@ D1 is Cloudflare's SQL database. It stores metrics, query logs, tool call logs, 
 npx wrangler d1 create midnight-mcp
 ```
 
-This outputs a database ID. Copy it, then update `wrangler.toml`:
+This outputs a database ID. Now create your local `wrangler.toml` from the example and fill in the IDs:
 
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "midnight-mcp"
-database_id = "YOUR_DATABASE_ID_HERE"   # <-- paste the ID here
+```bash
+cp wrangler.toml.example wrangler.toml
 ```
+
+Create the KV namespace for session/OAuth storage:
+
+```bash
+npx wrangler kv namespace create midnight-mcp-metrics
+```
+
+Replace the placeholder tokens in `wrangler.toml`:
+- `__D1_DATABASE_ID__` → the D1 database ID from the `d1 create` command above
+- `__KV_NAMESPACE_ID__` → the KV namespace ID from the `kv namespace create` command above
+
+> **CI/CD note:** The deploy workflow resolves these IDs automatically by looking up resources by name. It expects a D1 database named `midnight-mcp` and a KV namespace named `midnight-mcp-metrics`. The `wrangler.toml` file is not tracked in git — only `wrangler.toml.example` is committed.
 
 Now apply the schema migration:
 
@@ -146,7 +155,7 @@ npx wrangler secret put DASHBOARD_ALLOWED_ORGS
 npm run deploy
 ```
 
-This runs a configuration check (verifying `wrangler.toml` has a valid D1 database ID) followed by `wrangler deploy`. Always use `npm run deploy` instead of calling `wrangler deploy` directly to ensure the pre-deploy validation runs.
+This runs a configuration check (verifying `wrangler.toml` exists and has no unresolved placeholder tokens) followed by `wrangler deploy`. Always use `npm run deploy` instead of calling `wrangler deploy` directly to ensure the pre-deploy validation runs. In CI, the deploy workflow generates `wrangler.toml` automatically by resolving Cloudflare resource IDs by name.
 
 Verify the deployment:
 
@@ -437,7 +446,8 @@ api/
 │   ├── templates/
 │   │   └── dashboard.ts          # Dashboard HTML template
 │   └── utils/                    # Search utilities, validation
-├── wrangler.toml                 # Cloudflare Worker config
+├── wrangler.toml.example         # Cloudflare Worker config template (committed)
+├── wrangler.toml                 # Local config with real IDs (git-ignored)
 ├── tsconfig.json
 └── package.json
 ```
