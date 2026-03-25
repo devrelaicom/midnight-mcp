@@ -24,7 +24,7 @@
     "update-server-json": "node --import tsx scripts/update-server-json.ts",
     "prepublishOnly": "npm run ci",
     "ci": "npm run typecheck && npm run typecheck:tests && npm run lint -- --max-warnings 0 && npm run format:check && npm run build && npm run test:run",
-    "prepare": "husky"
+    "prepare": "husky && npm run build"
   },
   "keywords": [
     "midnight",
