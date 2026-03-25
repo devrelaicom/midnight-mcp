@@ -102,7 +102,7 @@ describe("Node search handlers — hosted mode behavior", () => {
       });
 
       expect(mockSearchCompactHosted).toHaveBeenCalledOnce();
-      const [, , filter] = mockSearchCompactHosted.mock.calls[0];
+      const [, , filter] = mockSearchCompactHosted.mock.calls[0]!;
       expect(filter).toEqual({ repository: "midnight-examples" });
     });
 
@@ -115,7 +115,7 @@ describe("Node search handlers — hosted mode behavior", () => {
       await searchCompact({ query: "counter", limit: 10 });
 
       expect(mockSearchCompactHosted).toHaveBeenCalledOnce();
-      const [, , filter] = mockSearchCompactHosted.mock.calls[0];
+      const [, , filter] = mockSearchCompactHosted.mock.calls[0]!;
       expect(filter).toBeUndefined();
     });
 
@@ -134,7 +134,7 @@ describe("Node search handlers — hosted mode behavior", () => {
       await searchTypeScript({ query: "wallet api", includeTypes: false, limit: 10 });
 
       expect(mockSearchTypeScriptHosted).toHaveBeenCalledOnce();
-      const [, , includeTypes] = mockSearchTypeScriptHosted.mock.calls[0];
+      const [, , includeTypes] = mockSearchTypeScriptHosted.mock.calls[0]!;
       expect(includeTypes).toBe(false);
     });
 
@@ -146,7 +146,7 @@ describe("Node search handlers — hosted mode behavior", () => {
 
       await searchTypeScript({ query: "wallet api", includeTypes: true, limit: 10 });
 
-      const [, , includeTypes] = mockSearchTypeScriptHosted.mock.calls[0];
+      const [, , includeTypes] = mockSearchTypeScriptHosted.mock.calls[0]!;
       expect(includeTypes).toBe(true);
     });
   });
@@ -161,7 +161,7 @@ describe("Node search handlers — hosted mode behavior", () => {
       await searchDocs({ query: "how to install", category: "guides", limit: 10 });
 
       expect(mockSearchDocsHosted).toHaveBeenCalledOnce();
-      const [, , category] = mockSearchDocsHosted.mock.calls[0];
+      const [, , category] = mockSearchDocsHosted.mock.calls[0]!;
       expect(category).toBe("guides");
     });
 
@@ -173,7 +173,7 @@ describe("Node search handlers — hosted mode behavior", () => {
 
       await searchDocs({ query: "overview", category: "all", limit: 10 });
 
-      const [, , category] = mockSearchDocsHosted.mock.calls[0];
+      const [, , category] = mockSearchDocsHosted.mock.calls[0]!;
       expect(category).toBe("all");
     });
 
@@ -191,7 +191,7 @@ describe("Node search handlers — hosted mode behavior", () => {
 
       const result = await searchDocs({ query: "install", category: "all", limit: 10 });
       expect(result).toHaveProperty("hint");
-      expect(result.hint).toContain("midnight-fetch-docs");
+      expect((result as Record<string, unknown>).hint).toContain("midnight-fetch-docs");
     });
   });
 });

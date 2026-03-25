@@ -108,7 +108,7 @@ describe("Local simulator — session lifecycle", () => {
     expect(state.success).toBe(true);
     expect(state.circuits).toBeDefined();
     expect(state.callHistory).toHaveLength(1);
-    expect(state.callHistory[0].circuit).toBe("main");
+    expect(state.callHistory[0]!.circuit).toBe("main");
   });
 
   it("delete removes the session", async () => {
@@ -162,7 +162,7 @@ describe("Local simulator — capacity management", () => {
     expect(getActiveSessionCount()).toBe(10);
 
     // The first session should have been evicted
-    await expect(localSimulateState(sessions[0].sessionId)).rejects.toThrow("not found");
+    await expect(localSimulateState(sessions[0]!.sessionId)).rejects.toThrow("not found");
   });
 });
 
