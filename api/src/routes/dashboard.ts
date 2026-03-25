@@ -21,6 +21,13 @@ dashboardRoute.use("*", async (c, next) => {
     );
   }
 
+  // Allow OAuth callback through — the route handler needs to consume the auth code
+  // before a session exists, so it must bypass the auth redirect.
+  const isOAuthReturn = c.req.method === "GET" && !!c.req.query("code");
+  if (isOAuthReturn) {
+    return next();
+  }
+
   const authState = c.get("authState") as AuthState;
 
   if (!authState.user) {

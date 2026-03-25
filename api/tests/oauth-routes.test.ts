@@ -499,7 +499,7 @@ describe("GET /dashboard", () => {
     expect(html).toContain("html");
   });
 
-  it("exchanges auth code and creates session via KV", async () => {
+  it("exchanges auth code and creates session via KV (authenticated)", async () => {
     const kv = createMockKV();
     const user = {
       githubId: 42,
@@ -533,6 +533,45 @@ describe("GET /dashboard", () => {
 
     // Verify auth code was consumed
     const codeData = await kv.get("code:dashboard-auth-code");
+    expect(codeData).toBeNull();
+
+    // Verify session cookie was set
+    const setCookie = res.headers.get("set-cookie");
+    expect(setCookie).toContain("midnight_session=");
+  });
+
+  it("unauthenticated OAuth callback exchanges code and creates session (first-time login)", async () => {
+    const kv = createMockKV();
+    const user = {
+      githubId: 42,
+      username: "newuser",
+      email: "new@example.com",
+      orgs: ["test-org"],
+      expiresAt: Date.now() + 86400000,
+    };
+    await kv.put("code:first-login-code", JSON.stringify({
+      user,
+      clientId: "dashboard-internal",
+      redirectUri: "http://localhost/dashboard",
+    }));
+    const env = createMockBindings({ METRICS: kv });
+
+    // No Authorization header — simulates the real first-time login callback
+    const res = await app.request(
+      "/dashboard?code=first-login-code",
+      {},
+      env,
+      createMockExecutionCtx(),
+    );
+
+    // Should consume the code and redirect with a session cookie
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location")!;
+    expect(location).toContain("/dashboard");
+    expect(location).not.toContain("code=");
+
+    // Verify auth code was consumed
+    const codeData = await kv.get("code:first-login-code");
     expect(codeData).toBeNull();
 
     // Verify session cookie was set
