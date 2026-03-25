@@ -83,7 +83,11 @@ app.onError((err, c) => {
   if (err instanceof HTTPException) {
     return err.getResponse();
   }
-  console.error("Unhandled worker error", { path: c.req.path, method: c.req.method, error: String(err) });
+  console.error("Unhandled worker error", {
+    path: c.req.path,
+    method: c.req.method,
+    error: String(err),
+  });
   return c.json({ error: "Internal server error" }, 500);
 });
 

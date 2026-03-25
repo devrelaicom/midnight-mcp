@@ -7,10 +7,7 @@ import type { SearchResponse } from "../interfaces";
 /**
  * Format Vectorize matches into API response format
  */
-export function formatResults(
-  matches: VectorizeMatches["matches"],
-  query: string
-): SearchResponse {
+export function formatResults(matches: VectorizeMatches["matches"], query: string): SearchResponse {
   return {
     results: matches.map((match) => ({
       content: (match.metadata?.content as string) || "",
@@ -34,7 +31,7 @@ export function formatResults(
  */
 export function applyKeywordBoost(
   matches: VectorizeMatches["matches"],
-  query: string
+  query: string,
 ): VectorizeMatches["matches"] {
   const queryTerms = query
     .toLowerCase()
@@ -44,9 +41,7 @@ export function applyKeywordBoost(
   return matches
     .map((match) => {
       const content = ((match.metadata?.content as string) || "").toLowerCase();
-      const filePath = (
-        (match.metadata?.filePath as string) || ""
-      ).toLowerCase();
+      const filePath = ((match.metadata?.filePath as string) || "").toLowerCase();
 
       // Count keyword matches
       let keywordMatches = 0;

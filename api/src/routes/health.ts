@@ -8,9 +8,7 @@ import type { Bindings } from "../interfaces";
 const healthRoutes = new Hono<{ Bindings: Bindings }>();
 
 // Root health check
-healthRoutes.get("/", (c) =>
-  c.json({ status: "ok", service: "midnight-mcp-api" })
-);
+healthRoutes.get("/", (c) => c.json({ status: "ok", service: "midnight-mcp-api" }));
 
 // Detailed health check
 healthRoutes.get("/health", (c) =>
@@ -18,7 +16,7 @@ healthRoutes.get("/health", (c) =>
     status: "healthy",
     environment: c.env.ENVIRONMENT,
     vectorize: !!c.env.VECTORIZE,
-  })
+  }),
 );
 
 // Readiness check — verifies critical dependencies are responsive

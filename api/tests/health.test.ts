@@ -29,9 +29,9 @@ describe("Health routes", () => {
 
 describe("Readiness endpoint", () => {
   it("GET /ready returns 200 when all dependencies are healthy", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("{}", { status: 200 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
 
     const res = await app.request("/ready", {}, env, ctx);
     expect(res.status).toBe(200);
@@ -44,9 +44,9 @@ describe("Readiness endpoint", () => {
   });
 
   it("GET /ready returns 503 when D1 is down", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("{}", { status: 200 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
 
     const brokenD1 = {
       prepare: () => ({
@@ -73,9 +73,7 @@ describe("Readiness endpoint", () => {
   });
 
   it("GET /ready returns 503 when playground is unreachable", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
-      new Error("fetch failed"),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("fetch failed"));
 
     const res = await app.request("/ready", {}, env, ctx);
     expect(res.status).toBe(503);
@@ -88,9 +86,9 @@ describe("Readiness endpoint", () => {
   });
 
   it("GET /ready returns 503 when playground returns non-200", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("Service Unavailable", { status: 503 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("Service Unavailable", { status: 503 }));
 
     const res = await app.request("/ready", {}, env, ctx);
     expect(res.status).toBe(503);

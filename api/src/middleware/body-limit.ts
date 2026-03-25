@@ -16,22 +16,15 @@ const MAX_BODY_SIZE = 1_048_576; // 1MB
 // Stream-level enforcement: wraps the request body to enforce size during read
 const streamLimit = honoBodyLimit({
   maxSize: MAX_BODY_SIZE,
-  onError: (c) =>
-    c.json({ error: "Request body too large. Maximum size is 1MB." }, 413),
+  onError: (c) => c.json({ error: "Request body too large. Maximum size is 1MB." }, 413),
 });
 
 // Combined middleware: header check first, then stream-level enforcement
-export const bodyLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (
-  c,
-  next
-) => {
+export const bodyLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   // Layer 1: Content-Length fast path
   const contentLength = parseInt(c.req.header("content-length") || "0", 10);
   if (contentLength > MAX_BODY_SIZE) {
-    return c.json(
-      { error: "Request body too large. Maximum size is 1MB." },
-      413
-    );
+    return c.json({ error: "Request body too large. Maximum size is 1MB." }, 413);
   }
   // Layer 2: Stream-level enforcement
   return streamLimit(c, next);

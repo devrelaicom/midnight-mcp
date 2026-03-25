@@ -13,10 +13,7 @@ declare module "hono" {
   }
 }
 
-export const auth: MiddlewareHandler<{ Bindings: Bindings }> = async (
-  c,
-  next
-) => {
+export const auth: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   let user: AuthUser | null = null;
   let tokenInvalid = false;
 
@@ -43,21 +40,15 @@ export const auth: MiddlewareHandler<{ Bindings: Bindings }> = async (
   if (!user && !tokenInvalid) {
     const cookieHeader = c.req.header("cookie");
     if (cookieHeader) {
-      const match = cookieHeader.match(
-        /(?:^|;\s*)midnight_session=([^;]*)/
-      );
+      const match = cookieHeader.match(/(?:^|;\s*)midnight_session=([^;]*)/);
       const sessionId = match ? match[1] : undefined;
       if (sessionId) {
-        const sessionData = await c.env.METRICS.get(
-          `session:${sessionId}`
-        );
+        const sessionData = await c.env.METRICS.get(`session:${sessionId}`);
         if (sessionData) {
           const { accessToken } = JSON.parse(sessionData) as {
             accessToken: string;
           };
-          const userData = await c.env.METRICS.get(
-            `token:${accessToken}`
-          );
+          const userData = await c.env.METRICS.get(`token:${accessToken}`);
           if (userData) {
             const parsed = JSON.parse(userData) as AuthUser;
             if (parsed.expiresAt > Date.now()) {

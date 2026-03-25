@@ -72,16 +72,17 @@ async function proxyRequest(
 
     if (response.status >= 500) {
       trackInBackground(c, path, false, durationMs, null);
-      return c.json(
-        { error: "Compilation service unavailable", retryAfter: 30 },
-        503,
-      );
+      return c.json({ error: "Compilation service unavailable", retryAfter: 30 }, 503);
     }
 
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
       const text = await response.text().catch(() => "Non-JSON response");
-      console.error("Unexpected upstream response", { path, contentType, body: text.slice(0, 500) });
+      console.error("Unexpected upstream response", {
+        path,
+        contentType,
+        body: text.slice(0, 500),
+      });
       trackInBackground(c, path, false, durationMs, null);
       return c.json({ error: "Unexpected upstream response" }, 502);
     }
@@ -95,10 +96,7 @@ async function proxyRequest(
   } catch {
     const durationMs = Date.now() - start;
     trackInBackground(c, path, false, durationMs, null);
-    return c.json(
-      { error: "Compilation service unavailable", retryAfter: 30 },
-      503,
-    );
+    return c.json({ error: "Compilation service unavailable", retryAfter: 30 }, 503);
   }
 }
 

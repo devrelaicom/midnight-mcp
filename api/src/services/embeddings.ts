@@ -39,16 +39,17 @@ async function hashQuery(text: string): Promise<string> {
 export async function getEmbedding(
   text: string,
   apiKey: string,
-  db: D1Database
+  db: D1Database,
 ): Promise<number[]> {
   const normalized = normalizeQuery(text);
   const hash = await hashQuery(normalized);
   const cacheKey = `embedding:${hash}`;
 
   // Try cache first
-  const row = await db.prepare(
-    `SELECT embedding FROM embedding_cache WHERE cache_key = ?1`,
-  ).bind(cacheKey).first<{ embedding: string }>();
+  const row = await db
+    .prepare(`SELECT embedding FROM embedding_cache WHERE cache_key = ?1`)
+    .bind(cacheKey)
+    .first<{ embedding: string }>();
   if (row) {
     return JSON.parse(row.embedding) as number[];
   }
@@ -81,10 +82,13 @@ export async function getEmbedding(
   const embedding = parsed.data.data[0]!.embedding;
 
   // Store in cache
-  await db.prepare(
-    `INSERT OR REPLACE INTO embedding_cache (cache_key, embedding, created_at)
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO embedding_cache (cache_key, embedding, created_at)
      VALUES (?1, ?2, datetime('now'))`,
-  ).bind(cacheKey, JSON.stringify(embedding)).run();
+    )
+    .bind(cacheKey, JSON.stringify(embedding))
+    .run();
 
   return embedding;
 }

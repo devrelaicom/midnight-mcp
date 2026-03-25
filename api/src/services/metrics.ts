@@ -28,11 +28,18 @@ function hashQuery(query: string): string {
 
 // ---- Counter helpers ----
 
-function upsertCounter(db: D1Database, category: string, name: string, increment: number): D1PreparedStatement {
-  return db.prepare(
-    `INSERT INTO counters (category, name, value) VALUES (?1, ?2, ?3)
+function upsertCounter(
+  db: D1Database,
+  category: string,
+  name: string,
+  increment: number,
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO counters (category, name, value) VALUES (?1, ?2, ?3)
      ON CONFLICT (category, name) DO UPDATE SET value = value + excluded.value`,
-  ).bind(category, name, increment);
+    )
+    .bind(category, name, increment);
 }
 
 // ---- Pruning ----
@@ -47,9 +54,7 @@ async function pruneIfNeeded(db: D1Database): Promise<void> {
       db.prepare(
         `DELETE FROM tool_call_log WHERE id NOT IN (SELECT id FROM tool_call_log ORDER BY timestamp DESC LIMIT 200)`,
       ),
-      db.prepare(
-        `DELETE FROM embedding_cache WHERE created_at < datetime('now', '-24 hours')`,
-      ),
+      db.prepare(`DELETE FROM embedding_cache WHERE created_at < datetime('now', '-24 hours')`),
     ]);
   } catch (e) {
     console.error("Failed to prune event logs:", e);
@@ -79,18 +84,20 @@ export async function trackQuery(
       upsertCounter(db, "score", "avg_relevance_sum", avgScore),
       upsertCounter(db, "score", scoreBucket, 1),
       upsertCounter(db, "endpoint", endpoint, 1),
-      db.prepare(
-        `INSERT INTO query_log (query, endpoint, timestamp, results_count, avg_score, top_score, language)
+      db
+        .prepare(
+          `INSERT INTO query_log (query, endpoint, timestamp, results_count, avg_score, top_score, language)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
-      ).bind(
-        hashQuery(query),
-        endpoint,
-        new Date().toISOString(),
-        matches.length,
-        Math.round(avgScore * 1000) / 1000,
-        Math.round(topScore * 1000) / 1000,
-        language ?? null,
-      ),
+        )
+        .bind(
+          hashQuery(query),
+          endpoint,
+          new Date().toISOString(),
+          matches.length,
+          Math.round(avgScore * 1000) / 1000,
+          Math.round(topScore * 1000) / 1000,
+          language ?? null,
+        ),
     ];
 
     if (language) {
@@ -128,10 +135,12 @@ export async function trackToolCall(
     await db.batch([
       upsertCounter(db, "total", "tool_calls", 1),
       upsertCounter(db, "tool", tool, 1),
-      db.prepare(
-        `INSERT INTO tool_call_log (tool, timestamp, success, duration_ms, version)
+      db
+        .prepare(
+          `INSERT INTO tool_call_log (tool, timestamp, success, duration_ms, version)
          VALUES (?1, ?2, ?3, ?4, ?5)`,
-      ).bind(tool, new Date().toISOString(), success ? 1 : 0, durationMs ?? null, version ?? null),
+        )
+        .bind(tool, new Date().toISOString(), success ? 1 : 0, durationMs ?? null, version ?? null),
     ]);
     await pruneIfNeeded(db);
   } catch (e) {
@@ -153,10 +162,18 @@ export async function trackPlaygroundCall(
     const stmts: D1PreparedStatement[] = [
       upsertCounter(db, "total", "playground_calls", 1),
       upsertCounter(db, "pg_endpoint", endpoint, 1),
-      db.prepare(
-        `INSERT INTO tool_call_log (tool, timestamp, success, duration_ms, version, endpoint)
+      db
+        .prepare(
+          `INSERT INTO tool_call_log (tool, timestamp, success, duration_ms, version, endpoint)
          VALUES ('pg-proxy', ?1, ?2, ?3, ?4, ?5)`,
-      ).bind(new Date().toISOString(), success ? 1 : 0, durationMs ?? null, version ?? null, endpoint),
+        )
+        .bind(
+          new Date().toISOString(),
+          success ? 1 : 0,
+          durationMs ?? null,
+          version ?? null,
+          endpoint,
+        ),
     ];
 
     if (version) {
@@ -188,7 +205,11 @@ export async function getAggregateMetrics(db: D1Database): Promise<AggregateMetr
   const c = new Map<string, number>();
   const byCategory = new Map<string, Record<string, number>>();
 
-  for (const row of countersResult.results as Array<{ category: string; name: string; value: number }>) {
+  for (const row of countersResult.results as Array<{
+    category: string;
+    name: string;
+    value: number;
+  }>) {
     c.set(`${row.category}:${row.name}`, row.value);
     if (!byCategory.has(row.category)) byCategory.set(row.category, {});
     byCategory.get(row.category)![row.name] = row.value;
@@ -201,7 +222,8 @@ export async function getAggregateMetrics(db: D1Database): Promise<AggregateMetr
     totalQueries,
     queriesByEndpoint: byCategory.get("endpoint") ?? {},
     queriesByLanguage: byCategory.get("language") ?? {},
-    avgRelevanceScore: totalQueries > 0 ? Math.round((avgRelevanceSum / totalQueries) * 1000) / 1000 : 0,
+    avgRelevanceScore:
+      totalQueries > 0 ? Math.round((avgRelevanceSum / totalQueries) * 1000) / 1000 : 0,
     scoreDistribution: {
       high: c.get("score:high") ?? 0,
       medium: c.get("score:medium") ?? 0,
@@ -233,7 +255,11 @@ export async function getMetrics(db: D1Database): Promise<Metrics> {
   const c = new Map<string, number>();
   const byCategory = new Map<string, Record<string, number>>();
 
-  for (const row of countersResult.results as Array<{ category: string; name: string; value: number }>) {
+  for (const row of countersResult.results as Array<{
+    category: string;
+    name: string;
+    value: number;
+  }>) {
     c.set(`${row.category}:${row.name}`, row.value);
     if (!byCategory.has(row.category)) byCategory.set(row.category, {});
     byCategory.get(row.category)![row.name] = row.value;
@@ -243,10 +269,17 @@ export async function getMetrics(db: D1Database): Promise<Metrics> {
   const avgRelevanceSum = c.get("score:avg_relevance_sum") ?? 0;
 
   // Map query_log rows (query column now stores a hash, not raw text)
-  const recentQueries: QueryLog[] = (recentQueriesResult.results as Array<{
-    query: string; endpoint: string; timestamp: string;
-    results_count: number; avg_score: number; top_score: number; language: string | null;
-  }>).map((r) => ({
+  const recentQueries: QueryLog[] = (
+    recentQueriesResult.results as Array<{
+      query: string;
+      endpoint: string;
+      timestamp: string;
+      results_count: number;
+      avg_score: number;
+      top_score: number;
+      language: string | null;
+    }>
+  ).map((r) => ({
     queryHash: r.query,
     endpoint: r.endpoint,
     timestamp: r.timestamp,
@@ -257,10 +290,16 @@ export async function getMetrics(db: D1Database): Promise<Metrics> {
   }));
 
   // Map tool_call_log rows
-  const recentToolCalls: ToolCall[] = (recentToolCallsResult.results as Array<{
-    tool: string; timestamp: string; success: number;
-    duration_ms: number | null; version: string | null; endpoint: string | null;
-  }>).map((r) => ({
+  const recentToolCalls: ToolCall[] = (
+    recentToolCallsResult.results as Array<{
+      tool: string;
+      timestamp: string;
+      success: number;
+      duration_ms: number | null;
+      version: string | null;
+      endpoint: string | null;
+    }>
+  ).map((r) => ({
     tool: r.tool,
     timestamp: r.timestamp,
     success: r.success === 1,
@@ -269,13 +308,15 @@ export async function getMetrics(db: D1Database): Promise<Metrics> {
     endpoint: r.endpoint ?? undefined,
   }));
 
-  const lastTs = recentToolCalls[0]?.timestamp ?? recentQueries[0]?.timestamp ?? new Date().toISOString();
+  const lastTs =
+    recentToolCalls[0]?.timestamp ?? recentQueries[0]?.timestamp ?? new Date().toISOString();
 
   return {
     totalQueries,
     queriesByEndpoint: byCategory.get("endpoint") ?? {},
     queriesByLanguage: byCategory.get("language") ?? {},
-    avgRelevanceScore: totalQueries > 0 ? Math.round((avgRelevanceSum / totalQueries) * 1000) / 1000 : 0,
+    avgRelevanceScore:
+      totalQueries > 0 ? Math.round((avgRelevanceSum / totalQueries) * 1000) / 1000 : 0,
     scoreDistribution: {
       high: c.get("score:high") ?? 0,
       medium: c.get("score:medium") ?? 0,

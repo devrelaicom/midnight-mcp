@@ -18,7 +18,8 @@ describe("Track routes", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool: "midnight-search-compact", success: true, durationMs: 42 }),
       },
-      env, ctx,
+      env,
+      ctx,
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -33,7 +34,8 @@ describe("Track routes", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ success: true }),
       },
-      env, ctx,
+      env,
+      ctx,
     );
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -49,7 +51,8 @@ describe("Track routes", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool: longTool, success: true }),
       },
-      env, ctx,
+      env,
+      ctx,
     );
     // Should still succeed — tool name is truncated to 100 chars internally
     expect(res.status).toBe(200);
@@ -63,7 +66,8 @@ describe("Track routes", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool: "test", success: true, durationMs: -1 }),
       },
-      env, ctx,
+      env,
+      ctx,
     );
     expect(res.status).toBe(200);
   });

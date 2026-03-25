@@ -10,20 +10,14 @@ import {
   generateGrid,
   generateEmptyState,
 } from "./components/layout";
-import {
-  generateDashboardMetrics,
-  calculateQualityScore,
-} from "./components/metrics";
+import { generateDashboardMetrics, calculateQualityScore } from "./components/metrics";
 import {
   generateBarChart,
   generateRepoChart,
   generateQualityBoxes,
   generateDonutChart,
 } from "./components/charts";
-import {
-  generateQueriesTable,
-  generateToolCallsTable,
-} from "./components/tables";
+import { generateQueriesTable, generateToolCallsTable } from "./components/tables";
 import { escapeHtml, escapeAttr } from "./components/html-utils";
 
 /**
@@ -71,9 +65,7 @@ function generateDashboardContent(metrics: Metrics): string {
   const successfulCalls = recentToolCalls.filter((t) => t.success).length;
   const failedCalls = recentToolCalls.length - successfulCalls;
   const successRate =
-    recentToolCalls.length > 0
-      ? Math.round((successfulCalls / recentToolCalls.length) * 100)
-      : 100;
+    recentToolCalls.length > 0 ? Math.round((successfulCalls / recentToolCalls.length) * 100) : 100;
 
   // Average relevance score (0-100 scale)
   const avgRelevance = Math.round((metrics.avgRelevanceScore || 0) * 100);
@@ -104,14 +96,14 @@ function generateDashboardContent(metrics: Metrics): string {
 function generateOverviewSection(
   metrics: Metrics,
   totalToolCalls: number,
-  toolCallsByName: Record<string, number>
+  toolCallsByName: Record<string, number>,
 ): string {
   const toolUsageCard = generateCard(
     generateBarChart(toolCallsByName, totalToolCalls, {
       maxItems: 8,
       emptyMessage: "No tool usage data",
     }),
-    { title: "Tool Usage" }
+    { title: "Tool Usage" },
   );
 
   const searchByTypeCard = generateCard(
@@ -119,20 +111,19 @@ function generateOverviewSection(
       maxItems: 5,
       emptyMessage: "No search data",
     }),
-    { title: "Search by Type" }
+    { title: "Search by Type" },
   );
 
-  const qualityCard = generateCard(
-    generateQualityBoxes(metrics.scoreDistribution),
-    { title: "Search Quality Distribution" }
-  );
+  const qualityCard = generateCard(generateQualityBoxes(metrics.scoreDistribution), {
+    title: "Search Quality Distribution",
+  });
 
   const repoCard = generateCard(
     generateRepoChart(metrics.documentsByRepo, {
       maxItems: 5,
       emptyMessage: "No repositories indexed",
     }),
-    { title: "Top Repositories" }
+    { title: "Top Repositories" },
   );
 
   return generateGrid([toolUsageCard, searchByTypeCard, qualityCard, repoCard]);
@@ -143,14 +134,14 @@ function generateOverviewSection(
  */
 function generateActivitySection(
   metrics: Metrics,
-  recentToolCalls: Metrics["recentToolCalls"]
+  recentToolCalls: Metrics["recentToolCalls"],
 ): string {
   const toolCallsCard = generateCard(
     generateToolCallsTable(recentToolCalls || [], {
       maxRows: 10,
       emptyMessage: "No recent tool calls",
     }),
-    { title: "Recent Tool Calls" }
+    { title: "Recent Tool Calls" },
   );
 
   const queriesCard = generateCard(
@@ -158,7 +149,7 @@ function generateActivitySection(
       maxRows: 15,
       emptyMessage: "No recent searches",
     }),
-    { title: "Recent Searches" }
+    { title: "Recent Searches" },
   );
 
   return generateGrid([toolCallsCard, queriesCard]);
@@ -172,7 +163,7 @@ function generateInsightsSection(
   qualityScore: number,
   successRate: number,
   failedCalls: number,
-  avgRelevance: number
+  avgRelevance: number,
 ): string {
   // Calculate additional insights
   const totalSearches = metrics.totalQueries;
@@ -180,16 +171,14 @@ function generateInsightsSection(
   const distributionTotal = high + medium + low;
 
   // High quality rate based on distribution (not totalQueries which may differ)
-  const highQualityRate =
-    distributionTotal > 0 ? Math.round((high / distributionTotal) * 100) : 0;
+  const highQualityRate = distributionTotal > 0 ? Math.round((high / distributionTotal) * 100) : 0;
 
   // Medium quality rate
   const mediumQualityRate =
     distributionTotal > 0 ? Math.round((medium / distributionTotal) * 100) : 0;
 
   // Low quality rate
-  const lowQualityRate =
-    distributionTotal > 0 ? Math.round((low / distributionTotal) * 100) : 0;
+  const lowQualityRate = distributionTotal > 0 ? Math.round((low / distributionTotal) * 100) : 0;
 
   // Most used tools
   const toolCallsByName = metrics.toolCallsByName || {};
@@ -291,10 +280,9 @@ function generateInsightsSection(
               .slice(0, 5)
               .map(
                 ([repo, count]) =>
-                  `<li><span title="${escapeAttr(repo)}">${escapeHtml(repo.split("/").pop() || repo)}</span><span class="tag info">${count}</span></li>`
+                  `<li><span title="${escapeAttr(repo)}">${escapeHtml(repo.split("/").pop() || repo)}</span><span class="tag info">${count}</span></li>`,
               )
-              .join("") ||
-            '<li style="color: var(--muted)">No repos indexed</li>'
+              .join("") || '<li style="color: var(--muted)">No repos indexed</li>'
           }
         </ul>
       </div>
@@ -328,10 +316,9 @@ function generatePlaygroundSection(metrics: Metrics): string {
   const pgErrors = metrics.playgroundErrors || 0;
 
   if (pgCalls === 0) {
-    return generateCard(
-      generateEmptyState("No playground activity recorded yet", { icon: "🔧" }),
-      { title: "Playground" },
-    );
+    return generateCard(generateEmptyState("No playground activity recorded yet", { icon: "🔧" }), {
+      title: "Playground",
+    });
   }
 
   const errorRate = pgCalls > 0 ? Math.round((pgErrors / pgCalls) * 100) : 0;

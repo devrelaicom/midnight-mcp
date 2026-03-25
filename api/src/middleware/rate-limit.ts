@@ -11,10 +11,7 @@ interface RateLimit {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
-export const rateLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (
-  c,
-  next
-) => {
+export const rateLimit: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   const authState = c.get("authState") as AuthState;
 
   let limiter: RateLimit;

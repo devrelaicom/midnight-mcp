@@ -19,9 +19,7 @@ const GitHubUserSchema = z.object({
   email: z.string().nullable(),
 });
 
-const GitHubEmailsSchema = z.array(
-  z.object({ email: z.string(), primary: z.boolean() }),
-);
+const GitHubEmailsSchema = z.array(z.object({ email: z.string(), primary: z.boolean() }));
 
 const GitHubOrgsSchema = z.array(z.object({ login: z.string() }));
 
@@ -47,10 +45,7 @@ export function generateUUID(): string {
  * Verify a PKCE code_verifier against a stored code_challenge (S256 method).
  * Returns true if the verifier hashes to the challenge.
  */
-export async function verifyPKCE(
-  codeVerifier: string,
-  codeChallenge: string
-): Promise<boolean> {
+export async function verifyPKCE(codeVerifier: string, codeChallenge: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const data = encoder.encode(codeVerifier);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -67,7 +62,7 @@ export async function verifyPKCE(
 export async function exchangeCodeWithGitHub(
   code: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<string> {
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -94,9 +89,7 @@ export async function exchangeCodeWithGitHub(
   const data = parsed.data;
 
   if (data.error || !data.access_token) {
-    throw new Error(
-      data.error_description || data.error || "GitHub token exchange failed"
-    );
+    throw new Error(data.error_description || data.error || "GitHub token exchange failed");
   }
 
   return data.access_token;
@@ -106,7 +99,7 @@ export async function exchangeCodeWithGitHub(
  * Fetch the authenticated GitHub user's profile.
  */
 export async function getGitHubUser(
-  accessToken: string
+  accessToken: string,
 ): Promise<{ id: number; login: string; email: string }> {
   const response = await fetch("https://api.github.com/user", {
     headers: {
@@ -157,9 +150,7 @@ export async function getGitHubUser(
 /**
  * Fetch the authenticated GitHub user's organization memberships.
  */
-export async function getGitHubOrgs(
-  accessToken: string
-): Promise<string[]> {
+export async function getGitHubOrgs(accessToken: string): Promise<string[]> {
   const response = await fetch("https://api.github.com/user/orgs", {
     headers: {
       Authorization: `Bearer ${accessToken}`,

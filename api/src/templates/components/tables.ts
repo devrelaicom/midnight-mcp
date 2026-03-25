@@ -26,7 +26,7 @@ export interface TableOptions {
 export function generateTable<T>(
   data: T[],
   columns: TableColumn<T>[],
-  options: TableOptions = {}
+  options: TableOptions = {},
 ): string {
   const { emptyMessage = "No data", maxRows, striped = false } = options;
 
@@ -52,9 +52,7 @@ export function generateTable<T>(
           if (col.render) {
             value = col.render(item);
           } else {
-            const rawValue = (item as Record<string, unknown>)[
-              col.key as string
-            ];
+            const rawValue = (item as Record<string, unknown>)[col.key as string];
             value = String(rawValue ?? "");
           }
           const truncateClass = col.truncate ? 'class="cell-truncate"' : "";
@@ -131,7 +129,7 @@ export function generateQueriesTable(
     topScore: number;
     timestamp: string;
   }>,
-  options: TableOptions = {}
+  options: TableOptions = {},
 ): string {
   const { emptyMessage = "No searches yet", maxRows = 15 } = options;
 
@@ -155,8 +153,7 @@ export function generateQueriesTable(
     {
       key: "timestamp",
       label: "Time",
-      render: (q) =>
-        `<span style="color: var(--muted)">${formatTimestamp(q.timestamp)}</span>`,
+      render: (q) => `<span style="color: var(--muted)">${formatTimestamp(q.timestamp)}</span>`,
     },
   ];
 
@@ -166,10 +163,7 @@ export function generateQueriesTable(
 /**
  * Generate recent tool calls table
  */
-export function generateToolCallsTable(
-  toolCalls: ToolCall[],
-  options: TableOptions = {}
-): string {
+export function generateToolCallsTable(toolCalls: ToolCall[], options: TableOptions = {}): string {
   const { emptyMessage = "No tool calls yet", maxRows = 10 } = options;
 
   if (!toolCalls || toolCalls.length === 0) {
@@ -191,8 +185,7 @@ export function generateToolCallsTable(
     {
       key: "timestamp",
       label: "Time",
-      render: (t) =>
-        `<span style="color: var(--muted)">${formatTimestamp(t.timestamp)}</span>`,
+      render: (t) => `<span style="color: var(--muted)">${formatTimestamp(t.timestamp)}</span>`,
     },
   ];
 
@@ -208,7 +201,7 @@ export function generateErrorTable(
     count: number;
     lastSeen: string;
   }>,
-  options: TableOptions = {}
+  options: TableOptions = {},
 ): string {
   const { emptyMessage = "No errors recorded", maxRows = 5 } = options;
 
@@ -231,8 +224,7 @@ export function generateErrorTable(
     {
       key: "lastSeen",
       label: "Last Seen",
-      render: (e) =>
-        `<span style="color: var(--muted)">${formatDateTime(e.lastSeen)}</span>`,
+      render: (e) => `<span style="color: var(--muted)">${formatDateTime(e.lastSeen)}</span>`,
     },
   ];
 
@@ -249,7 +241,7 @@ export function generateEndpointTable(
     avgLatency: number;
     errorRate: number;
   }>,
-  options: TableOptions = {}
+  options: TableOptions = {},
 ): string {
   const { emptyMessage = "No endpoint data", maxRows = 10 } = options;
 
@@ -269,8 +261,7 @@ export function generateEndpointTable(
       key: "errorRate",
       label: "Error Rate",
       render: (e) => {
-        const level =
-          e.errorRate < 1 ? "high" : e.errorRate < 5 ? "med" : "low";
+        const level = e.errorRate < 1 ? "high" : e.errorRate < 5 ? "med" : "low";
         return `<span class="tag ${level}">${e.errorRate.toFixed(1)}%</span>`;
       },
     },

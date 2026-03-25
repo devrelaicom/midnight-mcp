@@ -17,7 +17,7 @@ dashboardRoute.use("*", async (c, next) => {
   if (!allowedOrgs) {
     return c.text(
       "Dashboard access not configured. Set DASHBOARD_ALLOWED_ORGS environment variable.",
-      403
+      403,
     );
   }
 
@@ -39,7 +39,7 @@ dashboardRoute.use("*", async (c, next) => {
           clientName: "Midnight Dashboard",
           redirectUris: [redirectUri],
         }),
-        { expirationTtl: 365 * 24 * 60 * 60 } // 1 year
+        { expirationTtl: 365 * 24 * 60 * 60 }, // 1 year
       );
     }
 
@@ -48,10 +48,7 @@ dashboardRoute.use("*", async (c, next) => {
     // limitation), so the verifier is intentionally discarded — the stored
     // challenge prevents the code from being exchanged via /oauth/token.
     const codeVerifier = generateToken();
-    const digest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(codeVerifier)
-    );
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
     const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
@@ -74,7 +71,7 @@ dashboardRoute.use("*", async (c, next) => {
   if (!hasAccess) {
     return c.text(
       `Access denied. You must be a member of one of these organizations: ${allowedOrgs}`,
-      403
+      403,
     );
   }
 
@@ -101,8 +98,10 @@ dashboardRoute.get("/", async (c) => {
       };
 
       // Only accept codes issued for the dashboard client
-      if (parsed.clientId !== "dashboard-internal" ||
-          parsed.redirectUri !== `${baseUrl}/dashboard`) {
+      if (
+        parsed.clientId !== "dashboard-internal" ||
+        parsed.redirectUri !== `${baseUrl}/dashboard`
+      ) {
         return c.redirect(`${baseUrl}/dashboard`);
       }
 
@@ -110,23 +109,19 @@ dashboardRoute.get("/", async (c) => {
 
       // Generate access token
       const accessToken = generateToken();
-      await c.env.METRICS.put(
-        `token:${accessToken}`,
-        JSON.stringify(user),
-        { expirationTtl: 24 * 60 * 60 }
-      );
+      await c.env.METRICS.put(`token:${accessToken}`, JSON.stringify(user), {
+        expirationTtl: 24 * 60 * 60,
+      });
 
       // Create session and set cookie
       const sessionId = generateToken();
-      await c.env.METRICS.put(
-        `session:${sessionId}`,
-        JSON.stringify({ accessToken }),
-        { expirationTtl: 24 * 60 * 60 }
-      );
+      await c.env.METRICS.put(`session:${sessionId}`, JSON.stringify({ accessToken }), {
+        expirationTtl: 24 * 60 * 60,
+      });
 
       c.header(
         "Set-Cookie",
-        `midnight_session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`
+        `midnight_session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`,
       );
 
       // Redirect to clean URL (strip code param)

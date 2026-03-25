@@ -4,7 +4,11 @@
 
 import { describe, it, expect } from "vitest";
 import app from "../src/index";
-import { createMockBindings, createMockRateLimit, createMockExecutionCtx } from "./helpers/mock-bindings";
+import {
+  createMockBindings,
+  createMockRateLimit,
+  createMockExecutionCtx,
+} from "./helpers/mock-bindings";
 
 const ctx = createMockExecutionCtx();
 

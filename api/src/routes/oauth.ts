@@ -66,15 +66,14 @@ oauthRoutes.post("/oauth/register", async (c) => {
     for (const uri of body.redirect_uris) {
       try {
         const parsed = new URL(uri);
-        const isLocalhost =
-          parsed.protocol === "http:" && parsed.hostname === "localhost";
+        const isLocalhost = parsed.protocol === "http:" && parsed.hostname === "localhost";
         const isHttps = parsed.protocol === "https:";
         if (!isLocalhost && !isHttps) {
           return c.json(
             {
               error: `Invalid redirect_uri: ${uri}. Must use http://localhost or https://`,
             },
-            400
+            400,
           );
         }
       } catch {
@@ -90,7 +89,7 @@ oauthRoutes.post("/oauth/register", async (c) => {
         clientName: body.client_name,
         redirectUris: body.redirect_uris,
       }),
-      { expirationTtl: 30 * 24 * 60 * 60 } // 30 days
+      { expirationTtl: 30 * 24 * 60 * 60 }, // 30 days
     );
 
     return c.json({
@@ -123,7 +122,7 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
   if (responseType !== "code") {
     return c.json(
       { error: "invalid_request", error_description: "response_type must be 'code'" },
-      400
+      400,
     );
   }
 
@@ -131,13 +130,13 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
   if (!codeChallenge) {
     return c.json(
       { error: "invalid_request", error_description: "code_challenge is required" },
-      400
+      400,
     );
   }
   if (codeChallengeMethod !== "S256") {
     return c.json(
       { error: "invalid_request", error_description: "code_challenge_method must be S256" },
-      400
+      400,
     );
   }
 
@@ -164,7 +163,7 @@ oauthRoutes.get("/oauth/authorize", async (c) => {
       clientId,
       clientState: clientState || null,
     }),
-    { expirationTtl: 300 } // 5 minutes
+    { expirationTtl: 300 }, // 5 minutes
   );
 
   // Redirect to GitHub OAuth
@@ -196,12 +195,7 @@ oauthRoutes.get("/oauth/callback", async (c) => {
   }
   await c.env.METRICS.delete(`state:${state}`);
 
-  const {
-    codeChallenge,
-    redirectUri,
-    clientId,
-    clientState,
-  } = JSON.parse(stateData) as {
+  const { codeChallenge, redirectUri, clientId, clientState } = JSON.parse(stateData) as {
     codeChallenge: string;
     redirectUri: string;
     clientId: string;
@@ -213,7 +207,7 @@ oauthRoutes.get("/oauth/callback", async (c) => {
     const githubAccessToken = await exchangeCodeWithGitHub(
       code,
       c.env.GITHUB_CLIENT_ID,
-      c.env.GITHUB_CLIENT_SECRET
+      c.env.GITHUB_CLIENT_SECRET,
     );
 
     // Fetch user profile and orgs
@@ -240,7 +234,7 @@ oauthRoutes.get("/oauth/callback", async (c) => {
         redirectUri,
         clientId,
       }),
-      { expirationTtl: 60 } // 60 seconds
+      { expirationTtl: 60 }, // 60 seconds
     );
 
     // Redirect back to client with authorization code
@@ -310,7 +304,7 @@ oauthRoutes.post("/oauth/token", async (c) => {
   if (!codeVerifier) {
     return c.json(
       { error: "invalid_request", error_description: "code_verifier is required" },
-      400
+      400,
     );
   }
   const valid = await verifyPKCE(codeVerifier, codeChallenge);
@@ -323,7 +317,7 @@ oauthRoutes.post("/oauth/token", async (c) => {
   await c.env.METRICS.put(
     `token:${accessToken}`,
     JSON.stringify(user),
-    { expirationTtl: 24 * 60 * 60 } // 24 hours
+    { expirationTtl: 24 * 60 * 60 }, // 24 hours
   );
 
   return c.json({
@@ -352,10 +346,7 @@ oauthRoutes.get("/oauth/logout", async (c) => {
   }
 
   // Clear cookie
-  c.header(
-    "Set-Cookie",
-    "midnight_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
-  );
+  c.header("Set-Cookie", "midnight_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
 
   return c.redirect("/");
 });
