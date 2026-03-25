@@ -15,6 +15,7 @@ import {
 // Mock config and logger
 vi.mock("../src/utils/config.js", () => ({
   config: { hostedApiUrl: "https://api.test" },
+  clientId: "test-client-id",
 }));
 
 vi.mock("../src/utils/index.js", () => ({

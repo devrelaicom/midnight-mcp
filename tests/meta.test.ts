@@ -10,6 +10,7 @@ import { describe, it, expect, vi } from "vitest";
 // The handlers module imports tool arrays that trigger deep circular deps.
 vi.mock("../src/utils/config.js", () => ({
   config: { hostedApiUrl: "https://api.test", mode: "hosted", embeddingModel: "text-embedding-3-small" },
+  clientId: "test-client-id",
   isHostedMode: () => true,
   isLocalMode: () => false,
   DEFAULT_REPOSITORIES: [],

@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { config } from "../utils/config.js";
+import { config, clientId } from "../utils/config.js";
 import { MCPError, ErrorCodes } from "../utils/index.js";
 import {
   CompileResponseSchema,
@@ -48,11 +48,14 @@ async function request<T>(
 
   try {
     const options: RequestInit = { method, signal: controller.signal };
+    const headers: Record<string, string> = { "X-Client-ID": clientId };
 
     if (body !== undefined) {
-      options.headers = { "Content-Type": "application/json" };
+      headers["Content-Type"] = "application/json";
       options.body = JSON.stringify(body);
     }
+
+    options.headers = headers;
 
     const response = await fetch(apiUrl(path), options);
 
@@ -438,6 +441,7 @@ export async function healthCheck(): Promise<{
   try {
     const response = await fetch(apiUrl("/health"), {
       signal: controller.signal,
+      headers: { "X-Client-ID": clientId },
     });
     if (!response.ok) {
       return { status: "unavailable" };

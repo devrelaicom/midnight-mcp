@@ -45,6 +45,13 @@ async function proxyRequest(
   const start = Date.now();
 
   const fetchOptions: RequestInit = { method };
+  const headers: Record<string, string> = {};
+
+  // Forward X-Client-ID for per-user rate limiting at the playground
+  const clientId = c.req.header("X-Client-ID");
+  if (clientId) {
+    headers["X-Client-ID"] = clientId;
+  }
 
   if (method === "POST") {
     let body: unknown;
@@ -53,9 +60,11 @@ async function proxyRequest(
     } catch {
       return c.json({ error: "Invalid or missing JSON body" }, 400);
     }
-    fetchOptions.headers = { "Content-Type": "application/json" };
+    headers["Content-Type"] = "application/json";
     fetchOptions.body = JSON.stringify(body);
   }
+
+  fetchOptions.headers = headers;
 
   try {
     const response = await fetch(`${playgroundUrl}${path}`, fetchOptions);

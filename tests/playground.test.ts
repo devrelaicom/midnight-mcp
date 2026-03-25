@@ -7,6 +7,7 @@ vi.mock("../src/utils/config.js", () => ({
     hostedApiUrl: "https://test-api.example.com",
     logLevel: "error",
   },
+  clientId: "test-client-id",
 }));
 
 vi.mock("../src/utils/logger.js", () => ({
@@ -76,7 +77,7 @@ describe("playground API client", () => {
       const [url, init] = fetchSpy.mock.calls[0];
       expect(url).toBe(`${BASE_URL}/compile`);
       expect(init?.method).toBe("POST");
-      expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+      expect(init?.headers).toEqual({ "Content-Type": "application/json", "X-Client-ID": "test-client-id" });
 
       const parsed = JSON.parse(init?.body as string);
       expect(parsed.code).toBe("export circuit main() {}");
